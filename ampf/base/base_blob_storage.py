@@ -4,6 +4,11 @@ from typing import Iterator, Type
 from pydantic import BaseModel
 
 
+class FileNameMimeType(BaseModel):
+    name: str
+    mime_type: str
+
+
 class BaseBlobStorage[T: BaseModel](ABC):
     """Base class for blob storage implementations"""
 
@@ -38,6 +43,14 @@ class BaseBlobStorage[T: BaseModel](ABC):
 
         Args:
             key: The key of the blob
+        """
+
+    @abstractmethod
+    def list_blobs(self, dir: str = None) -> Iterator[FileNameMimeType]:
+        """Lists all the blobs in the storage
+
+        Args:
+            dir: The directory to list
         """
 
     @abstractmethod

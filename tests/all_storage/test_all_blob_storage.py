@@ -20,7 +20,7 @@ def storage(request, tmp_path):
     storage.drop()
 
 
-def test_upload_blob(tmp_path, storage: BaseBlobStorage):
+def test_upload_blob(storage: BaseBlobStorage):
     # Given: A file name with content
     file_name = "test/file.txt"
     data = b"test data"
@@ -82,3 +82,31 @@ def test_upload_blob_with_default_ext(tmp_path):
     assert exp_path.exists()
     with open(exp_path, "rb") as f:
         assert f.read() == data
+
+
+def test_keys(storage: BaseBlobStorage):
+    file_name = "test/file.txt"
+    storage.upload_blob(file_name, b"test data")
+    assert file_name in list(storage.keys())
+
+
+def test_delete(storage: BaseBlobStorage):
+    # Give: An uploaded file
+    file_name = "test/file.txt"
+    storage.upload_blob(file_name, b"test data")
+    assert file_name in list(storage.keys())
+    # When: I delete the file
+    storage.delete(file_name)
+    # Then: The file is deleted
+    assert file_name not in list(storage.keys())
+
+def test_list_blobs(storage: BaseBlobStorage):
+    # Give: An uploaded file
+    file_name = "test/file.txt"
+    storage.upload_blob(file_name, b"test data", content_type="text/plain")
+    # When: I list blobs 
+    blobs = list(storage.list_blobs("test"))
+    # Then: The file is listed
+    assert len(blobs) == 1
+    assert blobs[0].name == "file.txt"
+    assert blobs[0].mime_type == "text/plain"

@@ -5,9 +5,11 @@ from typing import Iterator
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage
+from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.base_storage import KeyNotExistsException
 
 from .file_storage import FileStorage
+from ..mimetypes import get_content_type
 
 
 class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
@@ -36,7 +38,11 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self._log = logging.getLogger(__name__)
 
     def upload_blob(
-        self, file_name: str, data: bytes, metadata: dict | BaseModel = None
+        self,
+        file_name: str,
+        data: bytes,
+        metadata: BaseModel = None,
+        content_type: str = None,
     ) -> None:
         file_path = self._create_file_path(file_name)
         os.makedirs(file_path.parent, exist_ok=True)
@@ -96,13 +102,13 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             prefix = dir if dir[-1] == "/" else dir + "/"
         else:
             prefix = ""
-        for root, _, files in os.walk(self.folder_path):
+        for root, _, files in os.walk(self.folder_path.joinpath(prefix)):
             for file in files:
                 if file.endswith(".json"):
                     continue
                 path = os.path.join(root, file)
                 if path.startswith(str(self.folder_path.joinpath(prefix))):
-                    yield {
-                        "name": path[len(str(self.folder_path)) + 1 :],
-                        "mime_type": "application/octet-stream",
-                    }
+                    yield FileNameMimeType(
+                        name=file,
+                        mime_type=get_content_type(file),
+                    )

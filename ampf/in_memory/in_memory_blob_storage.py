@@ -1,7 +1,8 @@
-from typing import Iterator, Type
+from typing import Any, Iterator, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
+from ampf.base.base_blob_storage import FileNameMimeType
 
 
 class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
@@ -39,7 +40,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
 
     def get_metadata(self, key: str) -> T:
         if key not in self.buckets[self.bucket_name]:
-            raise KeyNotExistsException(self.bucket_name, self.clazz, key)        
+            raise KeyNotExistsException(self.bucket_name, self.clazz, key)
         return self.buckets[self.bucket_name][key]["metadata"]
 
     def delete(self, key: str):
@@ -51,17 +52,20 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
     def drop(self) -> None:
         self.buckets.pop(self.bucket_name, None)
 
-    def list_blobs(self, dir: str = None) -> Iterator[str]:
+    def list_blobs(self, dir: str = None) -> Iterator[Any]:
         if self.bucket_name not in self.buckets:
             return
-        for k in self.buckets[self.bucket_name].keys():
+        if dir:
             prefix = dir if dir[-1] == "/" else dir + "/"
-            i = len(prefix) if prefix else 0
+        else:
+            prefix = None
+        i = len(prefix) if prefix else 0
+        for k in self.keys():
             if not prefix or k.startswith(prefix):
-                yield {
-                    "name": k[i:],
-                    "mime_type": self.buckets[self.bucket_name][k]["content_type"],
-                }
+                yield FileNameMimeType(
+                    name=k[i:],
+                    mime_type=self.buckets[self.bucket_name][k]["content_type"],
+                )
 
     def move_blob(self, source_key: str, dest_key: str):
         self.buckets[self.bucket_name][dest_key] = self.buckets[self.bucket_name].pop(
