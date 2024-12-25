@@ -2,7 +2,7 @@ from typing import Type
 from pydantic import BaseModel
 
 from ampf.base import BaseFactory, BaseStorage
-from ampf.in_memory import InMemoryStorage
+from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryFactory(BaseFactory):

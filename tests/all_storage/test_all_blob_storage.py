@@ -1,7 +1,8 @@
-import json
 import pytest
 from pydantic import BaseModel, Field
 
+from ampf.base import BaseBlobStorage, KeyNotExistsException
+from ampf.in_memory import InMemoryBlobStorage
 from ampf.local import FileStorage, LocalBlobStorage
 
 
@@ -10,45 +11,33 @@ class MyMetadata(BaseModel):
     age: int = Field(...)
 
 
-@pytest.fixture(params=[LocalBlobStorage])
+@pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage])
 def storage(request, tmp_path):
     if request.param in [LocalBlobStorage]:
         FileStorage._root_dir_path = tmp_path
-    storage = request.param("test_bucket")
+    storage = request.param("test_bucket", MyMetadata)
     yield storage
     storage.drop()
 
 
-def test_upload_blob(tmp_path, storage):
+def test_upload_blob(tmp_path, storage: BaseBlobStorage):
+    # Given: A file name with content
     file_name = "test/file.txt"
     data = b"test data"
+    # When: I upload it
     storage.upload_blob(file_name, data)
-    exp_path = tmp_path.joinpath("test_bucket", "test", "file.txt")
-    assert exp_path.exists()
-    with open(exp_path, "rb") as f:
-        assert f.read() == data
+    # Then: It is uploaded
+    assert file_name in list(storage.keys())
 
 
-def test_upload_blob_with_metadata(tmp_path, storage):
-    file_name = "test/file.txt"
-    data = b"test data"
-    metadata = {"name": "test", "age": 10}
-    storage.upload_blob(file_name, data, metadata)
-    exp_path = tmp_path.joinpath("test_bucket", "test", "file.txt.json")
-    assert exp_path.exists()
-    with open(exp_path, "rt", encoding="utf8") as f:
-        assert json.load(f) == metadata
-
-
-def test_upload_blob_with_pydantic_metadata(tmp_path, storage):
+def test_upload_blob_with_metadata(storage):
     file_name = "test/file.txt"
     data = b"test data"
     metadata = MyMetadata(name="test", age=10)
+    # When: Upload blob with metadata
     storage.upload_blob(file_name, data, metadata)
-    exp_path = tmp_path.joinpath("test_bucket", "test", "file.txt.json")
-    assert exp_path.exists()
-    with open(exp_path, "rt", encoding="utf8") as f:
-        assert json.load(f) == {"name": "test", "age": 10}
+    # Then: Metadata is saved
+    assert metadata == storage.get_metadata(file_name)
 
 
 def test_download_blob(storage):
@@ -59,32 +48,27 @@ def test_download_blob(storage):
     assert downloaded_data == data
 
 
-def test_download_nonexistent_blob(storage):
+def test_download_nonexistent_blob(storage: BaseBlobStorage):
+    # Given: A not existing file name
     file_name = "test/file.txt"
-    downloaded_data = storage.download_blob(file_name)
-    assert downloaded_data is None
+    # When: It is downloaded
+    # Then: An exception is raised
+    with pytest.raises(KeyNotExistsException):
+        storage.download_blob(file_name)
 
 
 def test_get_metadata(storage):
     file_name = "test/file.txt"
-    metadata = {"name": "test", "age": 10}
-    storage.upload_blob(file_name, b"test data", metadata)
-    retrieved_metadata = storage.get_metadata(file_name)
-    assert retrieved_metadata == metadata
-
-
-def test_get_metadata_with_class(storage):
-    file_name = "test/file.txt"
     metadata = MyMetadata(name="test", age=10)
     storage.upload_blob(file_name, b"test data", metadata)
-    retrieved_metadata = storage.get_metadata(file_name, clazz=MyMetadata)
+    retrieved_metadata = storage.get_metadata(file_name)
     assert retrieved_metadata == metadata
 
 
 def test_get_nonexistent_metadata(storage):
     file_name = "test/file.txt"
-    retrieved_metadata = storage.get_metadata(file_name)
-    assert retrieved_metadata is None
+    with pytest.raises(KeyNotExistsException):
+        storage.get_metadata(file_name)
 
 
 def test_upload_blob_with_default_ext(tmp_path):

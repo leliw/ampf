@@ -1,12 +1,16 @@
 import json
 import logging
 import os
+from typing import Iterator
 from pydantic import BaseModel
+
+from ampf.base import BaseBlobStorage
+from ampf.base.base_storage import KeyNotExistsException
 
 from .file_storage import FileStorage
 
 
-class LocalBlobStorage(FileStorage):
+class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
     """Zapisuje na dysku dane binarne.
 
     Args:
@@ -18,6 +22,7 @@ class LocalBlobStorage(FileStorage):
     def __init__(
         self,
         bucket_name: str,
+        clazz: BaseModel = None,
         default_ext: str = None,
         subfolder_characters: int = None,
     ):
@@ -27,6 +32,7 @@ class LocalBlobStorage(FileStorage):
             subfolder_characters=subfolder_characters,
             default_ext=default_ext,
         )
+        self.clazz = clazz
         self._log = logging.getLogger(__name__)
 
     def upload_blob(
@@ -45,7 +51,7 @@ class LocalBlobStorage(FileStorage):
             with open(file_path, "rb") as f:
                 return f.read()
         except FileNotFoundError:
-            return None
+            raise KeyNotExistsException
 
     def put_metadata(self, file_name: str, metadata: dict | BaseModel):
         file_path = self._create_file_path(file_name, ext="json")
@@ -55,14 +61,48 @@ class LocalBlobStorage(FileStorage):
             else:
                 json.dump(metadata, f, indent=4, ensure_ascii=False)
 
-    def get_metadata(self, file_name: str, clazz: BaseModel = None) -> dict | BaseModel:
+    def get_metadata(self, file_name: str) -> T:
         file_path = self._create_file_path(file_name, ext="json")
         try:
             with open(file_path, "rt", encoding="utf8") as f:
                 d = json.load(f)
-            if clazz:
-                return clazz.model_validate(d)
-            else:
-                return d
+            return self.clazz.model_validate(d)
         except FileNotFoundError:
-            return None
+            raise KeyNotExistsException
+
+    def keys(self) -> Iterator[str]:
+        for root, _, files in os.walk(self.folder_path):
+            for file in files:
+                key = file[:-5] if file.endswith(".json") else file
+                yield root[len(str(self.folder_path)) + 1 :] + "/" + key
+
+    def delete(self, file_name: str):
+        file_path = self._create_file_path(file_name)
+        try:
+            os.remove(file_path)
+        except FileNotFoundError:
+            pass
+
+    def move_blob(self, source_key: str, dest_key: str):
+        source_path = self._create_file_path(source_key)
+        dest_path = self._create_file_path(dest_key)
+        os.makedirs(dest_path.parent, exist_ok=True)
+        os.rename(source_path, dest_path)
+        if source_path.with_suffix(".json").exists():
+            os.rename(source_path.with_suffix(".json"), dest_path.with_suffix(".json"))
+
+    def list_blobs(self, dir: str = None) -> Iterator[str]:
+        if dir:
+            prefix = dir if dir[-1] == "/" else dir + "/"
+        else:
+            prefix = ""
+        for root, _, files in os.walk(self.folder_path):
+            for file in files:
+                if file.endswith(".json"):
+                    continue
+                path = os.path.join(root, file)
+                if path.startswith(str(self.folder_path.joinpath(prefix))):
+                    yield {
+                        "name": path[len(str(self.folder_path)) + 1 :],
+                        "mime_type": "application/octet-stream",
+                    }
