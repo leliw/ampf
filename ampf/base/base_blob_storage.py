@@ -94,3 +94,15 @@ class BaseBlobStorage[T: BaseModel](ABC):
         Args:
             folder_name: The name of the folder
         """
+
+    def move_blob(self, source_key: str, dest_key: str):
+        """Moves a blob to another location in the storage
+
+        Args:
+            source_key: The key of the source blob
+            dest_key: The key of the destination blob
+        """
+        data = self.download_blob(source_key)
+        metadata = self.get_metadata(source_key)
+        self.delete(source_key)
+        self.upload_blob(dest_key, data, metadata)

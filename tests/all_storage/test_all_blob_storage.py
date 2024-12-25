@@ -120,3 +120,13 @@ def test_delete_folder(storage: BaseBlobStorage):
     storage.delete_folder("test")
     # Then: The file is deleted
     assert file_name not in list(storage.keys())
+
+def test_move_blob(storage: BaseBlobStorage):
+    source_key = "test/source.txt"
+    dest_key = "test/dest.txt"
+    data = b"test data"
+    storage.upload_blob(source_key, data)
+    storage.move_blob(source_key, dest_key)
+    assert dest_key in list(storage.keys())
+    assert source_key not in list(storage.keys())
+    assert data == storage.download_blob(dest_key)
