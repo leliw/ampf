@@ -1,6 +1,7 @@
 from abc import ABC
 import os
 from pathlib import Path
+import shutil
 
 type StrPath = str | Path
 
@@ -52,3 +53,6 @@ class FileStorage(ABC):
         path = self.folder_path.joinpath(*self._split_to_folders(file_name))
         os.makedirs(path.parent, exist_ok=True)
         return path
+
+    def drop(self):
+        shutil.rmtree(self.folder_path)
