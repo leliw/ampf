@@ -4,7 +4,7 @@ setup(
     name="ampf",
     version="0.1.0",
     packages=find_packages(),
-    install_requires=["fastapi"],
+    install_requires=["fastapi", "pydantic"],
     author="Marcin Leliwa",
     author_email="marcin.leliwa@gmail.com",
     description="Angular & Material & Python & FastAPI",
