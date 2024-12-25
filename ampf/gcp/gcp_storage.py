@@ -3,7 +3,7 @@
 from typing import Iterator, Type
 from google.cloud import firestore, exceptions
 
-from ampf.base import BaseStorage
+from ampf.base import BaseStorage, KeyNotExistsException
 
 
 class GcpStorage[T](BaseStorage[T]):
@@ -67,7 +67,8 @@ class GcpStorage[T](BaseStorage[T]):
             self._coll_ref.document(key).delete()
             return True
         except exceptions.NotFound:
-            return False
+            raise KeyNotExistsException(key)
+
 
     def drop(self) -> None:
         """Delete all documents from the collection."""
