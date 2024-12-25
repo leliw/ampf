@@ -71,3 +71,14 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
         self.buckets[self.bucket_name][dest_key] = self.buckets[self.bucket_name].pop(
             source_key
         )
+
+    def delete_folder(self, folder_name: str):
+        if self.bucket_name not in self.buckets:
+            return
+        prefix = folder_name if folder_name[-1] == "/" else folder_name + "/"
+        deletable = []
+        for k in self.keys():
+            if k.startswith(prefix):
+                deletable.append(k)
+        for k in deletable:
+            self.delete(k)

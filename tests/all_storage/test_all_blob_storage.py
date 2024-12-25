@@ -110,3 +110,13 @@ def test_list_blobs(storage: BaseBlobStorage):
     assert len(blobs) == 1
     assert blobs[0].name == "file.txt"
     assert blobs[0].mime_type == "text/plain"
+
+def test_delete_folder(storage: BaseBlobStorage):
+    # Give: An uploaded file
+    file_name = "test/file.txt"
+    storage.upload_blob(file_name, b"test data")
+    assert file_name in list(storage.keys())
+    # When: I delete the folder
+    storage.delete_folder("test")
+    # Then: The file is deleted
+    assert file_name not in list(storage.keys())

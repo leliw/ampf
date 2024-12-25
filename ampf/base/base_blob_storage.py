@@ -86,3 +86,11 @@ class BaseBlobStorage[T: BaseModel](ABC):
         """Deletes all the blobs from the storage"""
         for key in self.keys():
             self.delete(key)
+
+    @abstractmethod
+    def delete_folder(self, folder_name: str):
+        """Deletes a folder from the storage
+
+        Args:
+            folder_name: The name of the folder
+        """

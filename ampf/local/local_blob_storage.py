@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 from typing import Iterator
 from pydantic import BaseModel
 
@@ -112,3 +113,6 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
                         name=file,
                         mime_type=get_content_type(file),
                     )
+
+    def delete_folder(self, folder_name: str):
+        shutil.rmtree(self.folder_path.joinpath(folder_name))
