@@ -12,7 +12,7 @@ class FileNameMimeType(BaseModel):
 class BaseBlobStorage[T: BaseModel](ABC):
     """Base class for blob storage implementations"""
 
-    def __init__(self, bucket_name: str, clazz: Type[T], content_type: str = None):
+    def __init__(self, collection_name: str, clazz: Type[T], content_type: str = None):
         """Initializes the storage
 
         Args:
@@ -20,7 +20,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
             clazz: The class of the metadata
             content_type: The content type of the blob
         """
-        self.bucket_name = bucket_name
+        self.collection_name = collection_name
         self.clazz = clazz
         self.contet_type = content_type
 
