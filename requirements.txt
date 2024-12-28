@@ -2,3 +2,7 @@ fastapi
 pydantic
 google-cloud-firestore
 google-cloud-storage
+
+PyJWT
+pydantic[email]
+python-multipart

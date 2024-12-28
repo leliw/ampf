@@ -1,4 +1,7 @@
 setuptools
+build
 pytest
 httpx
 pytest-cov
+
+pydantic-settings
