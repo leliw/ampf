@@ -7,15 +7,15 @@ from .gcp_storage import GcpStorage
 from .gcp_blob_storage import GcpBlobStorage
 
 
-
-
 class GcpFactory(BaseFactory):
     _db = None
 
     @classmethod
-    def init_client(cls):
+    def init_client(cls, default_bucket: str = None):
         if not GcpFactory._db:
             GcpFactory._db = firestore.Client()
+        if default_bucket:
+            GcpBlobStorage.init_client(default_bucket)
 
     def create_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T], key_name: str = None
