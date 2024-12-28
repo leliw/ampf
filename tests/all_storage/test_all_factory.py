@@ -29,3 +29,8 @@ def test_create_compact_storage(factory):
     storage = factory.create_compact_storage("test", T, "name")
 
     assert storage is not None
+
+def test_create_blob_storage(factory):
+    storage = factory.create_blob_storage("test", T, )
+
+    assert storage is not None

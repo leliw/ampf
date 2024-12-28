@@ -1,13 +1,15 @@
 from typing import Iterator, Type
 from pydantic import BaseModel
 from ampf.base import BaseStorage, KeyNotExistsException
+from ampf.base.base_query import BaseQuery
 
 
-class InMemoryStorage[T: BaseModel](BaseStorage):
+class InMemoryStorage[T: BaseModel](BaseStorage, BaseQuery):
     """In memory storage implementation"""
 
     def __init__(self, collection_name: str, clazz: Type[T], key_name: str = None):
-        super().__init__(collection_name, clazz, key_name)
+        BaseStorage.__init__(self, collection_name, clazz, key_name)
+        BaseQuery.__init__(self, self.get_all)
         self.items = {}
 
     def put(self, key: str, value: T) -> None:
