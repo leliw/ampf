@@ -3,5 +3,6 @@ build
 pytest
 httpx
 pytest-cov
+pytest-asyncio
 
 pydantic-settings

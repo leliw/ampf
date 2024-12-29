@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.base_storage import KeyNotExistsException
+from ampf.base.exceptions import KeyNotExistsException
 
 from .file_storage import FileStorage
 from ..mimetypes import get_content_type

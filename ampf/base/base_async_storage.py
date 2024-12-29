@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, Type
+from typing import Any, AsyncIterator, Iterator, Type
 
 from pydantic import BaseModel
 
 from .exceptions import KeyExistsException
 
 
-class BaseStorage[T: BaseModel](ABC):
+class BaseAsyncStorage[T: BaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
     def __init__(self, collection_name: str, clazz: Type[T], key_name: str = None):
@@ -21,53 +21,53 @@ class BaseStorage[T: BaseModel](ABC):
         self.key_name = key_name
 
     @abstractmethod
-    def put(self, key: str, value: T) -> None:
+    async def put(self, key: str, value: T) -> None:
         """Store the value with the key"""
 
     @abstractmethod
-    def get(self, key: str) -> T:
+    async def get(self, key: str) -> T:
         """Get the value with the key"""
 
     @abstractmethod
-    def keys(self) -> Iterator[T]:
+    async def keys(self) -> Iterator[T]:
         """Get all the keys"""
 
     @abstractmethod
-    def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> None:
         """Delete the value with the key"""
 
-    def create(self, value: T) -> None:
+    async def create(self, value: T) -> None:
         """Adds to collection a new element but only if such key doesn't already exists"""
         key = self.get_key(value)
-        if self.key_exists(key):
+        if await self.key_exists(key):
             raise KeyExistsException
-        self.put(key, value)
+        await self.put(key, value)
 
-    def save(self, value: T) -> None:
+    async def save(self, value: T) -> None:
         key = self.get_key(value)
-        self.put(key, value)
+        await self.put(key, value)
 
     def get_key(self, value: T) -> str:
         return getattr(value, self.key_name)
 
-    def drop(self) -> None:
+    async def drop(self) -> None:
         """Delete all the values"""
-        for key in self.keys():
-            self.delete(key)
+        async for key in self.keys():
+            await self.delete(key)
 
-    def get_all(self, sort: Any = None) -> Iterator[T]:
+    async def get_all(self, sort: Any = None) -> AsyncIterator[T]:
         """Get all the values"""
-        for key in self.keys():
-            yield self.get(key)
+        async for key in self.keys():
+            yield await self.get(key)
 
-    def key_exists(self, needle: str) -> bool:
-        for key in self.keys():
+    async def key_exists(self, needle: str) -> bool:
+        async for key in self.keys():
             if needle == key:
                 return True
         return False
 
-    def is_empty(self) -> bool:
+    async def is_empty(self) -> bool:
         """Is storage empty?"""
-        for _ in self.keys():
+        async for _ in self.keys():
             return False
         return True
