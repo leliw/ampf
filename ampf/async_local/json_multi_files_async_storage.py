@@ -3,13 +3,15 @@
 import logging
 import os
 from pathlib import Path
-from typing import Iterator, Type
+from typing import AsyncIterator, Type
+import aiofiles
+import aiofiles.os
 
-from ..base import BaseStorage
-from .file_storage import FileStorage
+from .file_async_storage import FileAsyncStorage
+from ampf.base import BaseAsyncStorage
 
 
-class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
+class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
@@ -19,8 +21,8 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
         key_name: str = None,
         subfolder_characters: int = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name)
-        FileStorage.__init__(
+        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name)
+        FileAsyncStorage.__init__(
             self,
             folder_name=collection_name,
             default_ext="json",
@@ -28,30 +30,26 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
         )
         self._log = logging.getLogger(__name__)
 
-    def put(self, key: str, value: T) -> None:
+    async def put(self, key: str, value: T) -> None:
         full_path = self._key_to_full_path(key)
-        self._log.debug("put: %s (%s)", key, full_path)
         json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
-        self._write_to_file(full_path, json_str)
+        await self._async_write_to_file(full_path, json_str)
 
-    def get(self, key: str) -> T:
-        self._log.debug("get %s", key)
+    async def get(self, key: str) -> T:
         full_path = self._key_to_full_path(key)
         try:
-            data = self._read_from_file(full_path)
+            data = await self._async_read_from_file(full_path)
             return self.clazz.model_validate_json(data)
         except FileNotFoundError:
             return None
 
-    def keys(self) -> Iterator[str]:
-        self._log.debug("keys -> start %s", self.folder_path)
+    async def keys(self) -> AsyncIterator[str]:
         start_index = len(str(self.folder_path)) + 1
         if self.subfolder_characters:
             end_index = self.subfolder_characters + 1
         else:
             end_index = None
         for root, _, files in os.walk(self.folder_path):
-            self._log.debug("keys -> walk %s %d", root, len(files))
             if Path(f"{root}.json").is_file() and root != str(self.folder_path):
                 # If exists json file wtith the same name as directory
                 # and it's not root folder
@@ -63,14 +61,11 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
                 )
                 for file in files:
                     k = f"{folder}/{file}" if folder else file
-                    self._log.debug("keys: %s", k)
                     yield k[:-5] if k.endswith(".json") else k
-        self._log.debug("keys <- end")
 
-    def delete(self, key: str) -> None:
-        self._log.debug("delete %s", key)
+    async def delete(self, key: str) -> None:
         full_path = self._key_to_full_path(key)
-        os.remove(full_path)
+        await aiofiles.os.remove(full_path)
 
     def _key_to_full_path(self, key: str) -> str:
         return self._create_file_path(key)

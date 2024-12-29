@@ -4,6 +4,8 @@ import pytest
 from ampf.base import BaseAsyncStorage, KeyExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
+from ampf.local import FileStorage
+from ampf.async_local import JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage
 
 
 class D(BaseModel):
@@ -11,8 +13,17 @@ class D(BaseModel):
     value: str
 
 
-@pytest.fixture(params=[InMemoryAsyncStorage, GcpAsyncStorage])
+@pytest.fixture(
+    params=[
+        InMemoryAsyncStorage,
+        JsonOneFileAsyncStorage,
+        JsonMultiFilesAsyncStorage,
+        GcpAsyncStorage,
+    ]
+)
 def storage(request, tmp_path):
+    if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+        FileStorage._root_dir_path = tmp_path
     storage = request.param("test", D)
     yield storage
     # storage.drop()

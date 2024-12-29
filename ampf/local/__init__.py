@@ -5,7 +5,6 @@ from .file_storage import FileStorage
 from .local_blob_storage import LocalBlobStorage
 
 
-
 __all__ = [
     "LocalFactory",
     "JsonOneFileStorage",

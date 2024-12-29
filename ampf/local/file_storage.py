@@ -56,3 +56,12 @@ class FileStorage(ABC):
 
     def drop(self):
         shutil.rmtree(self.folder_path)
+
+    def _write_to_file(self, full_path: str, data: str) -> None:
+        with open(full_path, "w", encoding="utf-8") as file:
+            file.write(data)
+
+    def _read_from_file(self, full_path: str) -> str:
+        with open(full_path, "r", encoding="utf-8") as file:
+            return file.read()
+        
