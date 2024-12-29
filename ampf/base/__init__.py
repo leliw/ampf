@@ -1,4 +1,5 @@
 from .base_factory import BaseFactory
+from .base_async_factory import BaseAsyncFactory
 from .base_storage import BaseStorage
 from .base_async_storage import BaseAsyncStorage
 from .exceptions import KeyExistsException, KeyNotExistsException
@@ -14,6 +15,7 @@ __all__ = [
     "KeyExistsException",
     "KeyNotExistsException",
     "BaseFactory",
+    "BaseAsyncFactory",
     "BaseBlobStorage",
     "FileNameMimeType",
     "BaseEmailSender",
