@@ -48,7 +48,6 @@ class GoogleOAuth:
         try:
             header = jwt.get_unverified_header(token)
             kid = header.get("kid")
-            self._log.warning(kid)
 
             if not kid or kid not in self._google_public_keys:
                 self._log.warning("Invalid or missing kid in JWT header")
