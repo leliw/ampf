@@ -17,6 +17,8 @@ from .auth_exceptions import (
 from .auth_service import AuthService
 from .user_service_base import UserServiceBase
 
+from .google_oauth import GoogleOAuth
+
 __all__ = [
     "Tokens",
     "TokenExp",
@@ -32,4 +34,5 @@ __all__ = [
     "InsufficientPermissionsError",
     "AuthService",
     "UserServiceBase",
+    "GoogleOAuth",
 ]

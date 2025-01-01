@@ -1,5 +1,7 @@
 setuptools
 build
+twine
+keyrings.google-artifactregistry-auth
 pytest
 httpx
 pytest-cov
