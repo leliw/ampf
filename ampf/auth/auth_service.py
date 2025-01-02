@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
 import logging
 import os
 import secrets
@@ -7,9 +8,18 @@ import jwt
 from pydantic import BaseModel, EmailStr
 
 from ampf.base import BaseEmailSender, EmailTemplate
+from ampf.base.base_storage import BaseStorage
 
 from ..base import BaseFactory, KeyExistsException, KeyNotExistsException
-from .auth_model import AuthUser, TokenExp, TokenPayload, Tokens
+from .auth_model import (
+    APIKey,
+    APIKeyInDB,
+    APIKeyRequest,
+    AuthUser,
+    TokenExp,
+    TokenPayload,
+    Tokens,
+)
 from .auth_exceptions import (
     BlackListedRefreshTokenException,
     InvalidTokenException,
@@ -39,9 +49,11 @@ class AuthService[T: AuthUser]:
         jwt_secret_key: str = None,
         auth_config: AuthConfig = None,
     ) -> None:
+        self._storage_factory = storage_factory
         self._storage = storage_factory.create_compact_storage(
             "token_black_list", TokenExp, "token"
         )
+
         self._secret_key = jwt_secret_key or os.environ["JWT_SECRET_KEY"]
         self._email_sender_service = email_sender_service
         self._user_service = user_service
@@ -85,6 +97,8 @@ class AuthService[T: AuthUser]:
         return encoded_jwt
 
     def decode_token(self, token: str) -> TokenPayload:
+        if len(token) <= 43:  # 36 + len("Bearer ")
+            return self.decode_api_key(token)
         try:
             payload = jwt.decode(
                 token, self._secret_key, algorithms=[self.config.algorithm]
@@ -93,6 +107,26 @@ class AuthService[T: AuthUser]:
         except jwt.exceptions.ExpiredSignatureError:
             raise TokenExpiredException
         except jwt.exceptions.InvalidTokenError:
+            raise InvalidTokenException
+
+    def decode_api_key(self, token: str) -> TokenPayload:
+        if token.startswith("Bearer "):
+            token = token.split(" ")[1]
+        key_hash = hashlib.sha256(token.encode()).hexdigest()
+        try:
+            api_key = self.get_api_key_storage().get(key_hash)
+            if datetime.now(timezone.utc) > api_key.exp:
+                raise TokenExpiredException
+            user = self._user_service.get(api_key.username)
+            if user.disabled:
+                raise InvalidTokenException
+            return TokenPayload(
+                sub=api_key.username,
+                email=user.email,
+                roles=api_key.roles,
+                exp=api_key.exp,
+            )
+        except KeyNotExistsException:
             raise InvalidTokenException
 
     def refresh_token(self, refresh_token: str) -> Tokens:
@@ -159,3 +193,40 @@ class AuthService[T: AuthUser]:
                 raise ResetCodeExpiredException
         else:
             raise ResetCodeException
+
+    def generate_api_key(
+        self, token_payload: TokenPayload, request: APIKeyRequest
+    ) -> APIKey:
+        # Validate roles (only subset of user roles or all user roles)
+        roles = (
+            list(set(token_payload.roles) & set(request.roles))
+            if request.roles
+            else token_payload.roles
+        )
+        # Set experience time
+        exp = request.exp or datetime.now(timezone.utc) + timedelta(days=365)
+        # Generate a new key
+        key = APIKey(username=token_payload.sub, roles=roles, exp=exp)
+        self.get_api_key_storage().create(APIKeyInDB(**key.model_dump()))
+        return key
+
+    def get_api_key_storage(self) -> BaseStorage[APIKeyInDB]:
+        return self._storage_factory.create_compact_storage(
+            "api_keys", APIKeyInDB, "key_hash"
+        )
+
+    def get_api_keys(self, token_payload: TokenPayload):
+        username = token_payload.sub
+        storage = self.get_api_key_storage()
+        for key in storage.get_all():
+            if key.username == username:
+                yield key
+
+    def delete_api_key(self, token_payload: TokenPayload, key_hash: str):
+        username = token_payload.sub
+        storage = self.get_api_key_storage()
+        api_key = storage.get(key_hash)
+        if api_key.username == username:
+            storage.delete(key_hash)
+        else:
+            raise KeyNotExistsException(key_hash)

@@ -6,7 +6,7 @@ from ampf.base import BaseFactory, KeyNotExistsException
 from .user_model import User, UserInDB
 
 
-class UserService(UserServiceBase):
+class UserService(UserServiceBase[User]):
     """User service implementation"""
 
     def __init__(

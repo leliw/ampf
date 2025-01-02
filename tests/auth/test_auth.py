@@ -1,43 +1,5 @@
 import re
 import time
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-import pytest
-
-from ampf.auth.auth_model import TokenExp
-from ampf.in_memory.in_memory_factory import InMemoryFactory
-from tests.auth.app.config import DefaultUserConfig, ServerConfig
-from tests.auth.app.dependencies import get_email_sender, get_factory, get_server_config
-from tests.auth.app.features.user.user_service import UserService
-from tests.auth.app.routers import auth, users
-
-
-@pytest.fixture
-def test_server_config(tmp_path: str) -> ServerConfig:
-    return ServerConfig(
-        data_dir=str(tmp_path),
-        default_user=DefaultUserConfig(
-            email="test@test.com", password="test", roles=["admin"]
-        ),
-    )
-
-
-@pytest.fixture
-def client(factory, email_sender, test_server_config: ServerConfig) -> TestClient:
-    UserService(InMemoryFactory()).initialize_storege_with_user(
-        test_server_config.default_user
-    )
-
-    app = FastAPI()
-    app.dependency_overrides[get_factory] = lambda: factory
-    app.dependency_overrides[get_email_sender] = lambda: email_sender
-    app.dependency_overrides[get_server_config] = lambda: test_server_config
-
-    app.include_router(prefix="/api", router=auth.router)
-    app.include_router(prefix="/api/users", router=users.router)
-
-    client = TestClient(app)
-    return client
 
 
 def test_login_ok(client):
@@ -76,19 +38,6 @@ def test_login_wrong_username(client):
     assert response.status_code == 401
 
 
-@pytest.fixture
-def tokens(factory, client):
-    # Clear token_black_list
-    factory.create_compact_storage("token_black_list", TokenExp, "token").drop()
-    # Login
-    response = client.post(
-        "/api/login",
-        data={"username": "test@test.com", "password": "test"},
-    )
-    r = response.json()
-    return r
-
-
 def test_logout(client, tokens):
     # When: Default user logs out
     response = client.post(
@@ -118,6 +67,7 @@ def test_refresh_token(client, tokens):
     assert r["access_token"] != tokens["access_token"]
     assert r["refresh_token"] != tokens["refresh_token"]
 
+
 def test_change_password(client, tokens):
     # When: Default user changes password
     response = client.post(
@@ -128,7 +78,7 @@ def test_change_password(client, tokens):
     # Then: The response status code is 200
     assert response.status_code == 200
     # When: Default user logs in with new password
-    response = client.post( 
+    response = client.post(
         "/api/login",
         data={"username": "test@test.com", "password": "new_test"},
     )

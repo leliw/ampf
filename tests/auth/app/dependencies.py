@@ -65,7 +65,7 @@ async def auth_service_dep(
 AuthServiceDep = Annotated[AuthService, Depends(auth_service_dep)]
 
 
-def decode_token(auth_service: AuthServiceDep, token: AuthTokenDep):
+def decode_token(auth_service: AuthServiceDep, token: AuthTokenDep) -> TokenPayload:
     return auth_service.decode_token(token)
 
 

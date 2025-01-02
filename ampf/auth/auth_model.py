@@ -1,5 +1,7 @@
 from datetime import datetime
+import hashlib
 from typing import Any, Dict, List, Optional
+import uuid
 from pydantic import BaseModel, EmailStr, Field, model_serializer
 
 
@@ -76,3 +78,23 @@ class ResetPassword(BaseModel):
     email: EmailStr
     reset_code: str
     new_password: str
+
+
+class APIKeyRequest(BaseModel):
+    exp: datetime | None = None
+    roles: Optional[List[str]] = Field(default_factory=lambda: [])
+
+
+class APIKeyInDB(APIKeyRequest):
+    key_hash: str
+    username: str
+
+
+class APIKey(APIKeyInDB):
+    key: str
+
+    def __init__(self, **data):
+        if not data.get("key"):
+            data["key"] = str(uuid.uuid4())
+        data["key_hash"] = hashlib.sha256(data["key"].encode()).hexdigest()
+        super().__init__(**data)

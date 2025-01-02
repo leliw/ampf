@@ -5,36 +5,31 @@ from tests.auth.app.dependencies import Authorize, UserServceDep
 
 
 router = APIRouter(
-    tags=["Użytkownicy"], dependencies=[Depends(Authorize("Administrator"))]
+    tags=["Użytkownicy"], dependencies=[Depends(Authorize("admin"))]
 )
 
 
-@router.post("/users")
+@router.post("")
 async def create(user_service: UserServceDep, user: User):
     user_service.create(user)
     return user
 
 
-@router.get("/users")
+@router.get("")
 async def get_all(user_service: UserServceDep):
     return user_service.get_all()
 
 
-@router.get("/users/{username}")
+@router.get("/{username}")
 async def get_by_email(user_service: UserServceDep, username: str) -> User:
     return user_service.get(username)
 
 
-@router.put("/users/{username}")
+@router.put("/{username}")
 async def update(user_service: UserServceDep, username: str, user: User):
     return user_service.update(username, user)
 
 
-@router.delete("/users/{username}")
+@router.delete("/{username}")
 async def delete(user_service: UserServceDep, username: str):
     return user_service.delete(username)
-
-
-@router.get("/roles")
-async def get_roles(user_service: UserServceDep):
-    return user_service.get_roles()
