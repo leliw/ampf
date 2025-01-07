@@ -6,6 +6,9 @@ from .auth_model import (
     ChangePasswordData,
     ResetPasswordRequest,
     ResetPassword,
+    APIKeyRequest,
+    APIKey,
+    APIKeyInDB,
 )
 from .auth_exceptions import (
     BlackListedRefreshTokenException,
@@ -27,6 +30,9 @@ __all__ = [
     "ChangePasswordData",
     "ResetPassword",
     "ResetPasswordRequest",
+    "APIKeyRequest",
+    "APIKey",
+    "APIKeyInDB",
     "BlackListedRefreshTokenException",
     "TokenExpiredException",
     "InvalidTokenException",
