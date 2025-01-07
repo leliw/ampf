@@ -6,7 +6,7 @@ from typing import Iterator, Type
 
 from pydantic import BaseModel
 
-from ..base import BaseStorage
+from ..base import BaseStorage, KeyNotExistsException
 from .file_storage import FileStorage
 
 DEF_EXT = "json"
@@ -54,7 +54,7 @@ class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
             dv[self.key_name] = key
             return self.clazz.model_validate(dv)
         except KeyError:
-            return None
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     def keys(self) -> Iterator[str]:
         data = self._load_data()

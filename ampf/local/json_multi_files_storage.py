@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Iterator, Type
 
-from ..base import BaseStorage
+from ..base import BaseStorage, KeyNotExistsException
 from .file_storage import FileStorage
 
 
@@ -41,7 +41,7 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
             data = self._read_from_file(full_path)
             return self.clazz.model_validate_json(data)
         except FileNotFoundError:
-            return None
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     def keys(self) -> Iterator[str]:
         self._log.debug("keys -> start %s", self.folder_path)

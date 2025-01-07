@@ -41,7 +41,7 @@ class GcpStorage[T](BaseStorage[T]):
         """Get a document from the collection."""
         data = self._coll_ref.document(key).get().to_dict()
         if not data:
-            return
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
         return self.clazz.model_validate(data)
 
     def get_all(self, order_by: list[str | tuple[str, any]] = None) -> Iterator[T]:

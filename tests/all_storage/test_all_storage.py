@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
-from ampf.base import BaseStorage, KeyExistsException
+from ampf.base import BaseStorage, KeyExistsException, KeyNotExistsException
 from ampf.gcp import GcpStorage
 from ampf.in_memory import InMemoryStorage
 from ampf.local import FileStorage, JsonOneFileStorage, JsonMultiFilesStorage
@@ -22,6 +22,12 @@ def storage(request, tmp_path):
     yield storage
     storage.drop()
 
+
+def test_not_found(storage: BaseStorage):
+    # When: I get something from empty storage
+    # Then: Is exception rised
+    with pytest.raises(KeyNotExistsException):
+        storage.get("foo")
 
 def test_create_new(storage: BaseStorage):
     # Given: A new element
