@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 import pytest
-from ampf.base import KeyExistsException
+from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.local.file_storage import FileStorage
 from ampf.local.json_one_file_storage import JsonOneFileStorage
 
@@ -41,7 +41,8 @@ def test_simple_key_all(t):
 
     t.delete("foo")
     assert [] == list(t.keys())
-    assert t.get("foo") is None
+    with pytest.raises(KeyNotExistsException):
+        t.get("foo")
 
 
 def test_folder_key_all(t):
@@ -52,8 +53,8 @@ def test_folder_key_all(t):
     assert d == t.get("kung/foo")
 
     t.delete("kung/foo")
-    assert [] == list(t.keys())
-    assert t.get("kung/foo") is None
+    with pytest.raises(KeyNotExistsException):
+        t.get("kung/foo")
 
 
 def test_is_empty(t):

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 import pytest
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.local.file_storage import FileStorage
 from ampf.local.json_multi_files_storage import JsonMultiFilesStorage
 
@@ -26,7 +27,8 @@ def test_simple_key_all(storage):
 
     storage.delete("foo")
     assert [] == list(storage.keys())
-    assert storage.get("foo") is None
+    with pytest.raises(KeyNotExistsException):
+        storage.get("foo")
 
 
 def test_folder_key_all(storage):
@@ -38,4 +40,5 @@ def test_folder_key_all(storage):
 
     storage.delete("kung/foo")
     assert [] == list(storage.keys())
-    assert storage.get("kung/foo") is None
+    with pytest.raises(KeyNotExistsException):
+        storage.get("kung/foo")
