@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Type
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ from .local_blob_storage import LocalBlobStorage
 
 class LocalFactory(BaseFactory):
     def __init__(self, root_dir_path: StrPath):
-        FileStorage._root_dir_path = Path(root_dir_path)
+        FileStorage._root_dir_path = Path(os.path.abspath(root_dir_path))
 
     def create_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T], key_name: str = None

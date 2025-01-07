@@ -20,7 +20,7 @@ class FileStorage(ABC):
         subfolder_characters: liczba początkowych znaków, które tworzą opcjonalny podkatalog
     """
 
-    _root_dir_path = Path("data")
+    _root_dir_path = Path(os.path.abspath("./data"))
 
     def __init__(
         self,
