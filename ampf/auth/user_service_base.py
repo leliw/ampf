@@ -7,7 +7,7 @@ from pydantic import EmailStr
 
 from ..base import KeyExistsException, KeyNotExistsException
 
-from .auth_model import AuthUser
+from .auth_model import AuthUser, DefaultUser
 from .auth_exceptions import (
     IncorectOldPasswordException,
     IncorrectUsernameOrPasswordException,
@@ -17,27 +17,66 @@ from .auth_exceptions import (
 class UserServiceBase[T: AuthUser](ABC):
     """Base class for user service."""
 
-    def __init__(self):
-        self._log = logging.getLogger(__name__)
+    _log = logging.getLogger(__name__)
 
     @abstractmethod
     def is_empty(self) -> bool:
-        """True jeśl nie ma jeszcze żadnych użytkowników"""
+        """Checks if the storage is empty"""
 
     @abstractmethod
     def get_user_by_email(self, email: EmailStr) -> T:
-        """Zwraca użytkownika po adresie email"""
+        """Gets user by email
+
+        Args:
+            email: Email of the user
+        Returns:
+            User object
+        Raises:
+            KeyNotExistsException: If user doesn't exist
+        """
 
     @abstractmethod
     def get(self, username: str) -> T:
-        """Zwraca użytkownika po identyfikatorze"""
+        """Gets user by username
+
+        Args:
+            username: Username of the user
+        Returns:
+            User object
+        Raises:
+            KeyNotExistsException: If user doesn't exist
+        """
 
     @abstractmethod
     def put(self, username: str, user: T) -> None:
-        """Zapisuje dane użytkownika"""
+        """Puts user to storage
+
+        Args:
+            username: Username of the user
+            user: User object
+        """
+
+    def initialise_storage(self, default_user: DefaultUser) -> None:
+        """Initialise storage with default user if it's empty
+
+        Args:
+            default_user: Default user configuration
+        """
+        if self.is_empty():
+            self._log.warning("User storage is empty, creating default user")
+            self.create(AuthUser(**default_user.model_dump()))
 
     def get_user_by_credentials(self, username: str, password: str) -> T:
-        """Zwraca użytkownika po nazwie i haśle albo wyrzuca wyjątek"""
+        """Gets user by credentials and verifies password
+
+        Args:
+            username: Username of the user
+            password: Password of the user
+        Returns:
+            User object
+        Raises:
+            IncorrectUsernameOrPasswordException: If username or password is incorrect
+        """
         try:
             user = self.get(username)
             if user.hashed_password != self._hash_password(password):
@@ -49,6 +88,13 @@ class UserServiceBase[T: AuthUser](ABC):
             raise IncorrectUsernameOrPasswordException
 
     def create(self, user: T) -> None:
+        """Creates user
+
+        Args:
+            user: User object
+        Raises:
+            KeyExistsException: If user already exists
+        """
         key = user.username
         try:
             self.get(key)
@@ -60,6 +106,14 @@ class UserServiceBase[T: AuthUser](ABC):
             self.put(key, user)
 
     def update(self, username: str, user: T) -> None:
+        """Updates user
+
+        Args:
+            username: Username of the user
+            user: User object
+        Raises:
+            KeyNotExistsException: If user doesn't exist
+        """
         old = self.get(username)
         if not old:
             raise KeyNotExistsException
@@ -70,11 +124,28 @@ class UserServiceBase[T: AuthUser](ABC):
             user.hashed_password = old.hashed_password
         self.put(username, user)
 
-    def _hash_password(self, password: str):
+    def _hash_password(self, password: str) -> str:
+        """Hashes password
+
+        Args:
+            password: Password to hash
+        Returns:
+            Hashed password
+        """
         hashed_password = hashlib.sha256(password.encode("utf-8")).hexdigest()
         return hashed_password
 
-    def change_password(self, username: str, old_pass: str, new_pass: str):
+    def change_password(self, username: str, old_pass: str, new_pass: str) -> None:
+        """Changes password for user
+
+        Args:
+            username: Username of the user
+            old_pass: Old password
+            new_pass: New password
+        Raises:
+            IncorectOldPasswordException: If old password is incorrect
+            KeyNotExistsException: If user doesn't exist
+        """
         try:
             user = self.get_user_by_credentials(username, old_pass)
         except IncorrectUsernameOrPasswordException:
@@ -83,7 +154,18 @@ class UserServiceBase[T: AuthUser](ABC):
         user.hashed_password = None
         self.update(username, user)
 
-    def set_reset_code(self, username: str, reset_code: str, reset_code_exp: datetime):
+    def set_reset_code(
+        self, username: str, reset_code: str, reset_code_exp: datetime
+    ) -> None:
+        """Sets reset code for user
+
+        Args:
+            username: Username of the user
+            reset_code: Reset code
+            reset_code_exp: Expiration date of the reset code
+        Raises:
+            KeyNotExistsException: If user doesn't exist
+        """
         user = self.get(username)
         user.reset_code = reset_code
         user.reset_code_exp = reset_code_exp

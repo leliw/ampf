@@ -6,6 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, model_serializer
 
 
 class Tokens(BaseModel):
+    """Tokens returned by the server when an user is successfully authenticated"""
+
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str
@@ -27,6 +29,14 @@ class TokenExp(BaseModel):
 
     token: str
     exp: datetime
+
+
+class DefaultUser(BaseModel):
+    """Default user for the application"""
+
+    username: str = "admin"
+    password: str = "admin"
+    roles: List[str] = ["admin"]
 
 
 class AuthUser(BaseModel):
@@ -81,16 +91,22 @@ class ResetPassword(BaseModel):
 
 
 class APIKeyRequest(BaseModel):
+    """Data for generating API key"""
+
     exp: datetime | None = None
     roles: Optional[List[str]] = Field(default_factory=lambda: [])
 
 
 class APIKeyInDB(APIKeyRequest):
+    """API key stored in the database"""
+
     key_hash: str
     username: str
 
 
 class APIKey(APIKeyInDB):
+    """API key returned to the client"""
+
     key: str
 
     def __init__(self, **data):

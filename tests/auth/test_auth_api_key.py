@@ -67,7 +67,7 @@ def test_authorize_disabled_user(
     )
     key = response.json()["key"]
     # And: User is disabled
-    user = user_service.get("test@test.com")
+    user = user_service.get("test")
     user.disabled = True
     user_service.update(user.username, user)
     # When: Get users with the key
@@ -139,7 +139,7 @@ def test_delete_api_key_wrong_user(
     assert response.status_code == 404
     # And: Key still exists
     st_key = api_key_storage.get(key_hash)
-    assert st_key.username == "test@test.com"
+    assert st_key.username == "test"
 
 
 

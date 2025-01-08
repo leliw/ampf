@@ -1,14 +1,9 @@
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from ampf.auth import DefaultUser
 from ampf.base.base_factory import BaseFactory
-
-
-class DefaultUserConfig(BaseModel):
-    email: str = "marcin.leliwa@gmail.com"
-    password: str = "admin"
-    roles: List[str] = ["admin"]
 
 
 class AuthConfig(BaseModel):
@@ -44,7 +39,7 @@ class ServerConfig(BaseSettings):
     version: str = "0.6.8"
     data_dir: str = "data"
     jwt_secret_key: str
-    default_user: DefaultUserConfig = DefaultUserConfig()
+    default_user: DefaultUser = DefaultUser()
 
     smtp: SmtpConfig = SmtpConfig()
     reset_password_mail: ResetPasswordMailConfig = ResetPasswordMailConfig()

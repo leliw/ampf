@@ -4,12 +4,12 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 import pytest
 
-from ampf.auth import TokenExp
+from ampf.auth import TokenExp, DefaultUser
 from ampf.base import BaseFactory
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory import InMemoryFactory
 
-from tests.auth.app.config import DefaultUserConfig, ServerConfig
+from tests.auth.app.config import ServerConfig
 from tests.auth.app.dependencies import get_email_sender, get_factory, get_server_config
 from tests.auth.app.features.user.user_model import User
 from tests.auth.app.features.user.user_service import UserService
@@ -23,8 +23,8 @@ def factory() -> BaseFactory:
 
 
 @pytest.fixture
-def test_user() -> DefaultUserConfig:
-    return DefaultUserConfig(email="test@test.com", password="test", roles=["admin"])
+def test_user() -> DefaultUser:
+    return DefaultUser(username="test", password="test", roles=["admin"])
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def tokens(factory: BaseFactory, client: TestClient):
     # Login
     response = client.post(
         "/api/login",
-        data={"username": "test@test.com", "password": "test"},
+        data={"username": "test", "password": "test"},
     )
     r = response.json()
     return r
