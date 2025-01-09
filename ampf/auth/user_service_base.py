@@ -7,7 +7,8 @@ from pydantic import EmailStr
 
 from ..base import KeyExistsException, KeyNotExistsException
 
-from .auth_model import AuthUser, DefaultUser
+from .auth_config import DefaultUser
+from .auth_model import AuthUser
 from .auth_exceptions import (
     IncorectOldPasswordException,
     IncorrectUsernameOrPasswordException,

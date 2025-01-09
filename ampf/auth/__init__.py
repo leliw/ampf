@@ -1,9 +1,9 @@
+from .auth_config import AuthConfig, DefaultUser, SmtpConfig, ResetPasswordMailConfig
 from .auth_model import (
     Tokens,
     TokenExp,
     TokenPayload,
     AuthUser,
-    DefaultUser,
     ChangePasswordData,
     ResetPasswordRequest,
     ResetPassword,
@@ -24,11 +24,14 @@ from .user_service_base import UserServiceBase
 from .google_oauth import GoogleOAuth
 
 __all__ = [
+    "AuthConfig",
+    "DefaultUser",
+    "SmtpConfig",
+    "ResetPasswordMailConfig",
     "Tokens",
     "TokenExp",
     "TokenPayload",
     "AuthUser",
-    "DefaultUser",
     "ChangePasswordData",
     "ResetPassword",
     "ResetPasswordRequest",

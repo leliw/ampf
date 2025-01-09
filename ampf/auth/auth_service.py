@@ -5,12 +5,13 @@ import os
 import secrets
 
 import jwt
-from pydantic import BaseModel, EmailStr
+from pydantic import EmailStr
 
 from ampf.base import BaseEmailSender, EmailTemplate
 from ampf.base.base_storage import BaseStorage
 
 from ..base import BaseFactory, KeyExistsException, KeyNotExistsException
+from .auth_config import AuthConfig
 from .auth_model import (
     APIKey,
     APIKeyInDB,
@@ -32,21 +33,15 @@ from .auth_exceptions import (
 from .user_service_base import UserServiceBase
 
 
-class AuthConfig(BaseModel):
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_hours: int = 24 * 7  # Seven days
-    reset_code_expire_minutes: int = 15
-
-
 class AuthService[T: AuthUser]:
+    """Authentication service."""
+
     def __init__(
         self,
         storage_factory: BaseFactory,
         email_sender_service: BaseEmailSender,
         user_service: UserServiceBase[T],
         reset_mail_template: EmailTemplate,
-        jwt_secret_key: str = None,
         auth_config: AuthConfig = None,
     ) -> None:
         self._storage_factory = storage_factory
@@ -54,7 +49,7 @@ class AuthService[T: AuthUser]:
             "token_black_list", TokenExp, "token"
         )
 
-        self._secret_key = jwt_secret_key or os.environ["JWT_SECRET_KEY"]
+        self._secret_key = auth_config.jwt_secret_key or os.environ["JWT_SECRET_KEY"]
         self._email_sender_service = email_sender_service
         self._user_service = user_service
         self.reset_mail_template = reset_mail_template

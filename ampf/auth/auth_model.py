@@ -31,14 +31,6 @@ class TokenExp(BaseModel):
     exp: datetime
 
 
-class DefaultUser(BaseModel):
-    """Default user for the application"""
-
-    username: str = "admin"
-    password: str = "admin"
-    roles: List[str] = ["admin"]
-
-
 class AuthUser(BaseModel):
     """Base user model for authentication"""
 

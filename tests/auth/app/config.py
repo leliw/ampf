@@ -2,35 +2,8 @@ from typing import Optional
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ampf.auth import DefaultUser
+from ampf.auth import DefaultUser, AuthConfig, ResetPasswordMailConfig, SmtpConfig
 from ampf.base.base_factory import BaseFactory
-
-
-class AuthConfig(BaseModel):
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_hours: int = 24 * 7  # Seven days
-    reset_code_expire_minutes: int = 15
-
-
-class SmtpConfig(BaseModel):
-    host: str = "smtp.gmail.com"
-    port: int = 465
-    username: Optional[str] = None
-    password: Optional[str] = None
-    use_ssl: bool = True
-
-
-class ResetPasswordMailConfig(BaseModel):
-    sender: str = "admin@example.com"
-    subject: str = "Resetowanie hasła - Chat"
-    body_template: str = """Witaj!
-        
-Otrzymałeś ten email, ponieważ poprosiłeś o zresetowanie hasła.
-Aby zresetować swoje hasło, wpisz kod: {reset_code} w formularzu.
-Kod jest ważny przez {reset_code_expire_minutes} minut.
-Jeśli nie prosiłeś o zresetowanie hasła, zignoruj ten email.
-"""
 
 
 class ServerConfig(BaseSettings):
@@ -38,12 +11,11 @@ class ServerConfig(BaseSettings):
 
     version: str = "0.6.8"
     data_dir: str = "data"
-    jwt_secret_key: str
     default_user: DefaultUser = DefaultUser()
 
     smtp: SmtpConfig = SmtpConfig()
     reset_password_mail: ResetPasswordMailConfig = ResetPasswordMailConfig()
-    auth: AuthConfig = AuthConfig()
+    auth: AuthConfig = AuthConfig(jwt_secret_key="asdasdasd")
     profiler: bool = False
 
 

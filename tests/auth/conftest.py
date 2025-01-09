@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 import pytest
 
-from ampf.auth import TokenExp, DefaultUser
+from ampf.auth import TokenExp, DefaultUser, AuthConfig
 from ampf.base import BaseFactory
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory import InMemoryFactory
@@ -29,7 +29,11 @@ def test_user() -> DefaultUser:
 
 @pytest.fixture
 def test_server_config(tmp_path: str, test_user) -> ServerConfig:
-    return ServerConfig(data_dir=str(tmp_path), default_user=test_user)
+    return ServerConfig(
+        data_dir=str(tmp_path),
+        default_user=test_user,
+        auth=AuthConfig(jwt_secret_key="asdasdasd"),
+    )
 
 
 @pytest.fixture
@@ -54,7 +58,8 @@ def client(
     app.include_router(prefix="/api/users", router=users.router)
 
     app.add_exception_handler(
-        KeyNotExistsException, lambda request, exc: JSONResponse({"detail": str(exc)}, status_code=404)
+        KeyNotExistsException,
+        lambda request, exc: JSONResponse({"detail": str(exc)}, status_code=404),
     )
     client = TestClient(app)
     yield client

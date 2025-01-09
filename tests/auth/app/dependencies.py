@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 
 from ampf.auth import AuthService, TokenPayload
 from ampf.auth.auth_exceptions import InsufficientPermissionsError
+from ampf.auth.auth_service import AuthConfig
 from ampf.base import BaseFactory
 from ampf.base.base_email_sender import BaseEmailSender
 from ampf.base.email_template import EmailTemplate
@@ -18,7 +19,7 @@ AuthTokenDep = Annotated[str, Depends(oauth2_scheme)]
 
 
 def get_server_config() -> ServerConfig:
-    return ServerConfig()
+    return ServerConfig(auth=AuthConfig(jwt_secret_key="asdasdasd"))
 
 
 ServerConfigDep = Annotated[ServerConfig, Depends(get_server_config)]
@@ -57,7 +58,6 @@ async def auth_service_dep(
         email_sender_service=email_sender_service,
         user_service=user_service,
         reset_mail_template=reset_mail_template,
-        jwt_secret_key=server_config.jwt_secret_key,
         auth_config=server_config.auth,
     )
 
