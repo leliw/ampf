@@ -25,8 +25,8 @@ class StreamedException(BaseModel):
 class JsonStreamingResponse[T: BaseModel](StreamingResponse):
     """Streams Pydantic objects to client as JSON.
 
-    Stream contain array of JSON objects (exept "[" and "]").
-    Each object is in one line. Each line starts with "," (except first line).
+    Stream contain array of JSON objects. Each object and  "[","]" 
+    are in one line. Each object starts with "," (except first line).
     """
 
     def __init__(
@@ -34,17 +34,20 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         content: Iterator[T] | AsyncIterator[T],
         status_code: int = 200,
         headers: Mapping[str, str] = None,
+        media_type: str = "application/json",
         background: BackgroundTask = None,
     ):
-        media_type = "text/event-stream"
         super().__init__(
             self.objects_to_text(content), status_code, headers, media_type, background
         )
+        self.media_type = media_type
+
 
     async def objects_to_text(
         self, responses: Iterator[T] | AsyncIterator[T]
     ) -> Iterator[str] | AsyncIterator[str]:
         """Converts object iterator to JSON string iterator of these objects."""
+        yield "[\n"
         try:
             i = 0
             if isinstance(responses, AsyncIterator):
@@ -57,6 +60,7 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
                     i += 1
         except Exception as e:
             yield self.object_to_text(i, StreamedException.from_exception(e))
+        yield "]\n"
 
     def object_to_text(self, i: int, o: T) -> str:
         """Converts object to JSON string."""

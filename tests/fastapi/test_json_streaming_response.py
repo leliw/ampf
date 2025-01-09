@@ -1,5 +1,4 @@
 import asyncio
-import json
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
@@ -25,7 +24,7 @@ def test_sync_iterator():
     # Then: The response status code is 200
     assert 200 == response.status_code
     # And: The response contains right answer
-    r = json.loads(f"[{response.text}]")
+    r = response.json()
     assert 1 == len(r)
     assert "Hello" == r[0]["hello"]
 
@@ -49,7 +48,7 @@ def test_async_iterator():
     # Then: The response status code is 200
     assert 200 == response.status_code
     # And: The response contains right answer
-    r = json.loads(f"[{response.text}]")
+    r = response.json()
     assert 1 == len(r)
     assert "Hello" == r[0]["hello"]
 
@@ -73,7 +72,7 @@ def test_exception_in_iterator():
     # Then: The response status code is 200
     assert 200 == response.status_code
     # And: The response contains answer and exception
-    r = json.loads(f"[{response.text}]")
+    r = response.json()
     assert 2 == len(r)
     assert "Hello" == r[0]["hello"]
     # And: The response contains exception with arguments
