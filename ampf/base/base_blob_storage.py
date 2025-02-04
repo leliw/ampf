@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Iterator, Type
 
 from pydantic import BaseModel
@@ -106,3 +107,24 @@ class BaseBlobStorage[T: BaseModel](ABC):
         metadata = self.get_metadata(source_key)
         self.delete(source_key)
         self.upload_blob(dest_key, data, metadata)
+
+    def upload_file(
+        self,
+        file_path: Path,
+        metadata: T = None,
+        key: str = None,
+        content_type: str = None,
+    ) -> None:
+        """Uploads a file to the storage
+
+        Args:
+            file_path: The path to the file
+            metadata: The metadata of the file
+            key: The key of the file
+            content_type: The content type of the file
+        """
+        with open(file_path, "rb") as file:
+            file_content = file.read()
+        if not key:
+            key = file_path.stem
+        self.upload_blob(key, file_content, metadata, content_type)

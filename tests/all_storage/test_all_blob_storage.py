@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field
 
@@ -15,10 +16,12 @@ class MyMetadata(BaseModel):
 
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
 def storage(request, tmp_path):
-    if request.param  == LocalBlobStorage:
+    if request.param == LocalBlobStorage:
         FileStorage._root_dir_path = tmp_path
-    if request.param  == GcpBlobStorage:
-        GcpBlobStorage.init_client(bucket_name=os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME"))
+    if request.param == GcpBlobStorage:
+        GcpBlobStorage.init_client(
+            bucket_name=os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
+        )
     storage = request.param("unit-tests", MyMetadata, content_type="text/plain")
     yield storage
     storage.drop()
@@ -34,7 +37,7 @@ def test_upload_blob(storage: BaseBlobStorage):
     assert file_name in list(storage.keys())
 
 
-def test_upload_blob_with_metadata(storage):
+def test_upload_blob_with_metadata(storage: BaseBlobStorage):
     file_name = "test/file"
     data = b"test data"
     metadata = MyMetadata(name="test", age=10)
@@ -44,7 +47,19 @@ def test_upload_blob_with_metadata(storage):
     assert metadata == storage.get_metadata(file_name)
 
 
-def test_download_blob(storage):
+def test_upload_file_with_metadata(storage: BaseBlobStorage, tmp_path: Path):
+    # Given: File
+    file_path = tmp_path.joinpath("test.txt")
+    with open(file_path, "wb") as f:
+        f.write(b"test data")
+    metadata = MyMetadata(name="test", age=10)
+    # When: Upload blob with metadata
+    storage.upload_file(file_path, metadata)
+    # Then: Metadata is saved
+    assert metadata == storage.get_metadata("test")
+
+
+def test_download_blob(storage: BaseBlobStorage):
     file_name = "test/file"
     data = b"test data"
     storage.upload_blob(file_name, data)
@@ -61,7 +76,7 @@ def test_download_nonexistent_blob(storage: BaseBlobStorage):
         storage.download_blob(file_name)
 
 
-def test_get_metadata(storage):
+def test_get_metadata(storage: BaseBlobStorage):
     file_name = "test/file"
     metadata = MyMetadata(name="test", age=10)
     storage.upload_blob(file_name, b"test data", metadata)
@@ -69,15 +84,17 @@ def test_get_metadata(storage):
     assert retrieved_metadata == metadata
 
 
-def test_get_nonexistent_metadata(storage):
+def test_get_nonexistent_metadata(storage: BaseBlobStorage):
     file_name = "test/file"
     with pytest.raises(KeyNotExistsException):
         storage.get_metadata(file_name)
 
 
-def test_upload_blob_with_default_ext(tmp_path):
+def test_upload_blob_with_default_ext(tmp_path: Path):
     storage = LocalBlobStorage(
-        str(tmp_path.joinpath("test_bucket")), content_type="text/plain", subfolder_characters=2
+        str(tmp_path.joinpath("test_bucket")),
+        content_type="text/plain",
+        subfolder_characters=2,
     )
     file_name = "test/file"
     data = b"test data"
@@ -104,16 +121,18 @@ def test_delete(storage: BaseBlobStorage):
     # Then: The file is deleted
     assert file_name not in list(storage.keys())
 
+
 def test_list_blobs(storage: BaseBlobStorage):
     # Give: An uploaded file
     file_name = "test/file.txt"
     storage.upload_blob(file_name, b"test data", content_type="text/plain")
-    # When: I list blobs 
+    # When: I list blobs
     blobs = list(storage.list_blobs("test"))
     # Then: The file is listed
     assert len(blobs) == 1
     assert blobs[0].name == "file.txt"
     assert blobs[0].mime_type == "text/plain"
+
 
 def test_delete_folder(storage: BaseBlobStorage):
     # Give: An uploaded file
@@ -124,6 +143,7 @@ def test_delete_folder(storage: BaseBlobStorage):
     storage.delete_folder("test")
     # Then: The file is deleted
     assert file_name not in list(storage.keys())
+
 
 def test_move_blob(storage: BaseBlobStorage):
     source_key = "test/source"
