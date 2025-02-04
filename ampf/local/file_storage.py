@@ -48,7 +48,8 @@ class FileStorage(ABC):
 
     def _create_file_path(self, file_name: str, ext: str = None) -> Path:
         ext = ext or self.default_ext
-        if ext:
+        file_ext = self._get_ext(file_name)
+        if file_ext != ext:
             file_name = f"{file_name}.{ext}"
         path = self.folder_path.joinpath(*self._split_to_folders(file_name))
         os.makedirs(path.parent, exist_ok=True)
@@ -64,4 +65,7 @@ class FileStorage(ABC):
     def _read_from_file(self, full_path: str) -> str:
         with open(full_path, "r", encoding="utf-8") as file:
             return file.read()
-        
+    
+    @classmethod
+    def _get_ext(cls, file_name: str, default_ext: str = None) -> str:
+        return file_name.split(".")[-1] if "." in file_name else default_ext

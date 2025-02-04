@@ -19,14 +19,14 @@ def storage(request, tmp_path):
         FileStorage._root_dir_path = tmp_path
     if request.param  == GcpBlobStorage:
         GcpBlobStorage.init_client(bucket_name=os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME"))
-    storage = request.param("unit-tests", MyMetadata)
+    storage = request.param("unit-tests", MyMetadata, content_type="text/plain")
     yield storage
     storage.drop()
 
 
 def test_upload_blob(storage: BaseBlobStorage):
     # Given: A file name with content
-    file_name = "test/file.txt"
+    file_name = "test/file"
     data = b"test data"
     # When: I upload it
     storage.upload_blob(file_name, data)
@@ -35,7 +35,7 @@ def test_upload_blob(storage: BaseBlobStorage):
 
 
 def test_upload_blob_with_metadata(storage):
-    file_name = "test/file.txt"
+    file_name = "test/file"
     data = b"test data"
     metadata = MyMetadata(name="test", age=10)
     # When: Upload blob with metadata
@@ -45,7 +45,7 @@ def test_upload_blob_with_metadata(storage):
 
 
 def test_download_blob(storage):
-    file_name = "test/file.txt"
+    file_name = "test/file"
     data = b"test data"
     storage.upload_blob(file_name, data)
     downloaded_data = storage.download_blob(file_name)
@@ -54,7 +54,7 @@ def test_download_blob(storage):
 
 def test_download_nonexistent_blob(storage: BaseBlobStorage):
     # Given: A not existing file name
-    file_name = "test/file.txt"
+    file_name = "test/file"
     # When: It is downloaded
     # Then: An exception is raised
     with pytest.raises(KeyNotExistsException):
@@ -62,7 +62,7 @@ def test_download_nonexistent_blob(storage: BaseBlobStorage):
 
 
 def test_get_metadata(storage):
-    file_name = "test/file.txt"
+    file_name = "test/file"
     metadata = MyMetadata(name="test", age=10)
     storage.upload_blob(file_name, b"test data", metadata)
     retrieved_metadata = storage.get_metadata(file_name)
@@ -70,14 +70,14 @@ def test_get_metadata(storage):
 
 
 def test_get_nonexistent_metadata(storage):
-    file_name = "test/file.txt"
+    file_name = "test/file"
     with pytest.raises(KeyNotExistsException):
         storage.get_metadata(file_name)
 
 
 def test_upload_blob_with_default_ext(tmp_path):
     storage = LocalBlobStorage(
-        str(tmp_path.joinpath("test_bucket")), default_ext="txt", subfolder_characters=2
+        str(tmp_path.joinpath("test_bucket")), content_type="text/plain", subfolder_characters=2
     )
     file_name = "test/file"
     data = b"test data"
@@ -89,14 +89,14 @@ def test_upload_blob_with_default_ext(tmp_path):
 
 
 def test_keys(storage: BaseBlobStorage):
-    file_name = "test/file.txt"
+    file_name = "test/file"
     storage.upload_blob(file_name, b"test data")
     assert file_name in list(storage.keys())
 
 
 def test_delete(storage: BaseBlobStorage):
     # Give: An uploaded file
-    file_name = "test/file.txt"
+    file_name = "test/file"
     storage.upload_blob(file_name, b"test data")
     assert file_name in list(storage.keys())
     # When: I delete the file
@@ -117,7 +117,7 @@ def test_list_blobs(storage: BaseBlobStorage):
 
 def test_delete_folder(storage: BaseBlobStorage):
     # Give: An uploaded file
-    file_name = "test/file.txt"
+    file_name = "test/file"
     storage.upload_blob(file_name, b"test data")
     assert file_name in list(storage.keys())
     # When: I delete the folder
@@ -126,8 +126,8 @@ def test_delete_folder(storage: BaseBlobStorage):
     assert file_name not in list(storage.keys())
 
 def test_move_blob(storage: BaseBlobStorage):
-    source_key = "test/source.txt"
-    dest_key = "test/dest.txt"
+    source_key = "test/source"
+    dest_key = "test/dest"
     data = b"test data"
     storage.upload_blob(source_key, data)
     storage.move_blob(source_key, dest_key)

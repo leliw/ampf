@@ -10,7 +10,7 @@ from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
 from .file_storage import FileStorage
-from ..mimetypes import get_content_type
+from ..mimetypes import get_content_type, get_extension
 
 
 class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
@@ -26,9 +26,10 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self,
         bucket_name: str,
         clazz: BaseModel = None,
-        default_ext: str = None,
+        content_type: str = None,
         subfolder_characters: int = None,
     ):
+        default_ext = get_extension(content_type)[1:] if content_type else None
         FileStorage.__init__(
             self,
             folder_name=bucket_name,
@@ -45,7 +46,8 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         metadata: BaseModel = None,
         content_type: str = None,
     ) -> None:
-        file_path = self._create_file_path(file_name)
+        ext = get_extension(content_type)[1:] if content_type else None
+        file_path = self._create_file_path(file_name, ext)
         os.makedirs(file_path.parent, exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(data)
@@ -79,8 +81,10 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
 
     def keys(self) -> Iterator[str]:
         for root, _, files in os.walk(self.folder_path):
+            ext = f".{self.default_ext}" if self.default_ext else ""
+            len_ext = len(ext)
             for file in files:
-                key = file[:-5] if file.endswith(".json") else file
+                key = file[:-len_ext] if file.endswith(ext) else file
                 yield root[len(str(self.folder_path)) + 1 :] + "/" + key
 
     def delete(self, file_name: str):
