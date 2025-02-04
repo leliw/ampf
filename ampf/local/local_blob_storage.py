@@ -46,7 +46,11 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         metadata: BaseModel = None,
         content_type: str = None,
     ) -> None:
-        ext = get_extension(content_type)[1:] if content_type else None
+        if content_type:
+            ext = get_extension(content_type)
+            ext = ext[1:] if ext else None
+        else:
+            ext = None
         file_path = self._create_file_path(file_name, ext)
         os.makedirs(file_path.parent, exist_ok=True)
         with open(file_path, "wb") as f:

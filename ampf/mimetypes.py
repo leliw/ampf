@@ -13,6 +13,14 @@ extension_map = {
     ".css": "text/css",
     ".ico": "image/x-icon",
     ".html": "text/html",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".mp4": "video/mp4",
+    ".avi": "video/x-msvideo",
+    ".mov": "video/quicktime",
+    ".wmv": "video/x-ms-wmv",
+    ".flv": "video/x-flv",
+    ".webm": "video/webm",
 }
 
 content_type_map = {}
