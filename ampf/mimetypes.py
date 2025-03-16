@@ -3,6 +3,8 @@ extension_map = {
     ".jpg": "image/jpeg",
     ".png": "image/png",
     ".gif": "image/gif",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
     ".svg": "image/svg+xml",
     ".pdf": "application/pdf",
     ".txt": "text/plain",
@@ -21,6 +23,7 @@ extension_map = {
     ".wmv": "video/x-ms-wmv",
     ".flv": "video/x-flv",
     ".webm": "video/webm",
+    ".md": "text/markdown",
 }
 
 content_type_map = {}
