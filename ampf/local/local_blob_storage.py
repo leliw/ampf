@@ -88,8 +88,9 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             ext = f".{self.default_ext}" if self.default_ext else ""
             len_ext = len(ext)
             for file in files:
-                key = file[:-len_ext] if file.endswith(ext) else file
-                yield root[len(str(self.folder_path)) + 1 :] + "/" + key
+                if not file.endswith(".json"):
+                    key = file[:-len_ext] if file.endswith(ext) else file
+                    yield root[len(str(self.folder_path)) + 1 :] + "/" + key
 
     def delete(self, file_name: str):
         file_path = self._create_file_path(file_name)

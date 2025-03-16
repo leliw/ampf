@@ -107,8 +107,11 @@ def test_upload_blob_with_default_ext(tmp_path: Path):
 
 def test_keys(storage: BaseBlobStorage):
     file_name = "test/file"
-    storage.upload_blob(file_name, b"test data")
-    assert file_name in list(storage.keys())
+    metadata = MyMetadata(name="test", age=10)
+    storage.upload_blob(file_name, b"test data", metadata)
+    keys = list(storage.keys())
+    assert len(keys) == 1
+    assert file_name in list(keys)
 
 
 def test_delete(storage: BaseBlobStorage):
