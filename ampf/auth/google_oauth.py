@@ -5,7 +5,6 @@ from pydantic import BaseModel
 import requests
 import jwt
 
-from cryptography.x509 import load_pem_x509_certificate
 
 
 GOOGLE_URL_PUBLIC_KEYS = "https://www.googleapis.com/oauth2/v1/certs"
@@ -42,6 +41,12 @@ class GoogleOAuth:
 
     def verify_jwt(self, token: str) -> dict[str, Any] | None:
         """Verify Google JWT token and return decoded token."""
+        try:
+            from cryptography.x509 import load_pem_x509_certificate
+        except ImportError:
+            print("Package 'cryptography' not found. Install it with 'pip install ampf[gcp]'")
+            return None
+
         if token.startswith("Bearer "):
             token = token.split(" ")[1]
 

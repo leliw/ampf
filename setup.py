@@ -2,9 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
     name="ampf",
-    version="0.1.11",
+    version="0.1.13",
     packages=find_packages(),
     install_requires=["fastapi", "pydantic"],
+    extras_require={
+        "gcp": ["cryptography", "google-cloud-core", "google-cloud-firestore", "google-cloud-storage"],
+    },
     author="Marcin Leliwa",
     author_email="marcin.leliwa@gmail.com",
     description="Angular & Material & Python & FastAPI",
