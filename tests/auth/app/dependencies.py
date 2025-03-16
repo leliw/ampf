@@ -14,8 +14,7 @@ from ampf.in_memory.in_memory_factory import InMemoryFactory
 from .config import ServerConfig
 from .features.user.user_service import UserService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
-AuthTokenDep = Annotated[str, Depends(oauth2_scheme)]
+AuthTokenDep = Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="api/login"))]
 
 
 def get_server_config() -> ServerConfig:
@@ -65,7 +64,7 @@ async def auth_service_dep(
 AuthServiceDep = Annotated[AuthService, Depends(auth_service_dep)]
 
 
-def decode_token(auth_service: AuthServiceDep, token: AuthTokenDep) -> TokenPayload:
+async def decode_token(auth_service: AuthServiceDep, token: AuthTokenDep) -> TokenPayload:
     return auth_service.decode_token(token)
 
 
