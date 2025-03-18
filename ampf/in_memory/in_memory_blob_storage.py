@@ -13,7 +13,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
     def __init__(self, bucket_name: str, clazz: Type[T], content_type: str = None):
         self.bucket_name = bucket_name
         self.clazz = clazz
-        self.contet_type = content_type
+        self.content_type = content_type
         if self.bucket_name not in self.buckets:
             self.buckets[self.bucket_name] = {}
 

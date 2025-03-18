@@ -12,8 +12,7 @@ Set of helper classes:
 Remove previous built and build library again.
 
 ```bash
-rm dist/*
-python -m build
+rm dist/*; python -m build
 ```
 
 Upload to private repository.

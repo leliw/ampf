@@ -4,6 +4,7 @@ from fastapi import UploadFile
 
 from google.cloud import storage
 
+
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
 
@@ -37,27 +38,36 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
             else self._default_bucket
         )
 
+    def _get_blob(self, key: str) -> storage.Blob:
+        return self._bucket.blob(f"{self.collection_name}/{key}")
+
+    def _get_prefix(self, folder_name: str = None) -> str:
+        prefix = self.collection_name + "/"
+        if folder_name:
+            prefix += folder_name if folder_name[-1] == "/" else folder_name + "/"
+        return prefix
+
     def upload_blob(
         self, key: str, data: bytes, metadata: T = None, content_type: str = None
     ) -> None:
-        blob = self._bucket.blob(key)
+        blob = self._get_blob(key)
         if metadata:
             blob.metadata = metadata.dict()
-        blob.upload_from_string(data, content_type=content_type or self.contet_type)
+        blob.upload_from_string(data, content_type=content_type or self.content_type)
 
     def download_blob(self, key: str) -> bytes:
-        blob = self._bucket.blob(key)
+        blob = self._get_blob(key)
         if not blob.exists():
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         return blob.download_as_bytes()
 
     def put_metadata(self, key: str, metadata: T) -> None:
-        blob = self._bucket.blob(key)
+        blob = self._get_blob(key)
         blob.metadata = metadata.dict()
         blob.patch()
 
     def get_metadata(self, key: str) -> T:
-        blob = self._bucket.blob(key)
+        blob = self._get_blob(key)
         if not blob.exists():
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         if not blob.metadata:
@@ -68,15 +78,19 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         return self.clazz(**blob.metadata)
 
     def delete(self, key: str):
-        blob = self._bucket.blob(key)
+        blob = self._get_blob(key)
         blob.delete()
 
     def keys(self) -> Iterator[str]:
-        for blob in self._bucket.list_blobs():
-            yield blob.name
+        prefix = self._get_prefix()
+        i = len(prefix)
+        blob: storage.Blob
+        for blob in self._bucket.list_blobs(prefix=prefix):
+            if not blob.name.endswith("/"):
+                yield blob.name[i:]
 
-    def list_blobs(self, dir: str = None) -> Iterator[Any]:
-        prefix = dir if dir[-1] == "/" else dir + "/"
+    def list_blobs(self, folder_name: str = None) -> Iterator[Any]:
+        prefix = self._get_prefix(folder_name)
         i = len(prefix)
         for blob in self._bucket.list_blobs(prefix=prefix):
             b: storage.Blob = blob
@@ -118,8 +132,8 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         return new_blob
 
     def move_blob(self, source_key: str, dest_key: str):
-        source_blob = self._bucket.blob(source_key)
-        new_blob = self._bucket.rename_blob(source_blob, dest_key)
+        source_blob = self._get_blob(source_key)
+        new_blob = self._bucket.rename_blob(source_blob, self._get_prefix() + dest_key)
         return new_blob
 
     def upload_blob_from_file(self, file_name: str, upload_file: UploadFile):
@@ -128,6 +142,7 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         blob.upload_from_file(upload_file.file, content_type=upload_file.content_type)
 
     def delete_folder(self, folder_name: str):
-        blobs = self._bucket.list_blobs(prefix=folder_name)
+        prefix = self._get_prefix(folder_name)
+        blobs = self._bucket.list_blobs(prefix=prefix)
         for blob in blobs:
             blob.delete()

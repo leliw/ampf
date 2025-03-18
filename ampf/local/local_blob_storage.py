@@ -29,6 +29,9 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         content_type: str = None,
         subfolder_characters: int = None,
     ):
+        BaseBlobStorage.__init__(
+            self, collection_name=bucket_name, clazz=clazz, content_type=content_type
+        )
         default_ext = get_extension(content_type)[1:] if content_type else None
         FileStorage.__init__(
             self,

@@ -23,7 +23,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
         """
         self.collection_name = collection_name
         self.clazz = clazz
-        self.contet_type = content_type
+        self.content_type = content_type
 
     @abstractmethod
     def upload_blob(
