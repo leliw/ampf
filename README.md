@@ -1,5 +1,14 @@
 # AMPF - Angular + Material + Python + FastAPI
 
+Set of helper classes:
+
+* FastAPI - helper classes for FatAPI framework
+  * StaticFileResponse - return static files or index.html (Angular files)
+  * JsonStreamingResponse - streams Pydantic objects to client as JSON.
+* [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.
+
+## Build
+
 Remove previous built and build library again.
 
 ```bash
