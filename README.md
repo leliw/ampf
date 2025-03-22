@@ -5,6 +5,7 @@ Set of helper classes:
 * FastAPI - helper classes for FatAPI framework
   * StaticFileResponse - return static files or index.html (Angular files)
   * JsonStreamingResponse - streams Pydantic objects to client as JSON.
+* [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
 * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.
 
 ## Build
