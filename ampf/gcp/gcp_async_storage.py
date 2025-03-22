@@ -1,6 +1,8 @@
-from typing import AsyncIterator, Type
+from typing import AsyncIterator, List, Type, override
 
-from google.cloud import firestore, exceptions
+from google.cloud import exceptions, firestore
+from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+from google.cloud.firestore_v1.vector import Vector
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncStorage, KeyNotExistsException
@@ -17,17 +19,26 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         project: str = None,
         database: str = None,
         key_name: str = None,
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
     ):
         super().__init__(collection, clazz, key_name)
         self._db = db or firestore.AsyncClient(project=project, database=database)
         self._coll_ref = self._db.collection(self.collection_name)
+        self.embedding_field_name = embedding_field_name
+        self.embedding_search_limit = embedding_search_limit
 
+    @override
     def on_before_save(self, data: dict) -> dict:
+        """Converts the embedding field to a Vector object.
+
+        Args:
+            data: The data to be saved.
+        Returns:
+            The preprocessed data.
         """
-        This method is called before saving data to Firestore.
-        You can use it to modify the data dictionary before saving it.
-        For example, you can add a timestamp or remove sensitive data.
-        """
+        if self.embedding_field_name in data:
+            data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
         return data
 
     async def put(self, key: str, data: T) -> None:
@@ -59,3 +70,22 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         """Delete all documents from the collection."""
         async for doc in self._coll_ref.stream():
             await doc.reference.delete()
+
+    async def find_nearest(
+        self, embedding: List[float], limit: int = None
+    ) -> AsyncIterator[T]:
+        """Finds the nearest knowledge base items to the given vector."
+
+        Args:
+            embedding: The vector to search for.
+            limit: The maximum number of results to return.
+        Returns:
+            An iterator of the nearest items.
+        """
+        async for ds in self._coll_ref.find_nearest(
+            vector_field=self.embedding_field_name,
+            query_vector=Vector(embedding),
+            distance_measure=DistanceMeasure.COSINE,
+            limit=limit or self.embedding_search_limit,
+        ).stream():
+            yield self.clazz(**ds.to_dict())

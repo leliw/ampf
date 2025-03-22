@@ -1,16 +1,30 @@
+from typing import List
 from pydantic import BaseModel
 import pytest
 
 from ampf.gcp import GcpStorage
+from ampf.gcp.gcp_async_storage import GcpAsyncStorage
+from ampf.gcp.gcp_factory import GcpFactory
 
 
 class TC(BaseModel):
     name: str
+    embedding: List[float] = None
 
 
-@pytest.fixture
-def storage():
-    return GcpStorage("unit tests", TC)
+@pytest.fixture()
+def storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = gcp_factory.create_storage(collection_name, TC)
+    yield storage
+    storage.drop()
+
+
+@pytest.mark.asyncio()
+@pytest.fixture()
+async def async_storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = gcp_factory.create_async_storage(collection_name, TC)
+    yield storage
+    await storage.drop()
 
 
 def test_storage(storage: GcpStorage[TC]):
@@ -29,3 +43,45 @@ def test_storage(storage: GcpStorage[TC]):
     storage.drop()
 
     assert list(storage.keys()) == []
+
+
+"""
+This test requires vector index to be created.
+
+gcloud firestore indexes composite create --project=development-428212 --collection-group=tests-ampf-gcp --query-scope=COLLECTION --field-config=vector-config='{"dimension":"3","flat": "{}"}',field-path=embedding
+"""
+
+
+def test_embedding(storage: GcpStorage[TC]):
+    # Given: Data with embedding
+    tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
+    tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    storage.put("1", tc1)
+    storage.put("2", tc2)
+    # And: Find nearest
+    nearest = list(storage.find_nearest(tc1.embedding))
+    # Then: All two are returned
+    assert len(nearest) == 2
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+    # And: The second is the second
+    assert nearest[1] == tc2
+
+
+@pytest.mark.asyncio()
+async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
+    # Given: Data with embedding
+    tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
+    tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    await async_storage.put("1", tc1)
+    await async_storage.put("2", tc2)
+    # And: Find nearest
+    nearest = list([x async for x in async_storage.find_nearest(tc1.embedding)])
+    # Then: All two are returned
+    assert len(nearest) == 2
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+    # And: The second is the second
+    assert nearest[1] == tc2
