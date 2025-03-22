@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ampf",
-    version="0.1.17",
+    version="0.1.18",
     packages=find_packages(),
     install_requires=["fastapi", "pydantic"],
     extras_require={
