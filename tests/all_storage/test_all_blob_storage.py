@@ -15,7 +15,7 @@ class MyMetadata(BaseModel):
 
 
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
-def storage(request, tmp_path):
+def storage(gcp_factory, request, tmp_path):
     if request.param == LocalBlobStorage:
         FileStorage._root_dir_path = tmp_path
     if request.param == GcpBlobStorage:

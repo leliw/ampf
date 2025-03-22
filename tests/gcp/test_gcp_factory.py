@@ -1,26 +1,17 @@
 from pydantic import BaseModel
-import pytest
 
 from ampf.gcp import GcpFactory
-
-
-@pytest.fixture
-def factory():
-    GcpFactory.init_client()
-    return GcpFactory()
 
 
 class T(BaseModel):
     name: str
 
 
-def test_create_storage(factory: GcpFactory):
-    storage = factory.create_storage("test", T, "name")
-
+def test_create_storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = gcp_factory.create_storage(collection_name, T, "name")
     assert storage is not None
 
 
-def test_create_compact_storage(factory):
-    storage = factory.create_compact_storage("test", T, "name")
-
+def test_create_compact_storage(gcp_factory, collection_name: str):
+    storage = gcp_factory.create_compact_storage(collection_name, T, "name")
     assert storage is not None

@@ -1,14 +1,31 @@
+import asyncio
 from typing import Optional
+
 import pytest
 
 from ampf.base.base_email_sender import BaseEmailSender
+from ampf.gcp.gcp_factory import GcpFactory
 from ampf.in_memory.in_memory_factory import InMemoryFactory
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+def gcp_factory():
+    # Creating firestore client is very slow.
+    # Scope == session speeds up tests
+    GcpFactory.init_client()
+    return GcpFactory()
+
+
+@pytest.fixture(scope="session")
+def collection_name():
+    return "tests-ampf-gcp"
+
+
+@pytest.fixture(scope="session")
 def factory():
     """Return an instance of the in-memory factory."""
     return InMemoryFactory()
+
 
 class TestEmailSender(BaseEmailSender):
     """A test email sender that stores sent emails in memory."""
@@ -39,3 +56,14 @@ class TestEmailSender(BaseEmailSender):
 def email_sender():
     """Return an instance of the test email sender."""
     return TestEmailSender()
+
+
+# There are firestore client's errors without it 
+@pytest.fixture(scope="session")
+def event_loop():
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()

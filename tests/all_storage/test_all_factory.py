@@ -7,9 +7,11 @@ from ampf.local import LocalFactory
 
 
 @pytest.fixture(params=[InMemoryFactory, LocalFactory, GcpFactory])
-def factory(request, tmp_path):
+def factory(gcp_factory, request, tmp_path):
     if request.param == LocalFactory:
         factory = request.param(tmp_path)
+    elif request.param == GcpFactory:
+        factory = gcp_factory
     else:
         factory = request.param()
     return factory

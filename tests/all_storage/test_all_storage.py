@@ -15,10 +15,13 @@ class D(BaseModel):
 @pytest.fixture(
     params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage]
 )
-def storage(request, tmp_path):
+def storage(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
         FileStorage._root_dir_path = tmp_path
-    storage = request.param("test", D)
+    if request.param == GcpStorage:
+        storage = gcp_factory.create_storage("test", D)
+    else:
+        storage = request.param("test", D)
     yield storage
     storage.drop()
 

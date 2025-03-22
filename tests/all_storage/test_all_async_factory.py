@@ -7,9 +7,11 @@ from ampf.local_async import AsyncLocalFactory
 
 
 @pytest.fixture(params=[InMemoryAsyncFactory, AsyncLocalFactory, GcpAsyncFactory])
-def factory(request, tmp_path):
+def factory(gcp_factory, request, tmp_path):
     if request.param == AsyncLocalFactory:
         factory = request.param(tmp_path)
+    elif request.param == GcpAsyncFactory:
+        factory = gcp_factory
     else:
         factory = request.param()
     return factory
