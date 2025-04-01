@@ -1,8 +1,8 @@
 """Stores data on disk in json files"""
 
-import logging
 import json
-from typing import AsyncIterator, Type
+import logging
+from typing import AsyncIterator, Callable, Type
 
 from pydantic import BaseModel
 
@@ -13,8 +13,14 @@ DEF_EXT = "json"
 
 
 class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncStorage[T], FileAsyncStorage):
-    def __init__(self, collection_name: str, clazz: Type[T], key_name: str = None):
-        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name)
+    def __init__(
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
+    ):
+        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
         FileAsyncStorage.__init__(self, default_ext=DEF_EXT)
 
         if "." not in collection_name:

@@ -1,4 +1,4 @@
-from typing import AsyncIterator, List, Type, override
+from typing import AsyncIterator, Callable, List, Type, override
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -19,10 +19,11 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         project: str = None,
         database: str = None,
         key_name: str = None,
+        key: Callable[[T], str] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
-        super().__init__(collection, clazz, key_name)
+        super().__init__(collection, clazz, key_name, key)
         self._db = db or firestore.AsyncClient(project=project, database=database)
         self._coll_ref = self._db.collection(self.collection_name)
         self.embedding_field_name = embedding_field_name

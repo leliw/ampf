@@ -9,6 +9,7 @@ class D(BaseModel):
     name: str
     value: str
 
+
 @pytest.fixture
 def storage():
     return InMemoryStorage("test", D)
@@ -22,12 +23,13 @@ def test_create_new(storage: BaseStorage):
     # Then: Is created
     assert ["foo"] == list(storage.keys())
 
+
 def test_create_already_exists(storage: BaseStorage):
     # Given: A new element
     d = D(name="foo", value="beer")
     # And: It is already created
     storage.create(d)
-    # When: 
+    # When:
     # I try to create it again
     with pytest.raises(KeyExistsException):
         storage.create(d)
@@ -41,6 +43,7 @@ def test_save_not_exists(storage: BaseStorage):
     # Then: Is saved
     assert ["foo"] == list(storage.keys())
 
+
 def test_save_exists(storage: BaseStorage):
     # Given: A new element
     d = D(name="foo", value="beer")
@@ -51,6 +54,7 @@ def test_save_exists(storage: BaseStorage):
     # Then: Is saved
     assert ["foo"] == list(storage.keys())
 
+
 def test_get_key(storage: BaseStorage):
     # Given: A new element
     d = D(name="foo", value="beer")
@@ -58,6 +62,7 @@ def test_get_key(storage: BaseStorage):
     key = storage.get_key(d)
     # Then: The key is correct
     assert "foo" == key
+
 
 def test_get_all(storage: BaseStorage):
     # Given: Some elements
@@ -70,6 +75,7 @@ def test_get_all(storage: BaseStorage):
     # Then: All elements are returned
     assert [d1, d2] == all_elements
 
+
 def test_key_exists(storage: BaseStorage):
     # Given: Some elements
     d1 = D(name="foo", value="beer")
@@ -80,6 +86,7 @@ def test_key_exists(storage: BaseStorage):
     assert storage.key_exists("foo")
     assert not storage.key_exists("baz")
 
+
 def test_is_empty(storage: BaseStorage):
     # Given: An empty storage
     assert storage.is_empty()
@@ -89,3 +96,36 @@ def test_is_empty(storage: BaseStorage):
     # Then: Is not empty
     assert not storage.is_empty()
 
+
+def test_get_key_not_set():
+    # Given: A storage without key set
+    storage = InMemoryStorage("test", D)
+    # And: A new element
+    d = D(name="foo", value="beer")
+    # When: I get the key
+    key = storage.get_key(d)
+    # Then: The first attribute is returned
+    assert "foo" == key
+
+def test_get_key_name_is_set():
+    # Given: A storage with key name
+    storage = InMemoryStorage("test", D, key_name="value")
+    # And: A new element
+    d = D(name="foo", value="beer")
+    # When: I get the key
+    key = storage.get_key(d)
+    # Then: The attribute key name is returned
+    assert "beer" == key
+
+def test_get_key_as_lambda():
+    # Given: A storage with key name
+    storage = InMemoryStorage("test", D, key=lambda d: f"{d.name}/{d.value}")
+    # And: A new element
+    d = D(name="foo", value="beer")
+    # When: I get the key
+    key = storage.get_key(d)
+    # Then: The attribute key name is returned
+    assert "foo/beer" == key
+
+if __name__ == "__main__":
+    pytest.main([__file__])

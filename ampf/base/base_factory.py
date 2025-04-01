@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Callable, Type
 
 from pydantic import BaseModel
 
-
-from .base_storage import BaseStorage
 from .base_blob_storage import BaseBlobStorage
+from .base_storage import BaseStorage
 
 
 class BaseFactory(ABC):
@@ -13,7 +12,11 @@ class BaseFactory(ABC):
 
     @abstractmethod
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -27,7 +30,11 @@ class BaseFactory(ABC):
         """
 
     def create_compact_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
@@ -42,7 +49,7 @@ class BaseFactory(ABC):
         Returns:
             Storage object.
         """
-        return self.create_storage(collection_name, clazz, key_name)
+        return self.create_storage(collection_name, clazz, key_name, key)
 
     @abstractmethod
     def create_blob_storage[T: BaseModel](

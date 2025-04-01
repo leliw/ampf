@@ -1,4 +1,4 @@
-from typing import Iterator, List, Type, override
+from typing import Callable, Iterator, List, Type, override
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -19,6 +19,7 @@ class GcpStorage[T](BaseStorage[T]):
         project: str = None,
         database: str = None,
         key_name: str = None,
+        key: Callable[[T], str] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
@@ -34,7 +35,7 @@ class GcpStorage[T](BaseStorage[T]):
             embedding_field_name: The name of the embedding field.
             embedding_search_limit: The maximum number of results to return when vector searching.
         """
-        super().__init__(collection, clazz, key_name=key_name)
+        super().__init__(collection, clazz, key_name, key)
         self._db = db or firestore.Client(project=project, database=database)
         self._collection = collection
         self._coll_ref = self._db.collection(self._collection)
@@ -44,7 +45,7 @@ class GcpStorage[T](BaseStorage[T]):
     @override
     def on_before_save(self, data: dict) -> dict:
         """Converts the embedding field to a Vector object.
-        
+
         Args:
             data: The data to be saved.
         Returns:

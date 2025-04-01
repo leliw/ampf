@@ -22,3 +22,13 @@ def test_crete_compact_storage(factory: BaseFactory):
     assert s1 is not None
     assert issubclass(s1.__class__, BaseStorage)
 
+
+def test_crete_storage_with_key(factory: BaseFactory):
+    # When: A compact storage is created
+    s1 = factory.create_storage("xxx", D, key=lambda d: d.name)
+    # Then: A storage is created
+    assert s1 is not None
+    assert issubclass(s1.__class__, BaseStorage)
+
+if __name__ == "__main__":
+    pytest.main([__file__])

@@ -1,10 +1,12 @@
-from typing import Type
+from typing import Callable, Type
+
 from google.cloud import firestore
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobStorage
-from .gcp_storage import GcpStorage
+
 from .gcp_blob_storage import GcpBlobStorage
+from .gcp_storage import GcpStorage
 
 
 class GcpAsyncFactory(BaseAsyncFactory):
@@ -18,10 +20,14 @@ class GcpAsyncFactory(BaseAsyncFactory):
             GcpBlobStorage.init_client(default_bucket)
 
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseAsyncStorage[T]:
         return GcpStorage(
-            collection_name, clazz, db=GcpAsyncFactory._db, key_name=key_name
+            collection_name, clazz, db=GcpAsyncFactory._db, key_name=key_name, key=key
         )
 
     def create_blob_storage[T: BaseModel](

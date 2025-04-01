@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Type
+from typing import Callable, Type
 from pydantic import BaseModel
 
 from ..base import BaseFactory, BaseStorage, BaseBlobStorage
@@ -15,17 +15,25 @@ class LocalFactory(BaseFactory):
         FileStorage._root_dir_path = Path(os.path.abspath(root_dir_path))
 
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
         return JsonMultiFilesStorage(
-            collection_name=collection_name, clazz=clazz, key_name=key_name
+            collection_name=collection_name, clazz=clazz, key_name=key_name, key=key
         )
 
     def create_compact_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
         return JsonOneFileStorage(
-            collection_name=collection_name, clazz=clazz, key_name=key_name
+            collection_name=collection_name, clazz=clazz, key_name=key_name, key=key
         )
 
     def create_blob_storage[T: BaseModel](

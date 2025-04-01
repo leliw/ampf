@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Iterator, Type
+from typing import Callable, Iterator, Type
 
 from ..base import BaseStorage, KeyNotExistsException
 from .file_storage import FileStorage
@@ -17,9 +17,10 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
         collection_name: str,
         clazz: Type[T],
         key_name: str = None,
+        key: Callable[[T], str] = None,
         subfolder_characters: int = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name)
+        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
         FileStorage.__init__(
             self,
             folder_name=collection_name,

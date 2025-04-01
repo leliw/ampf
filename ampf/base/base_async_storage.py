@@ -1,8 +1,9 @@
 """Base class for storage implementations which store Pydantic objects"""
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Iterator, Type
+from typing import Any, AsyncIterator, Callable, Iterator, Type
 
 from pydantic import BaseModel
 
@@ -12,10 +13,17 @@ from .exceptions import KeyExistsException
 class BaseAsyncStorage[T: BaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
-    def __init__(self, collection_name: str, clazz: Type[T], key_name: str = None):
+    def __init__(
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
+    ):
         self.collection_name = collection_name
         self.clazz = clazz
-        if not key_name:
+        self.key = key
+        if not key and not key_name:
             field_names = list(clazz.model_fields.keys())
             key_name = field_names[0]
         self.key_name = key_name
@@ -48,7 +56,10 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         await self.put(key, value)
 
     def get_key(self, value: T) -> str:
-        return getattr(value, self.key_name)
+        if self.key:
+            return self.key(value)
+        else:
+            return getattr(value, self.key_name)
 
     async def drop(self) -> None:
         """Delete all the values"""

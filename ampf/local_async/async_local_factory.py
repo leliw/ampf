@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import Type
+from typing import Callable, Type
+
 from pydantic import BaseModel
 
 from ..base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobStorage
-from ..local import FileStorage, StrPath, LocalBlobStorage
+from ..local import FileStorage, LocalBlobStorage, StrPath
 from .json_multi_files_async_storage import JsonMultiFilesAsyncStorage
 from .json_one_file_async_storage import JsonOneFileAsyncStorage
 
@@ -13,17 +14,25 @@ class AsyncLocalFactory(BaseAsyncFactory):
         FileStorage._root_dir_path = Path(root_dir_path)
 
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseAsyncStorage[T]:
         return JsonMultiFilesAsyncStorage(
-            collection_name=collection_name, clazz=clazz, key_name=key_name
+            collection_name=collection_name, clazz=clazz, key_name=key_name, key=key
         )
 
     def create_compact_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseAsyncStorage[T]:
         return JsonOneFileAsyncStorage(
-            collection_name=collection_name, clazz=clazz, key_name=key_name
+            collection_name=collection_name, clazz=clazz, key_name=key_name, key=key
         )
 
     def create_blob_storage[T: BaseModel](

@@ -3,12 +3,14 @@
 import logging
 import os
 from pathlib import Path
-from typing import AsyncIterator, Type
+from typing import AsyncIterator, Callable, Type
+
 import aiofiles
 import aiofiles.os
 
-from .file_async_storage import FileAsyncStorage
 from ampf.base import BaseAsyncStorage
+
+from .file_async_storage import FileAsyncStorage
 
 
 class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
@@ -19,9 +21,10 @@ class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
         collection_name: str,
         clazz: Type[T],
         key_name: str = None,
+        key: Callable[[T], str] = None,
         subfolder_characters: int = None,
     ):
-        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name)
+        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
         FileAsyncStorage.__init__(
             self,
             folder_name=collection_name,

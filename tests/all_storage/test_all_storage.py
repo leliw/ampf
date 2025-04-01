@@ -25,6 +25,18 @@ def storage(gcp_factory, request, tmp_path):
     yield storage
     storage.drop()
 
+@pytest.fixture(
+    params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage]
+)
+def storage_key(gcp_factory, request, tmp_path):
+    if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
+        FileStorage._root_dir_path = tmp_path
+    if request.param == GcpStorage:
+        storage = gcp_factory.create_storage("test", D, key=lambda d: d.value)
+    else:
+        storage = request.param("test", D, key=lambda d: d.value)
+    yield storage
+    storage.drop()
 
 def test_not_found(storage: BaseStorage):
     # When: I get something from empty storage
@@ -72,13 +84,21 @@ def test_save_exists(storage: BaseStorage):
     assert ["foo"] == list(storage.keys())
 
 
-def test_get_key(storage: BaseStorage):
+def test_get_key_name(storage: BaseStorage):
     # Given: A new element
     d = D(name="foo", value="beer")
     # When: I get the key
     key = storage.get_key(d)
     # Then: The key is correct
     assert "foo" == key
+
+def test_get_key(storage_key: BaseStorage):
+    # Given: A new element
+    d = D(name="foo", value="beer")
+    # When: I get the key
+    key = storage_key.get_key(d)
+    # Then: The key is correct
+    assert "beer" == key
 
 
 def test_get_all(storage: BaseStorage):

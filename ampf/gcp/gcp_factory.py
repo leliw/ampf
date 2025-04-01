@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Callable, Type
 
 from google.cloud import firestore
 from pydantic import BaseModel
@@ -32,12 +32,17 @@ class GcpFactory(BaseFactory):
             cls._async_db = firestore.Client()
         return cls._async_db
 
-
     @classmethod
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
-        return GcpStorage(collection_name, clazz, db=self.get_db(), key_name=key_name)
+        return GcpStorage(
+            collection_name, clazz, db=self.get_db(), key_name=key_name, key=key
+        )
 
     def create_blob_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T] = None, content_type: str = None
@@ -45,6 +50,12 @@ class GcpFactory(BaseFactory):
         return GcpBlobStorage(collection_name, clazz, content_type)
 
     def create_async_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
     ) -> BaseAsyncStorage[T]:
-        return GcpAsyncStorage(collection_name, clazz, db=self.get_async_db(), key_name=key_name)
+        return GcpAsyncStorage(
+            collection_name, clazz, db=self.get_async_db(), key_name=key_name, key=key
+        )

@@ -2,7 +2,7 @@
 
 import logging
 import json
-from typing import Iterator, Type
+from typing import Callable, Iterator, Type
 
 from pydantic import BaseModel
 
@@ -13,8 +13,14 @@ DEF_EXT = "json"
 
 
 class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
-    def __init__(self, collection_name: str, clazz: Type[T], key_name: str = None):
-        BaseStorage.__init__(self, collection_name, clazz, key_name)
+    def __init__(
+        self,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: str = None,
+        key: Callable[[T], str] = None,
+    ):
+        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
         FileStorage.__init__(self, default_ext=DEF_EXT)
 
         if "." not in collection_name:
