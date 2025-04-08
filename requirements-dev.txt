@@ -8,3 +8,5 @@ pytest-cov
 pytest-asyncio
 
 pydantic-settings
+
+-r requirements.txt

@@ -31,7 +31,8 @@ class InMemoryStorage[T: BaseModel](BaseStorage, BaseQuery):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     def keys(self) -> Iterator[T]:
-        return self.items.keys()
+        for key in self.items.keys():
+            yield key
 
     def delete(self, key: str) -> None:
         self.items.pop(key, None)

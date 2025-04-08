@@ -2,7 +2,7 @@
 
 Base class for storage implementations which store Pydantic objects.
 Each object is stored in collection and is recogized by its key.
-If a key contains `/`, it is treated as path and all sub-paths are 
+If a key contains `/`, it is treated as path and all sub-paths are
 treated as sub-collections.
 
 Type parameter:
@@ -36,3 +36,9 @@ These methods are implemented in this class.
 * get_all(self, sort: `Any` = None) -> `Iterator[T]`: Get all the values
 * key_exists(self, needle: `str`) -> `bool`: Check if the key exists
 * is_empty(self) -> `bool`: Is storage empty?
+* create_collection(self, key: str, collection_name: str, clazz: Type[T]) -> BaseStorage[T]: Creates a new storage object for subcollection (see below)
+
+## Collections hierarchy - subcollections
+
+Collections and their storages can be organized in a hierarchy (like files hierarchy).
+Subcollections can be created by using `/` character in a key or by using `create_collection()` method.

@@ -127,5 +127,17 @@ def test_get_key_as_lambda():
     # Then: The attribute key name is returned
     assert "foo/beer" == key
 
+def test_create_collection(storage: BaseStorage):
+    # When: Collection is created
+    ret = storage.create_collection("foo", "subcoll", D)
+    # Then: Collection is returned
+    assert issubclass(ret.__class__, BaseStorage)
+    # And: Value can be saved and read
+    ret.save(D(name="foo", value="bar"))
+    assert D(name="foo", value="bar") == ret.get("foo")
+    # And: Parent storage is unchanged
+    assert ["foo"] not in list(storage.keys())
+    
+
 if __name__ == "__main__":
     pytest.main([__file__])

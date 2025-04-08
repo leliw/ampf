@@ -87,3 +87,7 @@ class BaseStorage[T: BaseModel](ABC):
         for _ in self.keys():
             return False
         return True
+
+    def create_collection(self, key: str, collection_name: str, clazz: Type[T]) -> BaseStorage[T]:
+        new_collection_name = f"{self.collection_name}/{key}/{collection_name}"
+        return self.__class__(new_collection_name, clazz)
