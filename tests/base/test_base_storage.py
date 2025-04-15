@@ -1,3 +1,4 @@
+from typing import List
 from pydantic import BaseModel
 import pytest
 
@@ -107,6 +108,7 @@ def test_get_key_not_set():
     # Then: The first attribute is returned
     assert "foo" == key
 
+
 def test_get_key_name_is_set():
     # Given: A storage with key name
     storage = InMemoryStorage("test", D, key_name="value")
@@ -116,6 +118,7 @@ def test_get_key_name_is_set():
     key = storage.get_key(d)
     # Then: The attribute key name is returned
     assert "beer" == key
+
 
 def test_get_key_as_lambda():
     # Given: A storage with key name
@@ -127,6 +130,7 @@ def test_get_key_as_lambda():
     # Then: The attribute key name is returned
     assert "foo/beer" == key
 
+
 def test_create_collection(storage: BaseStorage):
     # When: Collection is created
     ret = storage.create_collection("foo", "subcoll", D)
@@ -137,7 +141,29 @@ def test_create_collection(storage: BaseStorage):
     assert D(name="foo", value="bar") == ret.get("foo")
     # And: Parent storage is unchanged
     assert ["foo"] not in list(storage.keys())
-    
+
+
+class TC(BaseModel):
+    name: str
+    embedding: List[float] = None
+
+
+def test_embedding(storage: BaseStorage[TC]):
+    # Given: Data with embedding
+    tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
+    tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    storage.put("1", tc1)
+    storage.put("2", tc2)
+    # And: Find nearest
+    nearest = list(storage.find_nearest(tc1.embedding))
+    # Then: All two are returned
+    assert len(nearest) == 2
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+    # And: The second is the second
+    assert nearest[1] == tc2
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

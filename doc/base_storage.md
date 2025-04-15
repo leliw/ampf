@@ -15,6 +15,8 @@ Type parameter:
 * clazz(`Type[T]`): Class of objects stored in storage,
 * key_name(`str`): Mame of key field in stored object, default is first field
 * key(`Callable[[T], str]`): Function to get key from object, default is None
+* embedding_field_name(`str`) = "embedding": Name of field in object which contains embedding vector
+* embedding_search_limit(`int`) = 5: Limit of objects to be returned by embedding search
 
 ## Abstract methods
 
@@ -42,3 +44,14 @@ These methods are implemented in this class.
 
 Collections and their storages can be organized in a hierarchy (like files hierarchy).
 Subcollections can be created by using `/` character in a key or by using `create_collection()` method.
+
+## Embedding search - find_nearest
+
+This method is used to find the nearest object in the storage. There is
+a simple, not optimal implementation of this method in the base class. It is
+used if the storage doesn't implement this method. The method uses
+`scipy.spatial.distance.cdist` to calculate the distance between the
+embeddings of the objects in the storage and the embedding of the object
+passed as a parameter. The method returns the list of the nearest objects
+sorted by distance. The number of objects returned is limited by the
+`embedding_search_limit` parameter.
