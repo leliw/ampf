@@ -10,16 +10,34 @@ Set of helper classes:
   * JsonStreamingResponse - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
 
-## Build
-
-Remove previous built and build library again.
+## Build and publish
 
 ```bash
-rm dist/*; python -m build
+export ARTIFACT_REGISTRY_TOKEN=$(
+    gcloud auth application-default print-access-token
+)
+export UV_PUBLISH_USERNAME=oauth2accesstoken
+export UV_PUBLISH_PASSWORD="$ARTIFACT_REGISTRY_TOKEN"
+
+rm -rf dist/
+uv build
+uv publish --index private-registry
 ```
 
-Upload to private repository.
+## Install
 
 ```bash
-python3 -m twine upload --repository-url https://europe-west3-python.pkg.dev/development-428212/pip dist/*
+pip install ampf
 ```
+
+Optionall dependecies:
+
+```bash
+pip install ampf[fastapi]
+pip install ampf[gcp]
+pip install ampf[huggingface]
+```
+
+* [fastapi] - for FastAPI framework
+* [gcp] - for Google Cloud Platform
+* [huggingface] - for Hugging Face classes (local embedding search)
