@@ -1,9 +1,0 @@
-fastapi
-pydantic
-google-cloud-firestore
-google-cloud-storage
-aiofiles
-
-PyJWT
-pydantic[email]
-python-multipart
