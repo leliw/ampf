@@ -5,11 +5,11 @@ import os
 from pathlib import Path
 from typing import Callable, Iterator, Type
 
-from ..base import BaseStorage, KeyNotExistsException
+from ..base import BaseCollectionStorage, KeyNotExistsException
 from .file_storage import FileStorage
 
 
-class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
+class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
@@ -20,7 +20,7 @@ class JsonMultiFilesStorage[T](BaseStorage[T], FileStorage):
         key: Callable[[T], str] = None,
         subfolder_characters: int = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         FileStorage.__init__(
             self,
             folder_name=collection_name,

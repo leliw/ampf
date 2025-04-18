@@ -1,10 +1,36 @@
-from abc import ABC, abstractmethod
-from typing import Callable, Type
+from __future__ import annotations
 
-from pydantic import BaseModel
+from abc import ABC, abstractmethod
+from typing import Callable, List, Optional, Type
+
+from pydantic import BaseModel, Field
 
 from .base_blob_storage import BaseBlobStorage
+from .base_collection_storage import BaseCollectionStorage
 from .base_storage import BaseStorage
+
+
+class CollectionDef(BaseModel):
+    """Parameters defining CollectionStorage"""
+
+    collection_name: str
+    clazz: Type
+    key_name: Optional[str] = None
+    subcollections: Optional[List[CollectionDef]] = Field(default_factory=list())
+
+    def __init__(
+        self,
+        collection_name: str,
+        clazz: Type,
+        key_name: Optional[str] = None,
+        subcollections: Optional[List[CollectionDef]] = None,
+    ):
+        super().__init__(
+            collection_name=collection_name,
+            clazz=clazz,
+            key_name=key_name,
+            subcollections=subcollections or list(),
+        )
 
 
 class BaseFactory(ABC):
@@ -64,3 +90,22 @@ class BaseFactory(ABC):
         Returns:
             Blob storage object.
         """
+
+    def create_collection[T: BaseModel](
+        self, definition: CollectionDef[T] | dict
+    ) -> BaseCollectionStorage[T]:
+        """Creates collection from its definition. Definition can contain also subcollections definitions.
+
+        Args:
+            definition: Collection definition
+        Returns:
+            Collection object.
+        """
+        if isinstance(definition, dict):
+            definition = CollectionDef.model_validate(dict)
+        ret: BaseCollectionStorage = self.create_storage(
+            definition.collection_name, definition.clazz, definition.key_name
+        )
+        for subcol in definition.subcollections:
+            ret.add_collection(self.create_collection(subcol))
+        return ret

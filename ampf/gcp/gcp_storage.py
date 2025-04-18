@@ -5,10 +5,10 @@ from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
 
-from ampf.base import BaseStorage, KeyNotExistsException
+from ..base import BaseCollectionStorage, KeyNotExistsException
 
 
-class GcpStorage[T](BaseStorage[T]):
+class GcpStorage[T](BaseCollectionStorage[T]):
     """A simple wrapper around Google Cloud Firestore."""
 
     def __init__(
@@ -38,10 +38,10 @@ class GcpStorage[T](BaseStorage[T]):
         super().__init__(
             collection,
             clazz,
-            key_name,
-            key,
-            embedding_field_name,
-            embedding_search_limit,
+            key_name=key_name,
+            key=key,
+            embedding_field_name=embedding_field_name,
+            embedding_search_limit=embedding_search_limit,
         )
         self._db = db or firestore.Client(project=project, database=database)
         self._collection = collection

@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterator, List, Type
 
+from deprecated import deprecated
 from pydantic import BaseModel
 
 from .exceptions import KeyExistsException
@@ -95,6 +96,7 @@ class BaseStorage[T: BaseModel](ABC):
             return False
         return True
 
+    @deprecated
     def create_collection(
         self, key: str, collection_name: str, clazz: Type[T]
     ) -> BaseStorage[T]:
@@ -116,7 +118,7 @@ class BaseStorage[T: BaseModel](ABC):
 
             self._log.warning("Embedding search is not optimized for performance.")
             self._log.warning("Consider using a vector database for production.")
-            
+
             limit = limit or self.embedding_search_limit
             ret: List[T] = []
             for item in self.get_all():
