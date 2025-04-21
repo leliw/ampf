@@ -94,6 +94,9 @@ class BaseStorage[T: BaseModel](ABC):
         for _ in self.keys():
             return False
         return True
+    
+    def count(self) -> int:
+        return len(list(self.keys()))
 
     def create_collection(
         self, parent_key: str, collection_name: str, clazz: Type[T], key_name: str = None, key: Callable[[T], str] = None

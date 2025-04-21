@@ -97,6 +97,14 @@ def test_is_empty(storage: BaseStorage):
     # Then: Is not empty
     assert not storage.is_empty()
 
+def test_count(storage: BaseStorage):
+    # Given: A storage with an element
+    storage.create(D(name="foo", value="beer"))
+    # When: Count elements
+    ret = storage.count()
+    # Then: Count is 1
+    assert ret == 1
+
 
 def test_get_key_not_set():
     # Given: A storage without key set
