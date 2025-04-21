@@ -1,7 +1,7 @@
-from abc import ABC
 import os
-from pathlib import Path
 import shutil
+from abc import ABC
+from pathlib import Path
 
 type StrPath = str | Path
 
@@ -20,18 +20,18 @@ class FileStorage(ABC):
         subfolder_characters: liczba początkowych znaków, które tworzą opcjonalny podkatalog
     """
 
-    _root_dir_path = Path(os.path.abspath("./data"))
-
     def __init__(
         self,
         folder_name: str = None,
         default_ext: str = None,
         subfolder_characters: int = None,
+        root_path: StrPath = None,
     ):
+        self._root_path = root_path or Path(os.path.abspath("./data"))
         if folder_name:
-            self.folder_path = self._root_dir_path.joinpath(folder_name)
+            self.folder_path = self._root_path.joinpath(folder_name)
         else:
-            self.folder_path = self._root_dir_path
+            self.folder_path = self._root_path
         self.subfolder_characters = subfolder_characters
         self.default_ext = default_ext
         os.makedirs(self.folder_path, exist_ok=True)
@@ -65,7 +65,7 @@ class FileStorage(ABC):
     def _read_from_file(self, full_path: str) -> str:
         with open(full_path, "r", encoding="utf-8") as file:
             return file.read()
-    
+
     @classmethod
     def _get_ext(cls, file_name: str, default_ext: str = None) -> str:
         return file_name.split(".")[-1] if "." in file_name else default_ext

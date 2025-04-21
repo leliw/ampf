@@ -9,7 +9,7 @@ from ampf.base import BaseBlobStorage
 from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
-from .file_storage import FileStorage
+from .file_storage import FileStorage, StrPath
 from ..mimetypes import get_content_type, get_extension
 
 
@@ -28,6 +28,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         clazz: BaseModel = None,
         content_type: str = None,
         subfolder_characters: int = None,
+        root_path: StrPath = None,
     ):
         BaseBlobStorage.__init__(
             self, collection_name=bucket_name, clazz=clazz, content_type=content_type
@@ -38,6 +39,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             folder_name=bucket_name,
             subfolder_characters=subfolder_characters,
             default_ext=default_ext,
+            root_path=root_path,
         )
         self.clazz = clazz
         self._log = logging.getLogger(__name__)

@@ -7,7 +7,7 @@ from typing import AsyncIterator, Callable, Type
 from pydantic import BaseModel
 
 from ..base import BaseAsyncStorage
-from .file_async_storage import FileAsyncStorage
+from .file_async_storage import FileAsyncStorage, StrPath
 
 DEF_EXT = "json"
 
@@ -19,9 +19,10 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncStorage[T], FileAsyncStorag
         clazz: Type[T],
         key_name: str = None,
         key: Callable[[T], str] = None,
+        root_path: StrPath = None,
     ):
         BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
-        FileAsyncStorage.__init__(self, default_ext=DEF_EXT)
+        FileAsyncStorage.__init__(self, default_ext=DEF_EXT, root_path=root_path)
 
         if "." not in collection_name:
             self.file_name = f"{collection_name}.{DEF_EXT}"

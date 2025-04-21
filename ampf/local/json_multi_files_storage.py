@@ -19,6 +19,7 @@ class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
         key_name: str = None,
         key: Callable[[T], str] = None,
         subfolder_characters: int = None,
+        root_path: Path = None,
     ):
         BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         FileStorage.__init__(
@@ -26,6 +27,7 @@ class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
             folder_name=collection_name,
             default_ext="json",
             subfolder_characters=subfolder_characters,
+            root_path=root_path,
         )
         self._log = logging.getLogger(__name__)
 

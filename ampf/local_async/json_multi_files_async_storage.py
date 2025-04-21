@@ -10,7 +10,7 @@ import aiofiles.os
 
 from ampf.base import BaseAsyncStorage
 
-from .file_async_storage import FileAsyncStorage
+from .file_async_storage import FileAsyncStorage, StrPath
 
 
 class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
@@ -23,6 +23,7 @@ class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
         key_name: str = None,
         key: Callable[[T], str] = None,
         subfolder_characters: int = None,
+        root_path: StrPath = None,
     ):
         BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
         FileAsyncStorage.__init__(
@@ -30,6 +31,7 @@ class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
             folder_name=collection_name,
             default_ext="json",
             subfolder_characters=subfolder_characters,
+            root_path=root_path,
         )
         self._log = logging.getLogger(__name__)
 

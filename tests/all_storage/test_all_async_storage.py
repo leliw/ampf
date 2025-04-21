@@ -23,8 +23,8 @@ class D(BaseModel):
 )
 def storage(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        FileStorage._root_dir_path = tmp_path
-    if request.param == GcpAsyncStorage:
+        storage = request.param("test", D, root_path = tmp_path)
+    elif request.param == GcpAsyncStorage:
         storage = gcp_factory.create_async_storage("test", D)
     else:
         storage = request.param("test", D)

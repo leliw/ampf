@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import aiofiles
+
 from ampf.local import FileStorage
+
+type StrPath = str | Path
 
 
 class FileAsyncStorage(FileStorage):

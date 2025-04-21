@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.gcp import GcpBlobStorage
 from ampf.in_memory import InMemoryBlobStorage
-from ampf.local import FileStorage, LocalBlobStorage
+from ampf.local import LocalBlobStorage
 
 
 class MyMetadata(BaseModel):
@@ -17,13 +17,14 @@ class MyMetadata(BaseModel):
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
 def storage(gcp_factory, request, tmp_path):
     if request.param == LocalBlobStorage:
-        FileStorage._root_dir_path = tmp_path
-    if request.param == GcpBlobStorage:
-        bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
-        if not bucket_name:
-            raise ValueError("GOOGLE_DEFAULT_BUCKET_NAME is not set")
-        GcpBlobStorage.init_client(bucket_name)
-    storage = request.param("unit-tests", MyMetadata, content_type="text/plain")
+        storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)
+    else:
+        if request.param == GcpBlobStorage:
+            bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
+            if not bucket_name:
+                raise ValueError("GOOGLE_DEFAULT_BUCKET_NAME is not set")
+            GcpBlobStorage.init_client(bucket_name)
+        storage = request.param("unit-tests", MyMetadata, content_type="text/plain")
     yield storage
     storage.drop()
 

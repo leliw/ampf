@@ -1,7 +1,7 @@
-from pydantic import BaseModel
 import pytest
+from pydantic import BaseModel
+
 from ampf.base.exceptions import KeyNotExistsException
-from ampf.local.file_storage import FileStorage
 from ampf.local.json_multi_files_storage import JsonMultiFilesStorage
 
 
@@ -12,9 +12,12 @@ class D(BaseModel):
 
 @pytest.fixture
 def storage(tmp_path):
-    FileStorage._root_dir_path = tmp_path
     return JsonMultiFilesStorage[D](
-        collection_name="test", clazz=D, key_name="name", subfolder_characters=2
+        collection_name="test",
+        clazz=D,
+        key_name="name",
+        subfolder_characters=2,
+        root_path=tmp_path,
     )
 
 

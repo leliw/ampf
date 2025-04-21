@@ -17,7 +17,7 @@ class D(BaseModel):
 )
 def storage(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
-        FileStorage._root_dir_path = tmp_path
+        FileStorage._root_path = tmp_path
     if request.param == GcpStorage:
         storage = gcp_factory.create_storage("test", D)
     else:
@@ -30,7 +30,7 @@ def storage(gcp_factory, request, tmp_path):
 )
 def storage_key(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
-        FileStorage._root_dir_path = tmp_path
+        FileStorage._root_path = tmp_path
     if request.param == GcpStorage:
         storage = gcp_factory.create_storage("test", D, key=lambda d: d.value)
     else:

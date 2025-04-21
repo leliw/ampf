@@ -12,23 +12,21 @@ class D(BaseModel):
 
 @pytest.fixture
 def t(tmp_path):
-    FileStorage._root_dir_path = tmp_path
-    return JsonOneFileStorage[D]("data", D)
+    return JsonOneFileStorage[D]("data", D, root_path=tmp_path)
 
 
 def test_constructor(tmp_path):
     # Basic usage - file_name as string
-    FileStorage._root_dir_path = tmp_path
-    t = JsonOneFileStorage[D](collection_name="data", clazz=D, key_name="name")
+    t = JsonOneFileStorage[D](collection_name="data", clazz=D, key_name="name", root_path=tmp_path)
     assert t.file_path == tmp_path.joinpath("data.json")
     # Basic usage - subcollections
-    t = JsonOneFileStorage[D]("users/user_id/preferences", D, key_name="name")
+    t = JsonOneFileStorage[D]("users/user_id/preferences", D, key_name="name", root_path=tmp_path)
     assert t.file_path == tmp_path.joinpath("users/user_id/preferences.json")
     # test file name - string with ext
-    t3 = JsonOneFileStorage[D]("data.json", D, key_name="name")
+    t3 = JsonOneFileStorage[D]("data.json", D, key_name="name", root_path=tmp_path)
     assert t3.file_path == tmp_path.joinpath("data.json")
     # test file name - string without ext
-    t4 = JsonOneFileStorage[D]("data", D, key_name="name")
+    t4 = JsonOneFileStorage[D]("data", D, key_name="name", root_path=tmp_path)
     assert t4.file_path == tmp_path.joinpath("data.json")
 
 

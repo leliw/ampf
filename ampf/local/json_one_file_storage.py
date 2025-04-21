@@ -7,7 +7,7 @@ from typing import Callable, Iterator, Type
 from pydantic import BaseModel
 
 from ..base import BaseStorage, KeyNotExistsException
-from .file_storage import FileStorage
+from .file_storage import FileStorage, StrPath
 
 DEF_EXT = "json"
 
@@ -19,9 +19,10 @@ class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
         clazz: Type[T],
         key_name: str = None,
         key: Callable[[T], str] = None,
+        root_path: StrPath = None,
     ):
         BaseStorage.__init__(self, collection_name, clazz, key_name, key)
-        FileStorage.__init__(self, default_ext=DEF_EXT)
+        FileStorage.__init__(self, default_ext=DEF_EXT, root_path=root_path)
 
         if "." not in collection_name:
             self.file_name = f"{collection_name}.{DEF_EXT}"
