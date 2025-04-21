@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Callable, Iterator, Type
+from typing import Callable, Iterator, Self, Type
 
 from ..base import BaseCollectionStorage, KeyNotExistsException
 from .file_storage import FileStorage
@@ -77,3 +77,9 @@ class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
 
     def _key_to_full_path(self, key: str) -> str:
         return self._create_file_path(key)
+
+    def create_collection(
+        self, parent_key: str, collection_name: str, clazz: Type[T], key_name: str = None, key: Callable[[T], str] = None
+    ) -> Self:
+        new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
+        return self.__class__(new_collection_name, clazz, key_name=key_name, key=key, root_path=self._root_path)

@@ -49,13 +49,12 @@ class GcpFactory(BaseFactory):
         key: Callable[[T], str] = None,
     ) -> BaseStorage[T]:
         return GcpStorage(
-            f"{self.root_storage}/{collection_name}"
-            if self.root_storage
-            else collection_name,
+            collection_name,
             clazz,
             db=self.get_db(),
             key_name=key_name,
             key=key,
+            root_storage=self.root_storage,
         )
 
     def create_blob_storage[T: BaseModel](

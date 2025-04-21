@@ -6,7 +6,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterator, List, Type
 
-from deprecated import deprecated
 from pydantic import BaseModel
 
 from .exceptions import KeyExistsException
@@ -96,12 +95,11 @@ class BaseStorage[T: BaseModel](ABC):
             return False
         return True
 
-    @deprecated
     def create_collection(
-        self, key: str, collection_name: str, clazz: Type[T]
+        self, parent_key: str, collection_name: str, clazz: Type[T], key_name: str = None, key: Callable[[T], str] = None
     ) -> BaseStorage[T]:
-        new_collection_name = f"{self.collection_name}/{key}/{collection_name}"
-        return self.__class__(new_collection_name, clazz)
+        new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
+        return self.__class__(new_collection_name, clazz, key_name=key_name, key=key)
 
     def find_nearest(self, embedding: List[float], limit: int = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector.

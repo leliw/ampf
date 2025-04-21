@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from typing import Callable, Iterator, List, Type, override
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
+from pydantic import BaseModel
 
 from ..base import BaseCollectionStorage, KeyNotExistsException
 
@@ -22,6 +25,7 @@ class GcpStorage[T](BaseCollectionStorage[T]):
         key: Callable[[T], str] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
+        root_storage: str = None,
     ):
         """Initializes the storage.
 
@@ -44,7 +48,10 @@ class GcpStorage[T](BaseCollectionStorage[T]):
             embedding_search_limit=embedding_search_limit,
         )
         self._db = db or firestore.Client(project=project, database=database)
-        self._collection = collection
+        self.root_storage = root_storage
+        self._collection = (
+            f"{root_storage}/{collection}" if root_storage else collection
+        )
         self._coll_ref = self._db.collection(self._collection)
 
     @override
@@ -120,3 +127,14 @@ class GcpStorage[T](BaseCollectionStorage[T]):
         ).get()
         for ds in vq:
             yield self.clazz(**ds.to_dict())
+
+    def create_collection[C: BaseModel](
+        self,
+        parent_key: str,
+        collection_name: str,
+        clazz: Type[C],
+        key_name: str = None,
+        key: Callable[[C], str] = None,
+    ) -> GcpStorage[C]:
+        new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
+        return GcpStorage(new_collection_name, clazz, key_name=key_name, key=key, root_storage=self.root_storage)

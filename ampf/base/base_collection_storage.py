@@ -47,7 +47,7 @@ class BaseCollectionStorage[T](BaseStorage[T]):
         self.sub_classes[subcollection.clazz] = subcollection.collection_name
 
     def get_collection[Y: BaseModel](
-        self, key: str, subcollection_name_or_class: str | Type[Y]
+        self, parent_key: str, subcollection_name_or_class: str | Type[Y]
     ) -> BaseCollectionStorage[Y]:
         """Returns subcollection for given key.
 
@@ -64,11 +64,7 @@ class BaseCollectionStorage[T](BaseStorage[T]):
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        ret = sub.__class__(
-            f"{self.collection_name}/{key}/{sub.collection_name}",
-            clazz=sub.clazz,
-            key_name=sub.key_name,
-        )
+        ret = self.create_collection(parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key_name=sub.key_name)
         for c in sub.subcollections.values():
             ret.add_collection(c)
         return ret
