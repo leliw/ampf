@@ -1,6 +1,5 @@
 import logging
 from typing import Any, Iterator, Type
-from fastapi import UploadFile
 
 from google.cloud import storage
 
@@ -136,8 +135,10 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         new_blob = self._bucket.rename_blob(source_blob, self._get_prefix() + dest_key)
         return new_blob
 
-    def upload_blob_from_file(self, file_name: str, upload_file: UploadFile):
+    def upload_blob_from_file(self, file_name: str, upload_file):
         """Upload a file from an UploadFile object."""
+        from fastapi import UploadFile
+        upload_file: UploadFile
         blob = self._bucket.blob(file_name)
         blob.upload_from_file(upload_file.file, content_type=upload_file.content_type)
 
