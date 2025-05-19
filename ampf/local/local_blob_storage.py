@@ -2,15 +2,16 @@ import json
 import logging
 import os
 import shutil
-from typing import Iterator
+from typing import Iterator, override
+
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage
 from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
-from .file_storage import FileStorage, StrPath
 from ..mimetypes import get_content_type, get_extension
+from .file_storage import FileStorage, StrPath
 
 
 class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
@@ -44,9 +45,10 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self.clazz = clazz
         self._log = logging.getLogger(__name__)
 
+    @override
     def upload_blob(
         self,
-        file_name: str,
+        key: str,
         data: bytes,
         metadata: BaseModel = None,
         content_type: str = None,
@@ -56,31 +58,34 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             ext = ext[1:] if ext else None
         else:
             ext = None
-        file_path = self._create_file_path(file_name, ext)
+        file_path = self._create_file_path(key, ext)
         os.makedirs(file_path.parent, exist_ok=True)
         with open(file_path, "wb") as f:
             f.write(data)
         if metadata:
-            self.put_metadata(file_name=file_name, metadata=metadata)
+            self.put_metadata(key=key, metadata=metadata)
 
-    def download_blob(self, file_name: str) -> bytes:
-        file_path = self._create_file_path(file_name)
+    @override
+    def download_blob(self, key: str) -> bytes:
+        file_path = self._create_file_path(key)
         try:
             with open(file_path, "rb") as f:
                 return f.read()
         except FileNotFoundError:
             raise KeyNotExistsException
 
-    def put_metadata(self, file_name: str, metadata: dict | BaseModel):
-        file_path = self._create_file_path(file_name, ext="json")
+    @override
+    def put_metadata(self, key: str, metadata: dict | BaseModel):
+        file_path = self._create_file_path(key, ext="json")
         with open(file_path, "wt", encoding="utf8") as f:
             if isinstance(metadata, BaseModel):
                 f.write(metadata.model_dump_json(indent=4))
             else:
                 json.dump(metadata, f, indent=4, ensure_ascii=False)
 
-    def get_metadata(self, file_name: str) -> T:
-        file_path = self._create_file_path(file_name, ext="json")
+    @override
+    def get_metadata(self, key: str) -> T:
+        file_path = self._create_file_path(key, ext="json")
         try:
             with open(file_path, "rt", encoding="utf8") as f:
                 d = json.load(f)
@@ -88,6 +93,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         except FileNotFoundError:
             raise KeyNotExistsException
 
+    @override
     def keys(self) -> Iterator[str]:
         for root, _, files in os.walk(self.folder_path):
             ext = f".{self.default_ext}" if self.default_ext else ""
@@ -97,8 +103,9 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
                     key = file[:-len_ext] if file.endswith(ext) else file
                     yield root[len(str(self.folder_path)) + 1 :] + "/" + key
 
-    def delete(self, file_name: str):
-        file_path = self._create_file_path(file_name)
+    @override
+    def delete(self, key: str):
+        file_path = self._create_file_path(key)
         try:
             os.remove(file_path)
         except FileNotFoundError:
@@ -128,5 +135,6 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
                         mime_type=get_content_type(file),
                     )
 
+    @override
     def delete_folder(self, folder_name: str):
         shutil.rmtree(self.folder_path.joinpath(folder_name))
