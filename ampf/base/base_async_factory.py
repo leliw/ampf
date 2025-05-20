@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Optional, Type
 
 from pydantic import BaseModel
 
@@ -11,7 +11,7 @@ class BaseAsyncFactory(ABC):
 
     @abstractmethod
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self, collection_name: str, clazz: Type[T], key_name: Optional[str] = None
     ) -> BaseAsyncStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -25,7 +25,7 @@ class BaseAsyncFactory(ABC):
         """
 
     def create_compact_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key_name: str = None
+        self, collection_name: str, clazz: Type[T], key_name: Optional[str] = None
     ) -> BaseAsyncStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 

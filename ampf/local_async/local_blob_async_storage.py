@@ -15,7 +15,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         self,
         collection_name: str,
         metadata_type: Type[T],
-        content_type: str = None,
+        content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
         self.base_path = (
@@ -54,7 +54,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
             meta_dict = {
                 "key": blob.key,
                 "content_type": blob.content_type,
-                "metadata": blob.metadata.model_dump(),
+                "metadata": blob.metadata.model_dump() if blob.metadata else {},
             }
             with open(meta_path, "w", encoding="utf-8") as f:
                 json.dump(meta_dict, f)

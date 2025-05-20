@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -52,6 +52,6 @@ class BaseBlobAsyncStorage[T: BaseModel](ABC):
         pass
 
     @abstractmethod
-    def list_blobs(self, prefix: Optional[str] = None) -> list[BlobHeader]:
+    def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix."""
         pass

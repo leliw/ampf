@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -46,7 +46,7 @@ class AsyncLocalFactory(BaseAsyncFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T] = None, content_type: str = None
+        self, collection_name: str, clazz: Type[T], content_type: Optional[str] = None
     ) -> BaseBlobAsyncStorage[T]:
         return LocalBlobAsyncStorage(
             collection_name, clazz, content_type, root_path=self._root_path
