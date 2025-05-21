@@ -29,11 +29,26 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         return self.base_path / f"{key}.json"
 
     def _find_data_path(self, key: str) -> Optional[Path]:
-        """Find data file path using key with any extension."""
-        matches = list(self.base_path.glob(f"{key}.*"))
-        # Filter out .json files, as they are used for metadata
-        matches = [match for match in matches if match.suffix != ".json"]
-        return matches[0] if matches else None
+        """Find data file path for the given key.
+
+        This method searches for:
+        1. A file named exactly `key` (e.g., 'mydata' or 'archive.tar').
+        2. Files matching `key.*` (e.g., 'mydata.txt', 'archive.tar.gz').
+
+        In second case, `.json` file is ignored as it is considered metadata.
+        The direct match (case 1) is prioritized if found and valid.
+        """
+        # Check for a direct match (e.g., file named 'key' or 'key.original_ext')
+        exact_match_path = self.base_path / key
+        if exact_match_path.is_file():
+            return exact_match_path
+
+        # If no direct match, or if the direct match was a .json file or not a file,
+        # search for files with the key name plus an additional extension (e.g., key.ext)
+        matches_with_extension = list(self.base_path.glob(f"{key}.*"))
+        
+        valid_extended_matches = [m for m in matches_with_extension if m.is_file() and m.suffix != ".json"]
+        return valid_extended_matches[0] if valid_extended_matches else None
 
     def _generate_data_path(self, key: str, content_type: Optional[str]) -> Path:
         """Generate a data path with appropriate extension."""

@@ -44,6 +44,23 @@ async def test_upload_and_download(storage: LocalBlobAsyncStorage):
 
 
 @pytest.mark.asyncio
+async def test_upload_and_download_without_conent_type(storage: LocalBlobAsyncStorage):
+    metadata = SampleMetadata(name="file1", version=1)
+    blob = Blob[SampleMetadata](
+        key="test_blob",
+        metadata=metadata,
+        data=b"Hello, World!"
+    )
+
+    await storage.upload_async(blob)
+    downloaded = await storage.download_async("test_blob")
+
+    assert downloaded.key == blob.key
+    assert downloaded.content_type == blob.content_type
+    assert downloaded.metadata == blob.metadata
+    assert downloaded.data == blob.data
+
+@pytest.mark.asyncio
 async def test_list_blobs(storage: LocalBlobAsyncStorage):
     blob1 = Blob[SampleMetadata](
         key="item1",
