@@ -17,7 +17,7 @@ wheels = [
 
 [[package]]
 name = "ampf"
-version = "0.1.24"
+version = "0.1.33"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -47,6 +47,7 @@ huggingface = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "google-cloud-pubsub" },
     { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -75,6 +76,7 @@ provides-extras = ["fastapi", "gcp", "huggingface"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "google-cloud-pubsub", specifier = ">=2.29.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-asyncio", specifier = ">=0.26.0" },

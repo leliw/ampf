@@ -58,3 +58,33 @@ GcpBlobStorage.init_client(
     bucket_name=server_config.google_bucket_name
 )
 ```
+
+## Pub/Sub
+
+Helper classes for Pub/Sub.
+Topics and subscriptions have to be created in advance.
+
+```bash
+gcloud pubsub topics create unit-tests
+gcloud pubsub subscriptions create unit-tests-sub --topic unit-tests
+```
+
+### GcpTopic
+
+Sends message to Pub/Sub topic.
+
+```python
+topic = GcpTopic(project_id, topic_id)
+data = D(name=f"Test message {time.time()}")
+topic.publish(data)
+```
+
+### GcpSubscription
+
+Receives messages from Pub/Sub topic and return them as a generator.
+
+```python
+subscription = GcpSubscription(project_id, subscription_id, D)
+for data in subscription:
+    print(data)
+```
