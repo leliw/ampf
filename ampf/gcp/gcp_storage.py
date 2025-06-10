@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, List, Type, override
+from typing import Callable, Iterator, List, Optional, Type
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -18,14 +18,14 @@ class GcpStorage[T](BaseCollectionStorage[T]):
         self,
         collection: str,
         clazz: Type[T],
-        db: firestore.Client = None,
-        project: str = None,
-        database: str = None,
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        db: Optional[firestore.Client] = None,
+        project: Optional[str] = None,
+        database: Optional[str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
-        root_storage: str = None,
+        root_storage: Optional[str] = None,
     ):
         """Initializes the storage.
 
@@ -54,7 +54,6 @@ class GcpStorage[T](BaseCollectionStorage[T]):
         )
         self._coll_ref = self._db.collection(self._collection)
 
-    @override
     def on_before_save(self, data: dict) -> dict:
         """Converts the embedding field to a Vector object.
 
@@ -133,8 +132,8 @@ class GcpStorage[T](BaseCollectionStorage[T]):
         parent_key: str,
         collection_name: str,
         clazz: Type[C],
-        key_name: str = None,
-        key: Callable[[C], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[C], str]] = None,
     ) -> GcpStorage[C]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return GcpStorage(new_collection_name, clazz, key_name=key_name, key=key, root_storage=self.root_storage)
