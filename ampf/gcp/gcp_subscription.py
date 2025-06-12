@@ -1,3 +1,4 @@
+import os
 import queue
 import time
 from concurrent.futures import TimeoutError
@@ -10,14 +11,16 @@ from pydantic import BaseModel
 class GcpSubscription[T: BaseModel]:
     def __init__(
         self,
-        project_id: str,
         subscription_id: str,
+        project_id: Optional[str] = None,
         clazz: Optional[Type[T]] = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
     ):
-        self.project_id = project_id
         self.subscription_id = subscription_id
+        self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+        if not self.project_id:
+            raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")        
         self.clazz = clazz
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout

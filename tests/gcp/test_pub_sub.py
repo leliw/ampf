@@ -19,11 +19,9 @@ def test_basic_pub_sub():
     topic_id = "unit-tests"
     subscription_id = "unit-tests-sub"
     # When: Topic is created
-    topic = GcpTopic(project_id, topic_id)
+    topic = GcpTopic(topic_id, project_id)
     # And: Subscription is created
-    subscription = GcpSubscription(
-        project_id, subscription_id, D, processing_timeout=5.0, per_message_timeout=1.0
-    )
+    subscription = GcpSubscription(subscription_id, project_id, D, processing_timeout=5.0, per_message_timeout=1.0)
     # And: Message is published
     data = D(name=f"Test message {time.time()}")
     topic.publish(data)
@@ -39,6 +37,4 @@ def test_basic_pub_sub():
         pytest.fail(f"Generator subskrypcji zgłosił wyjątek: {e}")
 
     # Then: Message is received
-    assert data in received_messages, (
-        f"Wiadomość '{data}' nie została znaleziona w {received_messages}"
-    )
+    assert data in received_messages, f"Wiadomość '{data}' nie została znaleziona w {received_messages}"
