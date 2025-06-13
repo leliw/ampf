@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterator, List, Type
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -20,8 +20,8 @@ class BaseStorage[T: BaseModel](ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
@@ -44,7 +44,7 @@ class BaseStorage[T: BaseModel](ABC):
         """Get the value with the key"""
 
     @abstractmethod
-    def keys(self) -> Iterator[T]:
+    def keys(self) -> Iterable[str]:
         """Get all the keys"""
 
     @abstractmethod
@@ -69,8 +69,10 @@ class BaseStorage[T: BaseModel](ABC):
         """Get the key for the value"""
         if self.key:
             return self.key(value)
-        else:
+        elif self.key_name:
             return getattr(value, self.key_name)
+        else:
+            raise ValueError("No key or key_name specified")
 
     def drop(self) -> None:
         """Delete all the values"""
@@ -104,7 +106,7 @@ class BaseStorage[T: BaseModel](ABC):
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return self.__class__(new_collection_name, clazz, key_name=key_name, key=key)
 
-    def find_nearest(self, embedding: List[float], limit: int = None) -> Iterator[T]:
+    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector.
 
         Args:
