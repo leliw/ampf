@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Callable, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -19,8 +19,8 @@ class LocalFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         return JsonMultiFilesStorage(
             collection_name=collection_name,
@@ -34,8 +34,8 @@ class LocalFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         return JsonOneFileStorage(
             collection_name=collection_name,
@@ -46,7 +46,7 @@ class LocalFactory(BaseFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T] = None, content_type: str = None
+        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
     ) -> BaseBlobStorage[T]:
         return LocalBlobStorage(
             collection_name, clazz, content_type, root_path=self._root_path

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List, Type
+from typing import Callable, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -16,9 +16,9 @@ class BaseCollectionStorage[T](BaseStorage[T]):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
-        collections: List[BaseCollectionStorage] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
+        collections: Optional[List[BaseCollectionStorage]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):

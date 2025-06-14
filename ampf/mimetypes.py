@@ -1,3 +1,6 @@
+import os
+from typing import Optional
+
 extension_map = {
     ".jpeg": "image/jpeg",
     ".jpg": "image/jpeg",
@@ -26,19 +29,50 @@ extension_map = {
     ".md": "text/markdown",
 }
 
-content_type_map = {}
+# Pre-compute the reverse map (content_type -> extension).
+# This stores the *first* extension encountered in `extension_map` for a given content type.
+# For example, for "image/jpeg", ".jpeg" will be stored because it appears before ".jpg"
+# in the `extension_map` definition.
+_content_type_to_extension_map: dict[str, str] = {}
+for _ext, _c_type in extension_map.items():
+    if _c_type not in _content_type_to_extension_map:
+        _content_type_to_extension_map[_c_type] = _ext
 
 
-def get_content_type(filename: str):
-    ext = "." + filename.split(".")[-1].lower()
-    return extension_map.get(ext)
+def get_content_type(filename: str) -> Optional[str]:
+    """
+    Determines the MIME content type of a file based on its extension.
+
+    Args:
+        filename: The name of the file (e.g., "image.jpg", "document.pdf").
+
+    Returns:
+        The MIME content type as a string (e.g., "image/jpeg"),
+        or None if the extension is not recognized or filename is invalid/empty.
+    """
+    if not filename or not isinstance(filename, str):
+        return None
+    # os.path.splitext correctly handles various filename formats,
+    # e.g., "archive.tar.gz" -> (".gz"), ".bashrc" -> (".bashrc"), "no_ext" -> ("")
+    _root, ext = os.path.splitext(filename)
+    return extension_map.get(ext.lower())
 
 
-def get_extension(content_type):
-    global content_type_map
-    if not content_type_map:
-        content_type_map = {}
-        for k, v in extension_map.items():
-            if k not in content_type_map.keys():
-                content_type_map[v] = k
-    return content_type_map.get(content_type)
+def get_extension(content_type: str) -> Optional[str]:
+    """
+    Determines a common file extension for a given MIME content type.
+
+    It returns the first extension found in the predefined map for that content type.
+    For example, for "image/jpeg", it will return ".jpeg".
+
+    Args:
+        content_type: The MIME content type (e.g., "image/jpeg").
+
+    Returns:
+        The file extension as a string (e.g., ".jpeg"),
+        or None if the content type is not recognized or is invalid/empty.
+    """
+    if not content_type or not isinstance(content_type, str):
+        return None
+    # Normalize lookup to lowercase as content types can have varied casing.
+    return _content_type_to_extension_map.get(content_type.lower())

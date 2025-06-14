@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import shutil
-from typing import Iterator, override
+from typing import Iterator, Optional, Type, override
 
 from pydantic import BaseModel
 
@@ -26,15 +26,16 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
     def __init__(
         self,
         bucket_name: str,
-        clazz: BaseModel = None,
-        content_type: str = None,
-        subfolder_characters: int = None,
-        root_path: StrPath = None,
+        clazz: Optional[Type[T]] = None,
+        content_type: Optional[str] = None,
+        subfolder_characters: Optional[int] = None,
+        root_path: Optional[StrPath] = None,
     ):
         BaseBlobStorage.__init__(
             self, collection_name=bucket_name, clazz=clazz, content_type=content_type
         )
-        default_ext = get_extension(content_type)[1:] if content_type else None
+        default_ext = get_extension(content_type) if content_type else None
+        default_ext = default_ext[1:] if default_ext else None
         FileStorage.__init__(
             self,
             folder_name=bucket_name,
@@ -50,8 +51,8 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self,
         key: str,
         data: bytes,
-        metadata: BaseModel = None,
-        content_type: str = None,
+        metadata: Optional[BaseModel] = None,
+        content_type: Optional[str] = None,
     ) -> None:
         if content_type:
             ext = get_extension(content_type)
@@ -85,6 +86,8 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
 
     @override
     def get_metadata(self, key: str) -> T:
+        if not self.clazz:
+            raise ValueError("clazz must be set")
         file_path = self._create_file_path(key, ext="json")
         try:
             with open(file_path, "rt", encoding="utf8") as f:
@@ -119,7 +122,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         if source_path.with_suffix(".json").exists():
             os.rename(source_path.with_suffix(".json"), dest_path.with_suffix(".json"))
 
-    def list_blobs(self, dir: str = None) -> Iterator[str]:
+    def list_blobs(self, dir: Optional[str] = None) -> Iterator[FileNameMimeType]:
         if dir:
             prefix = dir if dir[-1] == "/" else dir + "/"
         else:

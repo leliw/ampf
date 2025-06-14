@@ -1,6 +1,7 @@
 import asyncio
 from typing import Optional
 
+import docker
 import pytest
 
 from ampf.base.base_email_sender import BaseEmailSender
@@ -67,3 +68,7 @@ def event_loop():
         loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+@pytest.fixture(scope="session")
+def docker_client():
+    return docker.from_env()

@@ -1,7 +1,7 @@
 [project]
 name = "ampf"
 description = "Angular & Material & Python & FastAPI"
-version = "0.2.7"
+version = "0.2.8"
 license = "MIT"
 authors = [
     { name = "Marcin Leliwa", email = "marcin.leliwa@gmail.com" }
@@ -32,6 +32,9 @@ gcp = [
 huggingface = [
     "sentence-transformers>=4.0.2",
 ]
+weaviate = [
+    "weaviate-client>=4.15.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -40,10 +43,20 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "google-cloud-pubsub>=2.29.0",
+    "docker>=7.1.0",
     "httpx>=0.28.1",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
+    "weaviate-client>=4.15.0",
+    "google-cloud-firestore>=2.21.0",
+    "google-cloud-core>=2.4.3",
+    "google-cloud-storage>=3.1.0",
+    "fastapi>=0.115.12",
+    "pydantic[email]>=2.11.6",
+    "pyjwt>=2.10.1",
+    "pydantic-settings>=2.9.1",
+    "python-multipart>=0.0.20",
 ]
 
 [[tool.uv.index]]
