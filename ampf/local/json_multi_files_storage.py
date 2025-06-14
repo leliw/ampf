@@ -3,23 +3,25 @@
 import logging
 import os
 from pathlib import Path
-from typing import Callable, Iterator, Self, Type
+from typing import Callable, Iterator, Optional, Self, Type
+
+from pydantic import BaseModel
 
 from ..base import BaseCollectionStorage, KeyNotExistsException
 from .file_storage import FileStorage
 
 
-class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
+class JsonMultiFilesStorage[T: BaseModel](BaseCollectionStorage[T], FileStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
-        subfolder_characters: int = None,
-        root_path: Path = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
+        subfolder_characters: Optional[int] = None,
+        root_path: Optional[Path] = None,
     ):
         BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         FileStorage.__init__(
@@ -61,9 +63,7 @@ class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
                 # - skip it - it's subcollection
                 pass
             else:
-                folder = (
-                    root[start_index:-end_index] if end_index else root[start_index:]
-                )
+                folder = root[start_index:-end_index] if end_index else root[start_index:]
                 for file in files:
                     k = f"{folder}/{file}" if folder else file
                     self._log.debug("keys: %s", k)
@@ -75,11 +75,16 @@ class JsonMultiFilesStorage[T](BaseCollectionStorage[T], FileStorage):
         full_path = self._key_to_full_path(key)
         os.remove(full_path)
 
-    def _key_to_full_path(self, key: str) -> str:
+    def _key_to_full_path(self, key: str) -> Path:
         return self._create_file_path(key)
 
     def create_collection(
-        self, parent_key: str, collection_name: str, clazz: Type[T], key_name: str = None, key: Callable[[T], str] = None
+        self,
+        parent_key: str,
+        collection_name: str,
+        clazz: Type[T],
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> Self:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return self.__class__(new_collection_name, clazz, key_name=key_name, key=key, root_path=self._root_path)

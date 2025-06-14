@@ -101,7 +101,7 @@ class BaseStorage[T: BaseModel](ABC):
         return len(list(self.keys()))
 
     def create_collection(
-        self, parent_key: str, collection_name: str, clazz: Type[T], key_name: str = None, key: Callable[[T], str] = None
+        self, parent_key: str, collection_name: str, clazz: Type[T], key_name: Optional[str] = None, key: Optional[Callable[[T], str]] = None
     ) -> BaseStorage[T]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return self.__class__(new_collection_name, clazz, key_name=key_name, key=key)

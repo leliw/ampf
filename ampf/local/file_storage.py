@@ -2,6 +2,7 @@ import os
 import shutil
 from abc import ABC
 from pathlib import Path
+from typing import Optional
 
 type StrPath = str | Path
 
@@ -22,12 +23,12 @@ class FileStorage(ABC):
 
     def __init__(
         self,
-        folder_name: str = None,
-        default_ext: str = None,
-        subfolder_characters: int = None,
-        root_path: StrPath = None,
+        folder_name: Optional[str] = None,
+        default_ext: Optional[str] = None,
+        subfolder_characters: Optional[int] = None,
+        root_path: Optional[StrPath] = None,
     ):
-        self._root_path = root_path or Path(os.path.abspath("./data"))
+        self._root_path = Path(root_path) if root_path else Path(os.path.abspath("./data"))
         if folder_name:
             self.folder_path = self._root_path.joinpath(folder_name)
         else:
@@ -46,7 +47,7 @@ class FileStorage(ABC):
         else:
             return folders
 
-    def _create_file_path(self, file_name: str, ext: str = None) -> Path:
+    def _create_file_path(self, file_name: str, ext: Optional[str] = None) -> Path:
         ext = ext or self.default_ext
         file_ext = self._get_ext(file_name)
         if file_ext != ext:
@@ -58,14 +59,14 @@ class FileStorage(ABC):
     def drop(self):
         shutil.rmtree(self.folder_path)
 
-    def _write_to_file(self, full_path: str, data: str) -> None:
+    def _write_to_file(self, full_path: Path, data: str) -> None:
         with open(full_path, "w", encoding="utf-8") as file:
             file.write(data)
 
-    def _read_from_file(self, full_path: str) -> str:
+    def _read_from_file(self, full_path: Path) -> str:
         with open(full_path, "r", encoding="utf-8") as file:
             return file.read()
 
     @classmethod
-    def _get_ext(cls, file_name: str, default_ext: str = None) -> str:
+    def _get_ext(cls, file_name: str, default_ext: Optional[str] = None) -> str | None:
         return file_name.split(".")[-1] if "." in file_name else default_ext
