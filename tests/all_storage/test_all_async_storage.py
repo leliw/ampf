@@ -4,7 +4,6 @@ import pytest
 from ampf.base import BaseAsyncStorage, KeyExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
-from ampf.local import FileStorage
 from ampf.local_async import JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage
 
 

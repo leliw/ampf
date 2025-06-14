@@ -1,7 +1,7 @@
 [project]
 name = "ampf"
 description = "Angular & Material & Python & FastAPI"
-version = "0.2.8"
+version = "0.2.9"
 license = "MIT"
 authors = [
     { name = "Marcin Leliwa", email = "marcin.leliwa@gmail.com" }
@@ -45,6 +45,9 @@ dev = [
     "google-cloud-pubsub>=2.29.0",
     "docker>=7.1.0",
     "httpx>=0.28.1",
+    "pydantic-settings>=2.9.1",
+    "pydantic[email]>=2.11.5",
+    "pyjwt>=2.10.1",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
@@ -57,6 +60,7 @@ dev = [
     "pyjwt>=2.10.1",
     "pydantic-settings>=2.9.1",
     "python-multipart>=0.0.20",
+    "sentence-transformers>=4.1.0",
 ]
 
 [[tool.uv.index]]

@@ -16,7 +16,7 @@ class CollectionDef(BaseModel):
     collection_name: str
     clazz: Type
     key_name: Optional[str] = None
-    subcollections: Optional[List[CollectionDef]] = Field(default_factory=list())
+    subcollections: Optional[List[CollectionDef]] = Field(default_factory=list)
 
     def __init__(
         self,
@@ -41,8 +41,8 @@ class BaseFactory(ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -59,8 +59,8 @@ class BaseFactory(ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
@@ -79,7 +79,10 @@ class BaseFactory(ABC):
 
     @abstractmethod
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T] = None, content_type: str = None
+        self,
+        collection_name: str,
+        clazz: Optional[Type[T]] = None,
+        content_type: Optional[str] = None,
     ) -> BaseBlobStorage[T]:
         """Creates blob storage for items of given class.
 
