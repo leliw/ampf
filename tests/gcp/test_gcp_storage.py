@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 import pytest
 
@@ -9,7 +9,7 @@ from ampf.gcp.gcp_factory import GcpFactory
 
 class TC(BaseModel):
     name: str
-    embedding: List[float] = None
+    embedding: Optional[List[float]] = None
 
 
 @pytest.fixture()
@@ -60,7 +60,7 @@ def test_embedding(storage: GcpStorage[TC]):
     storage.put("1", tc1)
     storage.put("2", tc2)
     # And: Find nearest
-    nearest = list(storage.find_nearest(tc1.embedding))
+    nearest = list(storage.find_nearest(tc1.embedding or []))
     # Then: All two are returned
     assert len(nearest) == 2
     # And: The nearest is the first one
@@ -78,7 +78,7 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     await async_storage.put("1", tc1)
     await async_storage.put("2", tc2)
     # And: Find nearest
-    nearest = list([x async for x in async_storage.find_nearest(tc1.embedding)])
+    nearest = list([x async for x in async_storage.find_nearest(tc1.embedding or [])])
     # Then: All two are returned
     assert len(nearest) == 2
     # And: The nearest is the first one

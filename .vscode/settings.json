@@ -4,5 +4,8 @@
         "--cov=ampf"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "workbench.preferredHighContrastColorTheme": "Default High Contrast",
+    "workbench.preferredDarkColorTheme": "Default Dark Modern",
+    "workbench.colorTheme": "Monokai"
 }
