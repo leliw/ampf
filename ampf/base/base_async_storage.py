@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Callable, Iterator, Type
+from typing import Any, AsyncIterator, Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -17,8 +17,8 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ):
         self.collection_name = collection_name
         self.clazz = clazz
@@ -37,8 +37,9 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         """Get the value with the key"""
 
     @abstractmethod
-    async def keys(self) -> Iterator[T]:
+    async def keys(self) -> AsyncIterator[str]:
         """Get all the keys"""
+        yield "None"
 
     @abstractmethod
     async def delete(self, key: str) -> None:
@@ -58,8 +59,10 @@ class BaseAsyncStorage[T: BaseModel](ABC):
     def get_key(self, value: T) -> str:
         if self.key:
             return self.key(value)
-        else:
+        elif self.key_name:
             return getattr(value, self.key_name)
+        else:
+            raise ValueError("Key name or key function must be provided")
 
     async def drop(self) -> None:
         """Delete all the values"""

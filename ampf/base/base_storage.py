@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable, Iterator, List, Optional, Type
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -96,7 +96,7 @@ class BaseStorage[T: BaseModel](ABC):
         for _ in self.keys():
             return False
         return True
-    
+
     def count(self) -> int:
         return len(list(self.keys()))
 
@@ -123,12 +123,12 @@ class BaseStorage[T: BaseModel](ABC):
             self._log.warning("Consider using a vector database for production.")
 
             limit = limit or self.embedding_search_limit
-            ret: List[T] = []
+            ret: List[Tuple[T, float]] = []
             for item in self.get_all():
                 em = getattr(item, self.embedding_field_name)
                 if em:
                     similarity = cos_sim(embedding, em)
-                    ret.append((item, similarity))
+                    ret.append((item, similarity.item()))
             ret.sort(key=lambda x: x[1], reverse=True)
             for item in ret[:limit]:
                 yield item[0]

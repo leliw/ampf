@@ -1,4 +1,4 @@
-from typing import Callable, Iterator, Type
+from typing import Callable, Iterator, Optional, Type
 
 from pydantic import BaseModel
 
@@ -14,8 +14,8 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ):
         BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         BaseQuery.__init__(self, self.get_all)

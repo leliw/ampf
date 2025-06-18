@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from .base_storage import BaseStorage
 
 
-class BaseCollectionStorage[T](BaseStorage[T]):
+class BaseCollectionStorage[T: BaseModel](BaseStorage[T]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
