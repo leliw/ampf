@@ -1,5 +1,5 @@
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import docker
 import docker.errors
@@ -53,6 +53,9 @@ def weaviate_ports(docker_client: docker.DockerClient):
 class D(BaseModel):
     name: str
     value: str
+    prop1: Optional[str] = None
+    prop2: Optional[str] = None
+    prop3: Optional[str] = None
     embedding: List[float] = Field(default_factory=list)
 
 
@@ -60,7 +63,7 @@ class D(BaseModel):
 def storage(weaviate_ports: Tuple[int, int]):
     db = WeaviateDB(port=weaviate_ports[0], grpc_port=weaviate_ports[1])
     with db.connect() as db:
-        yield WeaviateStorage("test", D, db=db)
+        yield WeaviateStorage("test", D, db=db, key_name="name", indexed_fields=["prop1", "prop2", "prop3"])
 
 
 def test_storage_all(storage: WeaviateStorage):
@@ -82,3 +85,23 @@ def test_storage_all(storage: WeaviateStorage):
     storage.put(d.name, d)
     storage.drop()
     assert [] == list(storage.keys())
+
+
+def test_delete_where(storage: WeaviateStorage):
+    assert storage.is_empty()
+
+    storage.put("foo", D(name="foo1", value="beer1", prop1="foo"))
+    storage.put("foo", D(name="foo2", value="beer2", prop1="foo"))
+    storage.put("foo", D(name="beer", value="beer", prop1="beer"))
+
+    ret = storage.get("foo1")
+    assert ret.prop1 == "foo"
+
+    storage.delete_where("prop1", "foo")
+
+    keys = list(storage.keys())
+    assert "foo1" not in keys
+    assert "foo2" not in keys
+    assert "beer" in keys
+
+    storage.drop()

@@ -1,13 +1,13 @@
 import json
 import logging
 import uuid
-from typing import Callable, Iterable, Iterator, List, Optional, Type
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Type
 
 from pydantic import BaseModel
 
 from ampf.base import BaseCollectionStorage, KeyNotExistsException
 from weaviate.classes.config import Configure, DataType, Property, VectorDistances
-from weaviate.classes.query import MetadataQuery, Filter
+from weaviate.classes.query import Filter, MetadataQuery
 
 from .weaviate_db import WeaviateDB
 
@@ -22,22 +22,30 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         key_name: Optional[str] = None,
         key: Optional[Callable[[T], str]] = None,
         db: Optional[WeaviateDB] = None,
+        indexed_fields: Optional[List[str]] = None,
     ):
         BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         # BaseQuery.__init__(self, self.get_all)
         self.db = db or WeaviateDB()
+        self.key_name = self.key_name or "key"
+        self.indexed_fields = indexed_fields or []
+
+        properties = [
+            Property(name=self.key_name, data_type=DataType.TEXT),
+        ]
+        for field in self.indexed_fields:
+            properties.append(Property(name=field, data_type=DataType.TEXT))
+        properties.append(Property(name="content", data_type=DataType.TEXT))
+
         self.collection = self.db.get_collection(
             self.collection_name,
-            [
-                Property(name="key", data_type=DataType.TEXT),
-                Property(name="content", data_type=DataType.TEXT),
-            ],
+            properties,
             Configure.VectorIndex.hnsw(distance_metric=VectorDistances.COSINE),
         )
 
     def _get_uuid(self, key: str) -> uuid.UUID:
         for i in self.collection.iterator():
-            if i.properties["key"] == key:
+            if i.properties[self.key_name] == key:
                 return i.uuid
         raise KeyNotExistsException(key)
 
@@ -48,10 +56,7 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
             uuid = self._get_uuid(key)
             self.collection.data.replace(
                 uuid,
-                properties={
-                    "key": key,
-                    "content": json.dumps(p),
-                },
+                properties=self.create_properties(p),
                 vector=v,
             )
         except KeyNotExistsException:
@@ -61,25 +66,34 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         p = value.model_dump()
         v = p.pop(self.embedding_field_name)
         self.collection.data.insert(
-            properties={
-                "key": p[self.key_name], # type: ignore
-                "content": json.dumps(p),
-            },
+            properties=self.create_properties(p),
             vector=v,
         )
 
+    def create_properties(self, p: Dict[str, Any]) -> Dict[str, Any]:
+        ret = {self.key_name: p[self.key_name]}
+        for field in self.indexed_fields:
+            ret[field] = p.pop(field)
+        ret["content"] = json.dumps(p)
+        return ret
+
     def get(self, key: str) -> T:
         for i in self.collection.iterator():
-            if i.properties["key"] == key:
+            if i.properties[self.key_name] == key:
                 content = i.properties["content"]
                 if isinstance(content, str):
-                    return self.clazz.model_validate_json(content)
+                    ret = json.loads(content)
+                    for field in self.indexed_fields:
+                        ret[field] = i.properties[field]
+                    if i.vector:
+                        ret[self.embedding_field_name] = i.vector
+                    return self.clazz.model_validate(ret)
                 else:
                     raise ValueError("Content is not a string")
         raise KeyNotExistsException(key)
 
     def keys(self) -> Iterable[str]:
-        return [str(i.properties["key"]) for i in self.collection.iterator()]
+        return [str(i.properties[self.key_name]) for i in self.collection.iterator()]
 
     def delete(self, key: str) -> None:
         uuid = self._get_uuid(key)
@@ -91,7 +105,7 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         return True
 
     def drop(self):
-        self.collection.data.delete_many(where=Filter.by_property("key").like("*"))
+        self.collection.data.delete_many(where=Filter.by_property(self.key_name).like("*"))
 
     def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
         response = self.collection.query.near_vector(
@@ -101,3 +115,7 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
             print(o.properties)
             print(o.metadata.distance)
             yield self.clazz.model_validate(o.properties)
+
+    def delete_where(self, field: str, value: str):
+        ret = self.collection.data.delete_many(where=Filter.by_property(field).equal(value), verbose=True)
+        self._log.info("Deleted %d items.", ret)
