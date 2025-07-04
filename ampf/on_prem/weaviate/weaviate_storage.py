@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseCollectionStorage, KeyNotExistsException
+from weaviate.collections.classes.filters import _Filters
 from weaviate.classes.config import Configure, DataType, Property, VectorDistances
 from weaviate.classes.query import Filter, MetadataQuery
 
@@ -74,7 +75,7 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         ret = {self.key_name: p[self.key_name]}
         for field in self.indexed_fields:
             ret[field] = p.pop(field)
-        ret["content"] = json.dumps(p)
+        ret["content"] = json.dumps(p, default=str)
         return ret
 
     def get(self, key: str) -> T:
@@ -87,7 +88,11 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
                         ret[field] = i.properties[field]
                     if i.vector:
                         ret[self.embedding_field_name] = i.vector
-                    return self.clazz.model_validate(ret)
+                    try:
+                        return self.clazz.model_validate(ret)
+                    except Exception as e:
+                        self._log.error("Error validating model: %s", e)
+                        raise ValueError(f"Error validating model: {e}")
                 else:
                     raise ValueError("Content is not a string")
         raise KeyNotExistsException(key)
@@ -107,15 +112,33 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
     def drop(self):
         self.collection.data.delete_many(where=Filter.by_property(self.key_name).like("*"))
 
-    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+    def find_nearest(self, embedding: List[float], limit: Optional[int] = None, filters: Optional[_Filters] = None) -> Iterator[T]:
         response = self.collection.query.near_vector(
-            near_vector=embedding, limit=limit, return_metadata=MetadataQuery(distance=True)
+            near_vector=embedding, 
+            filters=filters,
+            limit=limit, 
+            return_metadata=MetadataQuery(distance=True),
         )
-        for o in response.objects:
-            print(o.properties)
-            print(o.metadata.distance)
-            yield self.clazz.model_validate(o.properties)
+        for i in response.objects:
+            content = i.properties["content"]
+            if isinstance(content, str):
+                ret = json.loads(content)
+                for field in self.indexed_fields:
+                    ret[field] = i.properties[field]
+                if i.vector:
+                    self._log.warning(ret)
+                    ret[self.embedding_field_name] = i.vector
+                try:
+                    self._log.warning(ret)
+                    yield self.clazz.model_validate(ret)
+                except Exception as e:
+                    self._log.error("Error validating model: %s\n\n%s\n", e, ret)
+                    raise ValueError(f"Error validating model: {e}")
+
+            else:
+                raise ValueError("Content is not a string")
 
     def delete_where(self, field: str, value: str):
         ret = self.collection.data.delete_many(where=Filter.by_property(field).equal(value), verbose=True)
-        self._log.info("Deleted %d items.", ret)
+        if len(ret.objects) > 0:
+            self._log.info("Deleted %d items.", len(ret.objects))
