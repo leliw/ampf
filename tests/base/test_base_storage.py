@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 import pytest
 
@@ -153,7 +153,7 @@ def test_create_collection(storage: BaseStorage):
 
 class TC(BaseModel):
     name: str
-    embedding: List[float] = None
+    embedding: Optional[List[float]] = None
 
 
 def test_embedding(storage: BaseStorage[TC]):
@@ -164,7 +164,7 @@ def test_embedding(storage: BaseStorage[TC]):
     storage.put("1", tc1)
     storage.put("2", tc2)
     # And: Find nearest
-    nearest = list(storage.find_nearest(tc1.embedding))
+    nearest = list(storage.find_nearest(tc1.embedding or []))
     # Then: All two are returned
     assert len(nearest) == 2
     # And: The nearest is the first one

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, Type
+from typing import Any, Iterator, Optional, Type
 
 from google.cloud import storage
 
@@ -15,7 +15,7 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
     _default_bucket = None
 
     @classmethod
-    def init_client(cls, bucket_name: str = None):
+    def init_client(cls, bucket_name: Optional[str] = None):
         if not cls._storage_client:
             cls._storage_client = storage.Client()
         if bucket_name:
@@ -24,9 +24,9 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T] = None,
-        content_type: str = None,
-        bucket_name: str = None,
+        clazz: Optional[Type[T]] = None,
+        content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None,
     ):
         super().__init__(collection_name, clazz, content_type)
         self._log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
     ) -> None:
         blob = self._get_blob(key)
         if metadata:
-            blob.metadata = metadata.dict()
+            blob.metadata = metadata.model_dump()
         blob.upload_from_string(data, content_type=content_type or self.content_type)
 
     def download_blob(self, key: str) -> bytes:

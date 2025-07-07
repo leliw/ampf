@@ -58,3 +58,99 @@ GcpBlobStorage.init_client(
     bucket_name=server_config.google_bucket_name
 )
 ```
+
+## Pub/Sub
+
+Helper classes for Pub/Sub.
+Topics and subscriptions have to be created in advance.
+
+```bash
+gcloud pubsub topics create unit-tests
+gcloud pubsub subscriptions create unit-tests-sub --topic unit-tests
+```
+
+### GcpTopic
+
+Sends message to Pub/Sub topic.
+
+```python
+topic = GcpTopic(project_id, topic_id)
+data = D(name=f"Test message {time.time()}")
+topic.publish(data)
+```
+
+### GcpSubscription
+
+Receives messages from Pub/Sub topic and return them as a generator.
+
+```python
+subscription = GcpSubscription(project_id, subscription_id, D)
+for data in subscription:
+    print(data)
+```
+
+Code sample:
+
+```python
+topic = GcpTopic(topic_id, project_id)
+# And: Subscription is created
+subscription = GcpSubscription(subscription_id, project_id, D, processing_timeout=5.0, per_message_timeout=1.0)
+# And: Message is published
+data = D(name=f"Test message {time.time()}")
+topic.publish(data)
+
+# And: Message is received
+received_messages = []
+try:
+    for msg_data in subscription:
+        received_messages.append(msg_data)
+        if msg_data == data:
+            break
+except Exception as e:
+    pytest.fail(f"Generator subskrypcji zgłosił wyjątek: {e}")
+```
+
+### Receive push notification
+
+Dla serwisów uruchamianych w GCP dostarczanie wiadomości standardowę subskrypcją (Pull) wiadomośći  nie jest wskazana.
+Lepszym rozwiązaniem jest dostarczanie typu (Push) - wysłanie wiadomości na wskazany endpoint.
+
+Przykład endpointa odbierającego wiadomości.
+
+```python
+router = APIRouter(tags=["Pub/Sub Push"])
+
+
+class PubsubMessage(BaseModel):
+    attributes: Optional[Dict[str, str]] = None
+    data: str
+    messageId: Optional[str] = None
+    publishTime: Optional[str] = None
+
+
+class PushRequest(BaseModel):
+    message: PubsubMessage
+    subscription: str
+
+
+@router.post("")
+async def handle_push(request: PushRequest):
+    try:
+        decoded_data = base64.b64decode(request.message.data).decode("utf-8")
+        response_topic_name = reqest.message.attributes.get('response_topic')
+
+        # Convert data to desired body
+        body = ChunksRequest.model_validate_json(decoded_data)
+        response = ... # Do something with body
+        # Send response to publisher
+        GcpTopic(response_topic_name).publish(response.model_dump_json())
+            
+        return {"status": "acknowledged", "messageId": request.message.messageId}
+    except ValidationError as e:
+        _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
+        raise HTTPException(status_code=400, detail=f"Wrong message format: {e}")
+
+    except Exception as e:
+        _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
+        raise HTTPException(status_code=500, detail=f"Error processing message: {e}")
+```
