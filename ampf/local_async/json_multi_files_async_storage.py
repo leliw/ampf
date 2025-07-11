@@ -3,27 +3,29 @@
 import logging
 import os
 from pathlib import Path
-from typing import AsyncIterator, Callable, Type
+from typing import Any, AsyncIterator, Callable, Optional, Type
 
 import aiofiles
 import aiofiles.os
+from pydantic import BaseModel
 
 from ampf.base import BaseAsyncStorage
+from ampf.base.exceptions import KeyNotExistsException
 
 from .file_async_storage import FileAsyncStorage, StrPath
 
 
-class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
+class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncStorage[T], FileAsyncStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
-        subfolder_characters: int = None,
-        root_path: StrPath = None,
+        key_name: Optional[str] = None,
+        key: Optional[str | Callable[[T], str]] = None,
+        subfolder_characters: Optional[int] = None,
+        root_path: Optional[StrPath] = None,
     ):
         BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
         FileAsyncStorage.__init__(
@@ -35,18 +37,20 @@ class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
         )
         self._log = logging.getLogger(__name__)
 
-    async def put(self, key: str, value: T) -> None:
+    async def put(self, key: Any, value: T) -> None:
+        key = str(key)
         full_path = self._key_to_full_path(key)
         json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         await self._async_write_to_file(full_path, json_str)
 
-    async def get(self, key: str) -> T:
+    async def get(self, key: Any) -> T:
+        key = str(key)
         full_path = self._key_to_full_path(key)
         try:
             data = await self._async_read_from_file(full_path)
             return self.clazz.model_validate_json(data)
         except FileNotFoundError:
-            return None
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     async def keys(self) -> AsyncIterator[str]:
         start_index = len(str(self.folder_path)) + 1
@@ -68,9 +72,9 @@ class JsonMultiFilesAsyncStorage[T](BaseAsyncStorage[T], FileAsyncStorage):
                     k = f"{folder}/{file}" if folder else file
                     yield k[:-5] if k.endswith(".json") else k
 
-    async def delete(self, key: str) -> None:
-        full_path = self._key_to_full_path(key)
+    async def delete(self, key: Any) -> None:
+        full_path = self._key_to_full_path(str(key))
         await aiofiles.os.remove(full_path)
 
-    def _key_to_full_path(self, key: str) -> str:
-        return self._create_file_path(key)
+    def _key_to_full_path(self, key: Any) -> Path:
+        return self._create_file_path(str(key))

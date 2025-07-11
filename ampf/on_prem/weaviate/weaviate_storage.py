@@ -57,12 +57,12 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         except KeyNotExistsException:
             self.create(value)
 
-    def create(self, value):
+    def create(self, value: T):
         p = value.model_dump()
         v = p.pop(self.embedding_field_name)
         self.collection.data.insert(
             properties={
-                "key": p[self.key_name], # type: ignore
+                "key": p[self.key], # type: ignore
                 "content": json.dumps(p),
             },
             vector=v,

@@ -17,7 +17,7 @@ class BaseCollectionStorage[T: BaseModel](BaseStorage[T]):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
         collections: Optional[List[BaseCollectionStorage]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
@@ -64,7 +64,7 @@ class BaseCollectionStorage[T: BaseModel](BaseStorage[T]):
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        ret = self.create_collection(parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key_name=sub.key_name)
+        ret: BaseCollectionStorage = self.create_collection(parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key=sub.key) # type: ignore
         for c in sub.subcollections.values():
             ret.add_collection(c)
         return ret

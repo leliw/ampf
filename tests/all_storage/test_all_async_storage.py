@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from uuid import UUID, uuid4
+from pydantic import BaseModel, Field
 import pytest
 
 from ampf.base import BaseAsyncStorage, KeyExistsException
@@ -8,6 +9,12 @@ from ampf.local_async import JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage
 
 
 class D(BaseModel):
+    name: str
+    value: str
+
+
+class Duuid(BaseModel):
+    uuid: UUID = Field(default_factory=uuid4)
     name: str
     value: str
 
@@ -22,13 +29,32 @@ class D(BaseModel):
 )
 def storage(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = request.param("test", D, root_path = tmp_path)
+        storage = request.param("test", D, root_path=tmp_path)
     elif request.param == GcpAsyncStorage:
         storage = gcp_factory.create_async_storage("test", D)
     else:
         storage = request.param("test", D)
     yield storage
-    # storage.drop()
+    storage.drop()
+
+
+@pytest.fixture(
+    params=[
+        InMemoryAsyncStorage,
+        JsonOneFileAsyncStorage,
+        JsonMultiFilesAsyncStorage,
+        GcpAsyncStorage,
+    ]
+)
+def storage_uuid(gcp_factory, request, tmp_path):
+    if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+        storage = request.param("test", Duuid, root_path=tmp_path)
+    elif request.param == GcpAsyncStorage:
+        storage = gcp_factory.create_async_storage("test", Duuid)
+    else:
+        storage = request.param("test", Duuid)
+    yield storage
+    storage.drop()
 
 
 @pytest.mark.asyncio
@@ -158,3 +184,16 @@ async def test_is_empty(storage: BaseAsyncStorage):
     # Then: Is not empty
     assert not await storage.is_empty()
     await storage.drop()
+
+
+@pytest.mark.asyncio
+async def test_uuid(storage_uuid: BaseAsyncStorage):
+    d = Duuid(name="foo", value="beer")
+    await storage_uuid.create(d)
+    o = await storage_uuid.get(d.uuid)
+    assert d == o
+    o.value = "wine"
+    await storage_uuid.put(o.uuid, o)
+    assert o == await storage_uuid.get(o.uuid)
+    await storage_uuid.delete(d.uuid)
+    assert not await storage_uuid.key_exists(d.uuid)

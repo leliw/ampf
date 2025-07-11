@@ -1,4 +1,4 @@
-from typing import Callable, Iterator, Optional, Type
+from typing import Any, Callable, Iterator, Optional, Type
 
 from pydantic import BaseModel
 
@@ -21,11 +21,11 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
         BaseQuery.__init__(self, self.get_all)
         self.items = {}
 
-    def put(self, key: str, value: T) -> None:
-        self.items[key] = value.model_copy(deep=True)
+    def put(self, key: Any, value: T) -> None:
+        self.items[str(key)] = value.model_copy(deep=True)
 
-    def get(self, key: str) -> T:
-        ret = self.items.get(key)
+    def get(self, key: Any) -> T:
+        ret = self.items.get(str(key))
         if ret:
             return ret.model_copy(deep=True)
         else:
@@ -35,8 +35,8 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
         for key in self.items.keys():
             yield key
 
-    def delete(self, key: str) -> None:
-        self.items.pop(key, None)
+    def delete(self, key: Any) -> None:
+        self.items.pop(str(key), None)
 
     def is_empty(self) -> bool:
         return not bool(self.items)

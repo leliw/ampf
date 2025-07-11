@@ -4,5 +4,6 @@
         "--cov=ampf"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "workbench.colorTheme": "Solarized Light"
 }

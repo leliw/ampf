@@ -52,22 +52,22 @@ class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
             default=str,
         )
 
-    def put(self, key: str, value: T) -> None:
+    def put(self, key: Any, value: T) -> None:
         dv = value.model_dump()
         # Remove key from value
-        if self.key_name:
-            dv.pop(self.key_name)
+        if isinstance(self.key, str):
+            dv.pop(self.key)
         data = self._load_data()
-        data[key] = dv
+        data[str(key)] = dv
         self._save_data(data)
 
-    def get(self, key: str) -> T:
+    def get(self, key: Any) -> T:
         try:
             data = self._load_data()
-            dv = data[key]
+            dv = data[str(key)]
             # Add key back
-            if self.key_name:
-                dv[self.key_name] = key
+            if isinstance(self.key, str):
+                dv[self.key] = key
             return self.clazz.model_validate(dv)
         except KeyError:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
@@ -77,7 +77,7 @@ class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
         for k in data.keys():
             yield k
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: Any) -> None:
         data = self._load_data()
-        data.pop(key, None)
+        data.pop(str(key), None)
         self._save_data(data)

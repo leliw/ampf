@@ -1,4 +1,5 @@
-from typing import AsyncIterator, Callable, List, Optional, Type
+from typing import Any, AsyncIterator, Callable, List, Optional, Type
+import uuid
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -37,19 +38,22 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         Returns:
             The preprocessed data.
         """
+        for k, v in data.items():
+            if isinstance(v, uuid.UUID):
+                data[k] = str(v)
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
         return data
 
-    async def put(self, key: str, data: T) -> None:
+    async def put(self, key: Any, data: T) -> None:
         """Put a document in the collection."""
         data_dict = data.model_dump(by_alias=True, exclude_none=True)
         data_dict = self.on_before_save(data_dict)  # Preprocess data
-        await self._coll_ref.document(key).set(data_dict)
+        await self._coll_ref.document(str(key)).set(data_dict)
 
-    async def get(self, key: str) -> T:
+    async def get(self, key: Any) -> T:
         """Get a document from the collection."""
-        doc = await self._coll_ref.document(key).get()
+        doc = await self._coll_ref.document(str(key)).get()
         data = doc.to_dict()
         return self.clazz.model_validate(data)
 
@@ -58,10 +62,10 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         async for doc in self._coll_ref.stream():
             yield doc.id
 
-    async def delete(self, key: str) -> bool:
+    async def delete(self, key: Any) -> bool:
         """Delete a document from the collection."""
         try:
-            await self._coll_ref.document(key).delete()
+            await self._coll_ref.document(str(key)).delete()
             return True
         except exceptions.NotFound:
             raise KeyNotExistsException(key)

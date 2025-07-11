@@ -18,22 +18,21 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
     ):
         self.collection_name = collection_name
         self.clazz = clazz
-        self.key = key
         if not key and not key_name:
             field_names = list(clazz.model_fields.keys())
-            key_name = field_names[0]
-        self.key_name = key_name
+            key = field_names[0]
+        self.key = key or key_name
 
     @abstractmethod
-    async def put(self, key: str, value: T) -> None:
+    async def put(self, key: Any, value: T) -> None:
         """Store the value with the key"""
 
     @abstractmethod
-    async def get(self, key: str) -> T:
+    async def get(self, key: Any) -> T:
         """Get the value with the key"""
 
     @abstractmethod
@@ -42,7 +41,7 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         yield "None"
 
     @abstractmethod
-    async def delete(self, key: str) -> None:
+    async def delete(self, key: Any) -> None:
         """Delete the value with the key"""
 
     async def create(self, value: T) -> None:
@@ -57,10 +56,11 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         await self.put(key, value)
 
     def get_key(self, value: T) -> str:
-        if self.key:
-            return self.key(value)
-        elif self.key_name:
-            return getattr(value, self.key_name)
+        """Get the key for the value"""
+        if self.key and isinstance(self.key, Callable):
+            return str(self.key(value))
+        elif self.key and isinstance(self.key, str):
+            return str(getattr(value, self.key))
         else:
             raise ValueError("Key name or key function must be provided")
 
@@ -74,7 +74,8 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         async for key in self.keys():
             yield await self.get(key)
 
-    async def key_exists(self, needle: str) -> bool:
+    async def key_exists(self, needle: Any) -> bool:
+        needle = str(needle)
         async for key in self.keys():
             if needle == key:
                 return True

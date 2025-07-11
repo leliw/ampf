@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Callable, Iterator, Optional, Self, Type
+from typing import Any, Callable, Iterator, Optional, Self, Type
 
 from pydantic import BaseModel
 
@@ -33,15 +33,15 @@ class JsonMultiFilesStorage[T: BaseModel](BaseCollectionStorage[T], FileStorage)
         )
         self._log = logging.getLogger(__name__)
 
-    def put(self, key: str, value: T) -> None:
-        full_path = self._key_to_full_path(key)
+    def put(self, key: Any, value: T) -> None:
+        full_path = self._key_to_full_path(str(key))
         self._log.debug("put: %s (%s)", key, full_path)
         json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         self._write_to_file(full_path, json_str)
 
-    def get(self, key: str) -> T:
+    def get(self, key: Any) -> T:
         self._log.debug("get %s", key)
-        full_path = self._key_to_full_path(key)
+        full_path = self._key_to_full_path(str(key))
         try:
             data = self._read_from_file(full_path)
             return self.clazz.model_validate_json(data)
@@ -70,9 +70,9 @@ class JsonMultiFilesStorage[T: BaseModel](BaseCollectionStorage[T], FileStorage)
                     yield k[:-5] if k.endswith(".json") else k
         self._log.debug("keys <- end")
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: Any) -> None:
         self._log.debug("delete %s", key)
-        full_path = self._key_to_full_path(key)
+        full_path = self._key_to_full_path(str(key))
         os.remove(full_path)
 
     def _key_to_full_path(self, key: str) -> Path:

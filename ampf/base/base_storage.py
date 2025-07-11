@@ -21,26 +21,25 @@ class BaseStorage[T: BaseModel](ABC):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
         self.collection_name = collection_name
         self.clazz = clazz
-        self.key = key
         if not key and not key_name:
             field_names = list(clazz.model_fields.keys())
-            key_name = field_names[0]
-        self.key_name = key_name
+            key = field_names[0]
+        self.key = key or key_name
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit
 
     @abstractmethod
-    def put(self, key: str, value: T) -> None:
+    def put(self, key: Any, value: T) -> None:
         """Store the value with the key"""
 
     @abstractmethod
-    def get(self, key: str) -> T:
+    def get(self, key: Any) -> T:
         """Get the value with the key"""
 
     @abstractmethod
@@ -48,7 +47,7 @@ class BaseStorage[T: BaseModel](ABC):
         """Get all the keys"""
 
     @abstractmethod
-    def delete(self, key: str) -> None:
+    def delete(self, key: Any) -> None:
         """Delete the value with the key"""
 
     def create(self, value: T) -> None:
@@ -67,10 +66,10 @@ class BaseStorage[T: BaseModel](ABC):
 
     def get_key(self, value: T) -> str:
         """Get the key for the value"""
-        if self.key:
-            return self.key(value)
-        elif self.key_name:
-            return getattr(value, self.key_name)
+        if self.key and isinstance(self.key, Callable):
+            return str(self.key(value))
+        elif self.key and isinstance(self.key, str):
+            return str(getattr(value, self.key))
         else:
             raise ValueError("Key name or key function must be provided")
 
@@ -84,8 +83,9 @@ class BaseStorage[T: BaseModel](ABC):
         for key in self.keys():
             yield self.get(key)
 
-    def key_exists(self, needle: str) -> bool:
+    def key_exists(self, needle: Any) -> bool:
         """Check if the key exists"""
+        needle = str(needle)
         for key in self.keys():
             if needle == key:
                 return True
@@ -106,7 +106,7 @@ class BaseStorage[T: BaseModel](ABC):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return self.__class__(new_collection_name, clazz, key_name=key_name, key=key)

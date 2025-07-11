@@ -13,8 +13,7 @@ Type parameter:
 
 * collection_name(`str`): Name of collection in storage
 * clazz(`Type[T]`): Class of objects stored in storage,
-* key_name(`str`): Mame of key field in stored object, default is first field
-* key(`Callable[[T], str]`): Function to get key from object, default is None
+* key(`str | Callable[[T], str]`): Name of key field or function to get key from object, default is the first field
 * embedding_field_name(`str`) = "embedding": Name of field in object which contains embedding vector
 * embedding_search_limit(`int`) = 5: Limit of objects to be returned by embedding search
 
@@ -22,10 +21,10 @@ Type parameter:
 
 These methods has to be implemented by child class.
 
-* put(self, key: `str`, value: `T`) -> `None`: Store the value with the key
-* get(self, key: `str`) -> `T`: Get the value with the key
+* put(self, key: `Any`, value: `T`) -> `None`: Store the value with the key
+* get(self, key: `Any`) -> `T`: Get the value with the key
 * keys(self) -> `Iterator[T]`: Get all the keys:
-* delete(self, key: `str`) -> `None`: Delete the value with the key
+* delete(self, key: `Any`) -> `None`: Delete the value with the key
 
 ## Implemented methods
 
@@ -36,7 +35,7 @@ These methods are implemented in this class.
 * get_key(self, value: `T`) -> `str`: Get the key for the value
 * drop(self) -> `None`: Delete all the values
 * get_all(self, sort: `Any` = None) -> `Iterator[T]`: Get all the values
-* key_exists(self, needle: `str`) -> `bool`: Check if the key exists
+* key_exists(self, needle: `Any`) -> `bool`: Check if the key exists
 * is_empty(self) -> `bool`: Is storage empty?
 * create_collection(self, key: str, collection_name: str, clazz: Type[T]) -> BaseStorage[T]: Creates a new storage object for subcollection (see below)
 

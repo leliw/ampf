@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from uuid import UUID, uuid4
+from pydantic import BaseModel, Field
 import pytest
 
 from ampf.base import BaseStorage, KeyExistsException, KeyNotExistsException
 from ampf.gcp import GcpStorage
 from ampf.in_memory import InMemoryStorage
-from ampf.local import FileStorage, JsonOneFileStorage, JsonMultiFilesStorage
+from ampf.local import JsonOneFileStorage, JsonMultiFilesStorage
 
 
 class D(BaseModel):
@@ -12,37 +13,54 @@ class D(BaseModel):
     value: str
 
 
-@pytest.fixture(
-    params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage]
-)
+class Duuid(BaseModel):
+    uuid: UUID = Field(default_factory=uuid4)
+    name: str
+    value: str
+
+
+@pytest.fixture(params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage])
 def storage(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
-        FileStorage._root_path = tmp_path
-    if request.param == GcpStorage:
+        storage = request.param("test", D, root_path=tmp_path)
+    elif request.param == GcpStorage:
         storage = gcp_factory.create_storage("test", D)
     else:
         storage = request.param("test", D)
     yield storage
     storage.drop()
 
-@pytest.fixture(
-    params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage]
-)
+
+@pytest.fixture(params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage])
 def storage_key(gcp_factory, request, tmp_path):
     if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
-        FileStorage._root_path = tmp_path
-    if request.param == GcpStorage:
+        storage = request.param("test", D, key=lambda d: d.value, root_path=tmp_path)
+    elif request.param == GcpStorage:
         storage = gcp_factory.create_storage("test", D, key=lambda d: d.value)
     else:
         storage = request.param("test", D, key=lambda d: d.value)
     yield storage
     storage.drop()
 
+
+@pytest.fixture(params=[InMemoryStorage, JsonOneFileStorage, JsonMultiFilesStorage, GcpStorage])
+def storage_uuid(gcp_factory, request, tmp_path):
+    if request.param in [JsonOneFileStorage, JsonMultiFilesStorage]:
+        storage = request.param("test", Duuid, root_path=tmp_path)
+    elif request.param == GcpStorage:
+        storage = gcp_factory.create_storage("test", Duuid)
+    else:
+        storage = request.param("test", Duuid)
+    yield storage
+    storage.drop()
+
+
 def test_not_found(storage: BaseStorage):
     # When: I get something from empty storage
     # Then: Is exception rised
     with pytest.raises(KeyNotExistsException):
         storage.get("foo")
+
 
 def test_create_new(storage: BaseStorage):
     # Given: A new element
@@ -91,6 +109,7 @@ def test_get_key_name(storage: BaseStorage):
     key = storage.get_key(d)
     # Then: The key is correct
     assert "foo" == key
+
 
 def test_get_key(storage_key: BaseStorage):
     # Given: A new element
@@ -145,3 +164,15 @@ def test_delete_existing(storage: BaseStorage):
     storage.delete("foo")
     # Then: It is not exist
     assert not storage.key_exists("foo")
+
+
+def test_uuid(storage_uuid: BaseStorage):
+    d = Duuid(name="foo", value="beer")
+    storage_uuid.create(d)
+    o = storage_uuid.get(d.uuid)
+    assert d == o
+    o.value = "wine"
+    storage_uuid.put(o.uuid, o)
+    assert o == storage_uuid.get(o.uuid)
+    storage_uuid.delete(d.uuid)
+    assert not storage_uuid.key_exists(d.uuid)
