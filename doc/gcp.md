@@ -4,6 +4,30 @@ GCP package implements abstract classes using Google Cloud Platform.
 
 ## Configuration
 
+All configuration parameters are defined in `ServerConfig` class and can be set
+using environment variables.
+
+```python
+class ServerConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_nested_delimiter="__")
+
+    version: str = "0.0.1"
+    data_dir: str = "./data/"
+
+    gcp_root_storage: Optional[str] = None
+```
+
+Environment variables for GCP configuration:
+
+* GCP_ROOT_STORAGE - Root storage name e.g. `projects/ampf`
+
+## GcpFactory
+
+### Constructor
+
+You can pass `root_storage` parameter to the constructor to set the root storage.
+This is the way to use separate storage for each project in one GCP project.
+
 ## GcpStorage
 
 ### Vector search - embedding
@@ -112,19 +136,19 @@ except Exception as e:
 
 ### Receive push notification
 
-Dla serwisów uruchamianych w GCP dostarczanie wiadomości standardowę subskrypcją (Pull) wiadomośći  nie jest wskazana.
-Lepszym rozwiązaniem jest dostarczanie typu (Push) - wysłanie wiadomości na wskazany endpoint.
+For services launched in GCP, delivering messages using a standard subscription (Pull) message is not recommended.
+A better solution is to deliver (Push) - sending a message to a specified endpoint.
 
-Przykład endpointa odbierającego wiadomości.
+An example of an endpoint receiving messages.
 
 ```python
 router = APIRouter(tags=["Pub/Sub Push"])
 
 
 class PubsubMessage(BaseModel):
+    messageId: Optional[str] = None
     attributes: Optional[Dict[str, str]] = None
     data: str
-    messageId: Optional[str] = None
     publishTime: Optional[str] = None
 
 
@@ -137,7 +161,7 @@ class PushRequest(BaseModel):
 async def handle_push(request: PushRequest):
     try:
         decoded_data = base64.b64decode(request.message.data).decode("utf-8")
-        response_topic_name = reqest.message.attributes.get('response_topic')
+        response_topic_name = request.message.attributes.get('response_topic')
 
         # Convert data to desired body
         body = ChunksRequest.model_validate_json(decoded_data)
