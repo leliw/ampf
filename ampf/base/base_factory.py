@@ -10,11 +10,11 @@ from .base_collection_storage import BaseCollectionStorage
 from .base_storage import BaseStorage
 
 
-class CollectionDef(BaseModel):
+class CollectionDef[T: BaseModel](BaseModel):
     """Parameters defining CollectionStorage"""
 
     collection_name: str
-    clazz: Type
+    clazz: Type[T]
     key_name: Optional[str] = None
     subcollections: Optional[List[CollectionDef]] = Field(default_factory=list)
 
@@ -42,7 +42,7 @@ class BaseFactory(ABC):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -60,7 +60,7 @@ class BaseFactory(ABC):
         collection_name: str,
         clazz: Type[T],
         key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
@@ -108,7 +108,7 @@ class BaseFactory(ABC):
             definition = CollectionDef.model_validate(dict)
         ret: BaseCollectionStorage = self.create_storage(
             definition.collection_name, definition.clazz, definition.key_name
-        )
-        for subcol in definition.subcollections:
+        ) # type: ignore
+        for subcol in definition.subcollections or []:
             ret.add_collection(self.create_collection(subcol))
         return ret
