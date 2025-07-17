@@ -16,7 +16,7 @@ class GcpTopic[T: BaseModel]:
 
     def publish(self, data: T | str | bytes):
         if isinstance(data, str):
-            data = data.encode("utf-8")
+            bdata = data.encode("utf-8")
         elif isinstance(data, bytes):
             bdata = data
         elif isinstance(data, BaseModel):
