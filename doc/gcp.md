@@ -103,6 +103,16 @@ data = D(name=f"Test message {time.time()}")
 topic.publish(data)
 ```
 
+You can also pass attributes to the message. They will be sent as
+additional metadata.
+
+```python
+topic = GcpTopic(project_id, topic_id)
+data = D(name=f"Test message {time.time()}")
+attributes = {"key1": "value1", "key2": "value2"}
+topic.publish(data, attributes)
+```
+
 ### GcpSubscription
 
 Receives messages from Pub/Sub topic and return them as a generator.
@@ -111,6 +121,17 @@ Receives messages from Pub/Sub topic and return them as a generator.
 subscription = GcpSubscription(project_id, subscription_id, D)
 for data in subscription:
     print(data)
+```
+
+If you pass class `D` to the constructor, it will automatically convert
+the received messages to Pydantic objects of type `D`. Otherwise, it will return
+raw message with `data` and `attributes` fields.
+
+```python
+subscription = GcpSubscription(project_id, subscription_id)
+for message in subscription:
+    print(message.data.decode("utf-8")
+    print(message.attributes)
 ```
 
 Code sample:

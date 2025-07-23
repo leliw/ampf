@@ -33,7 +33,7 @@ class GcpSubscription[T: BaseModel]:
         )
 
         def callback(message: pubsub_v1.subscriber.message.Message) -> None:  # type: ignore
-            _messages_queue.put(message.data.decode("utf-8"))
+            _messages_queue.put(message)
             message.ack()
 
         streaming_pull_future = subscriber.subscribe(
@@ -53,12 +53,13 @@ class GcpSubscription[T: BaseModel]:
                             self.per_message_timeout, remaining_time_for_cycle
                         )
 
-                        data = _messages_queue.get(
+                        message = _messages_queue.get(
                             block=True, timeout=current_wait_timeout
                         )
                         if self.clazz:
-                            data = self.clazz.model_validate_json(data)
-                        yield data
+                            yield self.clazz.model_validate_json(message.data.decode("utf-8"))
+                        else:
+                            yield message
                     except queue.Empty:
                         if not streaming_pull_future.running():
                             break

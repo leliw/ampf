@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Dict
 
 from google.cloud import pubsub_v1
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ class GcpTopic[T: BaseModel]:
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
 
-    def publish(self, data: T | str | bytes):
+    def publish(self, data: T | str | bytes, attrs: Optional[Dict[str, str]] = None):
         if isinstance(data, str):
             bdata = data.encode("utf-8")
         elif isinstance(data, bytes):
@@ -24,5 +24,8 @@ class GcpTopic[T: BaseModel]:
         else:
             raise ValueError("Unsupported data type")
         # When you publish a message, the client returns a future.
-        future = self.publisher.publish(self.topic_path, bdata)
+        if attrs:
+            future = self.publisher.publish(self.topic_path, bdata, **attrs)
+        else:
+            future = self.publisher.publish(self.topic_path, bdata)
         return future.result()
