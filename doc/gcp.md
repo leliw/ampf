@@ -97,6 +97,17 @@ gcloud pubsub subscriptions create unit-tests-sub --topic unit-tests
 
 Sends message to Pub/Sub topic.
 
+#### Constructor
+
+* `topic_id` - Pub/Sub topic ID, e.g. `unit-tests`.
+* `project_id` - GCP project ID, if not provided, it will use the one from environment variable `GOOGLE_PROJECT` or `GOOGLE_CLOUD_PROJECT`.
+
+#### Methods
+
+* `publish(data: T, attributes: Optional[Dict[str, str]] = None) -> None` - Publishes data to the topic. The data can be any Pydantic model or a simple object that can be serialized to JSON. If `attributes` are provided, they will be sent as additional metadata.
+
+#### Usage
+
 ```python
 topic = GcpTopic(project_id, topic_id)
 data = D(name=f"Test message {time.time()}")
