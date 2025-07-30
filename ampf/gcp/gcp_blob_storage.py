@@ -2,13 +2,13 @@ import logging
 from typing import Any, Iterator, Optional, Type
 
 from google.cloud import storage
-
+from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
 
 
-class GcpBlobStorage[T](BaseBlobStorage[T]):
+class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
     """A simple wrapper around Google Cloud Storage."""
 
     _storage_client = None
@@ -25,30 +25,32 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         self,
         collection_name: str,
         clazz: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
+        content_type: str =  "text/plain",
         bucket_name: Optional[str] = None,
     ):
         super().__init__(collection_name, clazz, content_type)
         self._log = logging.getLogger(__name__)
-        self.init_client()
-        self._bucket = (
-            self._storage_client.bucket(bucket_name)
-            if bucket_name
-            else self._default_bucket
-        )
+        if not self._storage_client:
+            self._storage_client = storage.Client()
+        if bucket_name:
+            self._bucket = self._storage_client.bucket(bucket_name)
+            if not self._default_bucket:
+                self._default_bucket = self._bucket
+        elif self._default_bucket:
+            self._bucket = self._default_bucket
+        else:
+            raise ValueError(f"No bucket specified or found for collection '{collection_name}'. Please provide a valid bucket_name.")
 
     def _get_blob(self, key: str) -> storage.Blob:
-        return self._bucket.blob(f"{self.collection_name}/{key}")
+        return self._bucket.blob(f"{self.collection_name}/{key}" if self.collection_name else key)
 
-    def _get_prefix(self, folder_name: str = None) -> str:
+    def _get_prefix(self, folder_name: Optional[str] = None) -> str:
         prefix = self.collection_name + "/"
         if folder_name:
             prefix += folder_name if folder_name[-1] == "/" else folder_name + "/"
         return prefix
 
-    def upload_blob(
-        self, key: str, data: bytes, metadata: T = None, content_type: str = None
-    ) -> None:
+    def upload_blob(self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None) -> None:
         blob = self._get_blob(key)
         if metadata:
             blob.metadata = metadata.model_dump()
@@ -65,14 +67,14 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         blob.metadata = metadata.dict()
         blob.patch()
 
-    def get_metadata(self, key: str) -> T:
+    def get_metadata(self, key: str) -> Optional[T]:
         blob = self._get_blob(key)
         if not blob.exists():
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         if not blob.metadata:
             # I don't know why, but sometimes the metadata is None (ML)
             blob.reload()
-        if not blob.metadata:
+        if not blob.metadata or not self.clazz:
             return None
         return self.clazz(**blob.metadata)
 
@@ -83,17 +85,15 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
     def keys(self) -> Iterator[str]:
         prefix = self._get_prefix()
         i = len(prefix)
-        blob: storage.Blob
         for blob in self._bucket.list_blobs(prefix=prefix):
             if not blob.name.endswith("/"):
                 yield blob.name[i:]
 
-    def list_blobs(self, folder_name: str = None) -> Iterator[Any]:
+    def list_blobs(self, folder_name: Optional[str] = None) -> Iterator[FileNameMimeType]:
         prefix = self._get_prefix(folder_name)
         i = len(prefix)
         for blob in self._bucket.list_blobs(prefix=prefix):
-            b: storage.Blob = blob
-            yield FileNameMimeType(name=b.name[i:], mime_type=b.content_type)
+            yield FileNameMimeType(name=blob.name[i:], mime_type=blob.content_type)
 
     # Additional not tested methods
 
@@ -135,9 +135,10 @@ class GcpBlobStorage[T](BaseBlobStorage[T]):
         new_blob = self._bucket.rename_blob(source_blob, self._get_prefix() + dest_key)
         return new_blob
 
-    def upload_blob_from_file(self, file_name: str, upload_file):
+    def upload_blob_from_file(self, file_name: str, upload_file): # type: ignore
         """Upload a file from an UploadFile object."""
         from fastapi import UploadFile
+
         upload_file: UploadFile
         blob = self._bucket.blob(file_name)
         blob.upload_from_file(upload_file.file, content_type=upload_file.content_type)

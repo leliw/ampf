@@ -29,14 +29,12 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self,
         bucket_name: str,
         clazz: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
+        content_type: str = "text/plain",
         subfolder_characters: Optional[int] = None,
         root_path: Optional[StrPath] = None,
     ):
         # Initialize BaseBlobStorage with collection name, metadata class, and content type
-        BaseBlobStorage.__init__(
-            self, collection_name=bucket_name, clazz=clazz, content_type=content_type
-        )
+        BaseBlobStorage.__init__(self, collection_name=bucket_name, clazz=clazz, content_type=content_type)
         default_ext = get_extension(content_type) if content_type else None
         default_ext = default_ext[1:] if default_ext else None
         FileStorage.__init__(
@@ -93,7 +91,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             with open(file_path, "rb") as f:
                 return f.read()
         except FileNotFoundError:
-            raise KeyNotExistsException
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     @override
     def put_metadata(self, key: str, metadata: dict | BaseModel):

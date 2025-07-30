@@ -1,9 +1,9 @@
-from typing import Type
+from typing import Optional, Type
 
 
 class KeyException(Exception):
     def __init__(
-        self, collection_name: str = None, clazz: Type = None, key: str = None
+        self, collection_name: Optional[str] = None, clazz: Optional[Type] = None, key: Optional[str] = None
     ):
         self.collection_name = collection_name
         self.clazz = clazz
@@ -12,13 +12,13 @@ class KeyException(Exception):
 
 class KeyNotExistsException(KeyException):
     def __init__(
-        self, collection_name: str = None, clazz: Type = None, key: str = None
+        self, collection_name: Optional[str] = None, clazz: Optional[Type] = None, key: Optional[str] = None
     ):
         super().__init__(collection_name, clazz, key)
 
 
 class KeyExistsException(KeyException):
     def __init__(
-        self, collection_name: str = None, clazz: Type = None, key: str = None
+        self, collection_name: Optional[str] = None, clazz: Optional[Type] = None, key: Optional[str] = None
     ):
         super().__init__(collection_name, clazz, key)

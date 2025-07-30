@@ -32,14 +32,10 @@ class GcpFactory(BaseFactory):
             cls._async_db = firestore.AsyncClient()
         return cls._async_db
 
-    def __init__(self, root_storage: Optional[str] = None):
-        self.root_storage = (
-            root_storage[:-1]
-            if root_storage and root_storage.endswith("/")
-            else root_storage
-        )
+    def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
+        self.root_storage = root_storage[:-1] if root_storage and root_storage.endswith("/") else root_storage
         if not self._db:
-            self.init_client()
+            self.init_client(default_bucket=bucket_name)
 
     def create_storage[T: BaseModel](
         self,
@@ -58,7 +54,7 @@ class GcpFactory(BaseFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
+        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
     ) -> BaseBlobStorage[T]:
         return GcpBlobStorage(collection_name, clazz, content_type)
 
@@ -70,9 +66,7 @@ class GcpFactory(BaseFactory):
         key: Optional[Callable[[T], str]] = None,
     ) -> BaseAsyncStorage[T]:
         return GcpAsyncStorage(
-            f"{self.root_storage}/{collection_name}"
-            if self.root_storage
-            else collection_name,
+            f"{self.root_storage}/{collection_name}" if self.root_storage else collection_name,
             clazz,
             db=self.get_async_db(),
             key_name=key_name,
