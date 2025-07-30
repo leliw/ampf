@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, Optional, Type
+from typing import Iterator, Optional, Type
 
 from google.cloud import storage
 from pydantic import BaseModel
