@@ -11,7 +11,7 @@ def factory(gcp_factory, request, tmp_path):
     if request.param == AsyncLocalFactory:
         factory = request.param(tmp_path)
     elif request.param == GcpAsyncFactory:
-        factory = gcp_factory
+        factory = request.param(bucket_name='unit-tests-001')
     else:
         factory = request.param()
     return factory
