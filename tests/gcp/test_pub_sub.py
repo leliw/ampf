@@ -51,7 +51,7 @@ def test_pub_sub_with_attrs():
     subscription = GcpSubscription(subscription_id, project_id, None, processing_timeout=5.0, per_message_timeout=1.0)
     # And: Message is published with attrs
     data = D(name=f"Test message {time.time()}")
-    topic.publish(data, {"a": "b"})
+    ret = topic.publish(data, {"a": "b"})
 
     # And: Message is received
     received_messages = []
