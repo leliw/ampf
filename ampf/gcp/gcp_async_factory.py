@@ -3,8 +3,9 @@ from typing import Callable, Optional, Type
 from google.cloud import firestore
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobStorage
+from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobAsyncStorage
 from ampf.gcp.gcp_async_storage import GcpAsyncStorage
+from ampf.gcp.gcp_blob_async_storage import GcpBlobAsyncStorage
 
 from .gcp_blob_storage import GcpBlobStorage
 
@@ -35,6 +36,17 @@ class GcpAsyncFactory(BaseAsyncFactory):
         return GcpAsyncStorage(collection_name, clazz, db=GcpAsyncFactory._db, key_name=key_name, key=key)
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
-    ) -> BaseBlobStorage[T]:
-        return GcpBlobStorage(collection_name, clazz, content_type, bucket_name=self.bucket_name)
+        self,
+        collection_name: Optional[str] = None,
+        clazz: Optional[Type[T]] = None,
+        content_type: str = "text/plain",
+        bucket_name: Optional[str] = None,
+    ) -> BaseBlobAsyncStorage[T]:
+        bucket_name = bucket_name or self.bucket_name
+        if not bucket_name:
+            raise ValueError(
+                "Bucket name must be provided either during factory initialization or when calling create_blob_async_storage."
+            )
+        return GcpBlobAsyncStorage(
+            bucket_name=bucket_name, collection_name=collection_name, clazz=clazz, content_type=content_type
+        )

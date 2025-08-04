@@ -20,7 +20,7 @@ class InMemoryBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
-        self.buckets[self.collection_name][blob.key] = blob
+        self.buckets[self.collection_name][blob.name] = blob
 
     @override
     async def download_async(self, key: str) -> Blob[T]:
@@ -38,11 +38,11 @@ class InMemoryBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
     @override
     def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
         blobs = []
-        for key, blob in self.buckets[self.collection_name].items():
-            if prefix is None or key.startswith(prefix):
+        for name, blob in self.buckets[self.collection_name].items():
+            if prefix is None or name.startswith(prefix):
                 blobs.append(
                     BlobHeader(
-                        key=key, content_type=blob.content_type, metadata=blob.metadata
+                        name=name, content_type=blob.content_type, metadata=blob.metadata
                     )
                 )
         return blobs

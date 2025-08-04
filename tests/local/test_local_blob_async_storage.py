@@ -28,7 +28,7 @@ def storage(temp_storage_dir):
 async def test_upload_and_download(storage: LocalBlobAsyncStorage):
     metadata = SampleMetadata(name="file1", version=1)
     blob = Blob[SampleMetadata](
-        key="test_blob",
+        name="test_blob",
         content_type="text/plain",
         metadata=metadata,
         data=b"Hello, World!"
@@ -37,17 +37,19 @@ async def test_upload_and_download(storage: LocalBlobAsyncStorage):
     await storage.upload_async(blob)
     downloaded = await storage.download_async("test_blob")
 
-    assert downloaded.key == blob.key
+    assert downloaded.name == blob.name
     assert downloaded.content_type == blob.content_type
     assert downloaded.metadata == blob.metadata
-    assert downloaded.data == blob.data
+    assert downloaded.data.read() == blob.data.read()
+
+
 
 
 @pytest.mark.asyncio
 async def test_upload_and_download_without_conent_type(storage: LocalBlobAsyncStorage):
     metadata = SampleMetadata(name="file1", version=1)
     blob = Blob[SampleMetadata](
-        key="test_blob",
+        name="test_blob",
         metadata=metadata,
         data=b"Hello, World!"
     )
@@ -55,21 +57,23 @@ async def test_upload_and_download_without_conent_type(storage: LocalBlobAsyncSt
     await storage.upload_async(blob)
     downloaded = await storage.download_async("test_blob")
 
-    assert downloaded.key == blob.key
+    assert downloaded.name == blob.name
     assert downloaded.content_type == blob.content_type
     assert downloaded.metadata == blob.metadata
-    assert downloaded.data == blob.data
+    assert downloaded.data.read() == blob.data.read()
+
+
 
 @pytest.mark.asyncio
 async def test_list_blobs(storage: LocalBlobAsyncStorage):
     blob1 = Blob[SampleMetadata](
-        key="item1",
+        name="item1",
         content_type="application/json",
         metadata=SampleMetadata(name="first", version=1),
         data=b"{}"
     )
     blob2 = Blob[SampleMetadata](
-        key="item2",
+        name="item2",
         content_type="application/json",
         metadata=SampleMetadata(name="second", version=2),
         data=b"{}"
@@ -79,7 +83,7 @@ async def test_list_blobs(storage: LocalBlobAsyncStorage):
     await storage.upload_async(blob2)
 
     headers = storage.list_blobs()
-    keys = [h.key for h in headers]
+    keys = [h.name for h in headers]
 
     assert "item1" in keys
     assert "item2" in keys
@@ -90,7 +94,7 @@ async def test_list_blobs(storage: LocalBlobAsyncStorage):
 @pytest.mark.asyncio
 async def test_delete_blob(storage: LocalBlobAsyncStorage):
     blob = Blob[SampleMetadata](
-        key="todelete",
+        name="todelete",
         content_type="text/plain",
         metadata=SampleMetadata(name="to delete", version=1),
         data=b"delete me"
@@ -111,7 +115,7 @@ async def test_download_missing_blob_raises(storage: LocalBlobAsyncStorage):
 @pytest.mark.asyncio
 async def test_content_type_affects_file_extension(storage: LocalBlobAsyncStorage):
     blob = Blob[SampleMetadata](
-        key="typed_blob",
+        name="typed_blob",
         content_type="application/json",
         metadata=SampleMetadata(name="json test", version=3),
         data=b"{\"foo\": \"bar\"}"

@@ -58,16 +58,16 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
-        data_path = self._generate_data_path(blob.key, blob.content_type)
-        meta_path = self._get_meta_path(blob.key)
+        data_path = self._generate_data_path(blob.name, blob.content_type)
+        meta_path = self._get_meta_path(blob.name)
 
         async def write_data():
             with open(data_path, "wb") as f:
-                f.write(blob.data)
+                f.write(blob.data.read())
 
         async def write_meta():
             meta_dict = {
-                "key": blob.key,
+                "key": blob.name,
                 "content_type": blob.content_type,
                 "metadata": blob.metadata.model_dump() if blob.metadata else {},
             }
@@ -93,7 +93,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         metadata = self.metadata_type.model_validate(meta_raw["metadata"])
         content_type = meta_raw.get("content_type")
 
-        return Blob[T](key=key, metadata=metadata, content_type=content_type, data=data)
+        return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
 
     @override
     def delete(self, key: str) -> None:
@@ -125,6 +125,6 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
             content_type = meta_raw.get("content_type")
 
             headers.append(
-                BlobHeader(key=key, metadata=metadata, content_type=content_type)
+                BlobHeader(name=key, metadata=metadata, content_type=content_type)
             )
         return headers

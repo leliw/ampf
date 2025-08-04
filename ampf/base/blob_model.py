@@ -1,12 +1,46 @@
-from typing import Optional
-from pydantic import BaseModel
+from io import BytesIO
+from typing import BinaryIO, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class BlobHeader[T: BaseModel](BaseModel):
-    key: str
+    """Header for a blob, containing metadata."""
+    name: str
     content_type: Optional[str] = None
     metadata: Optional[T] = None
 
 
 class Blob[T: BaseModel](BlobHeader[T]):
-    data: bytes
+    """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    _data: Optional[BinaryIO | BytesIO | bytes | str] = None
+
+    def __init__(
+        self,
+        name: str,
+        data: BinaryIO | BytesIO | bytes | str,
+        content_type: Optional[str] = None,
+        metadata: Optional[T] = None,
+    ):
+        super().__init__(name=name, content_type=content_type, metadata=metadata)
+        self.data = data  # setter
+
+    @property
+    def data(self) -> BinaryIO:
+        if not self._data:
+            raise ValueError("Data is not set")
+        if isinstance(self._data, BinaryIO):
+            self._data.seek(0)
+            return self._data
+        elif isinstance(self._data, str):
+            return BytesIO(self._data.encode())
+        else:
+            return BytesIO(self._data)
+
+    @data.setter
+    def data(self, value: BinaryIO | BytesIO | bytes | str):
+        self._data = value
+        if isinstance(value, str) and not self.content_type:
+            self.content_type = "text/plain"
+        
