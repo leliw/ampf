@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional, Type, override
+from typing import Iterable, Optional, Type, override
 
 import aiohttp
 from google.cloud import storage
