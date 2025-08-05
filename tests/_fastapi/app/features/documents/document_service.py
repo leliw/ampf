@@ -19,7 +19,6 @@ class DocumentService:
         id=uuid4()
         now = datetime.now()
         name = f"{id}_{blob.name}"
-        self._log.warning(name)
         await self.blob_storage.upload_async(Blob(name=name, data=blob.data, content_type=blob.content_type))
         document = Document(
             id=id,
@@ -27,15 +26,20 @@ class DocumentService:
             updated_at=now,
             **document_create.model_dump(),
         )
-        self._log.warning(document)
         self.storage.save(document)
         return document
 
     def get_all(self) -> Iterable[DocumentHeader]:
         return [DocumentHeader(**v.model_dump()) for v in self.storage.get_all()]
 
-    def get(self, key: UUID) -> Document:
+    def get_meta(self, key: UUID) -> Document:
         return self.storage.get(key)
+
+    async def get(self, key: UUID) -> Blob:
+        document = self.storage.get(key)
+        name = f"{document.id}_{document.name}"
+        return await self.blob_storage.download_async(name)
+
 
     def put(self, key: UUID, value: Document) -> None:
         self.storage.put(key, value)

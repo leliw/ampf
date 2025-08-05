@@ -4,12 +4,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
-from ampf.base import Blob
 from ampf.base.blob_model import BlobCreate
 from ampf.fastapi import JsonStreamingResponse
 
@@ -21,6 +19,7 @@ router = APIRouter(tags=["Documents"])
 ITEM_PATH = "/{document_id}"
 
 _log = logging.getLogger(__name__)
+
 
 def get_document_service(factory: FactoryDep, async_factory: AsyncFactoryDep):
     return DocumentService(factory, async_factory)
@@ -36,8 +35,6 @@ async def upload_document(
     name: Annotated[str, Form()],
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
-    _log.warning(file)
-    
     document_create = DocumentCreate(name=name, content_type=content_type)
     blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
     document = await service.post(blob_create, document_create)
@@ -50,8 +47,14 @@ async def get_all_documents(service: DocumentServiceDep) -> List[DocumentHeader]
 
 
 @router.get(ITEM_PATH)
-async def get_document(service: DocumentServiceDep, document_id: UUID) -> Document:
-    return service.get(document_id)
+async def get_document(service: DocumentServiceDep, document_id: UUID) -> Response:
+    blob = await service.get(document_id)
+    return Response(content=blob.data.read(), media_type=blob.content_type)
+
+
+@router.get(f"{ITEM_PATH}/metadata")
+async def get_metadata(service: DocumentServiceDep, document_id: UUID) -> Document:
+    return service.get_meta(document_id)
 
 
 @router.put(ITEM_PATH)

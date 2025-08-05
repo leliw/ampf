@@ -62,10 +62,7 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     content_type = "text/markdown"
     files = {"file": (file_name, file_content, content_type)}
     document_create = DocumentCreate(name=file_name, content_type=content_type)
-    d = document_create.model_dump()
-    print(d)
-    response = client.post("/api/documents", files=files, data=d)
-    print(response.json())
+    response = client.post("/api/documents", files=files, data=document_create.model_dump())
     assert response.status_code == 200
     uploaded_document_header = DocumentHeader(**response.json())
     assert uploaded_document_header.name == file_name
@@ -79,3 +76,26 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     assert uploaded_blob.name == f"{document_id}_{file_name}"
     assert uploaded_blob.content_type == content_type
     assert uploaded_blob.data.read().decode() == file_content
+
+    # Test GET all documents
+    response = client.get("/api/documents")
+    assert response.status_code == 200
+    all_documents = response.json()
+    assert len(all_documents) == 1
+    assert all_documents[0]["id"] == str(document_id)
+    assert all_documents[0]["name"] == file_name
+    assert all_documents[0]["content_type"] == content_type
+
+    # Test GET a specific document content
+    response = client.get(f"/api/documents/{document_id}")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(content_type)
+    assert response.content == file_content.encode()
+
+    # Test GET a specific document metadata
+    response = client.get(f"/api/documents/{document_id}/metadata")
+    assert response.status_code == 200
+    document = response.json()
+    assert document["id"] == str(document_id)
+    assert document["name"] == file_name
+    assert document["content_type"].startswith("text/markdown")

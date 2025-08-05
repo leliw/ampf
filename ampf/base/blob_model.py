@@ -11,7 +11,7 @@ class BlobCreate[T: BaseModel](BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: Optional[str] = None
-    data: BinaryIO | BytesIO | bytes | StringIO | str | SpooledTemporaryFile
+    data: BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile
     content_type: Optional[str] = None
     metadata: Optional[T] = None
 
@@ -28,7 +28,7 @@ class Blob[T: BaseModel](BlobHeader[T]):
     """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    _data: Optional[BinaryIO | BytesIO | bytes | StringIO | str] = None
+    _data: Optional[BinaryIO | BytesIO | bytes | str] = None
 
     def __init__(
         self,
