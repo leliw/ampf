@@ -132,3 +132,15 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
         == f'attachment; filename="{updated_file_name}"'
     )
     assert response.content.decode() == updated_file_content
+
+    # Test DELETE the document
+    response = client.delete(f"/api/documents/{document_id}")
+    assert response.status_code == 200
+
+    # Verify file is deleted from disk
+    with pytest.raises(KeyNotExistsException):
+        uploaded_blob = await async_storage.download_async(f"{document_id}_{updated_file_name}")
+
+    # Test GET after deletion (should be 404)
+    response = client.get(f"/api/documents/{document_id}")
+    assert response.status_code == 404

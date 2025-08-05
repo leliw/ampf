@@ -63,5 +63,8 @@ class DocumentService:
         await self.blob_storage.upload_async(Blob(name=name, data=blob.data, content_type=blob.content_type))
         return document
 
-    def delete(self, key: UUID) -> None:
-        self.storage.delete(key)
+    def delete(self, id: UUID) -> None:
+        document = self.storage.get(id)
+        name = f"{id}_{document.name}"
+        self.blob_storage.delete(name)
+        self.storage.delete(id)
