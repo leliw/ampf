@@ -38,7 +38,12 @@ class DocumentService:
     async def get(self, key: UUID) -> Blob:
         document = self.storage.get(key)
         name = f"{document.id}_{document.name}"
-        return await self.blob_storage.download_async(name)
+        blob = await self.blob_storage.download_async(name)
+        blob.name = document.name
+        return blob
+
+    
+
 
     def patch(self, id: UUID, document_patch: DocumentPatch) -> Document:
         document = self.storage.get(id)

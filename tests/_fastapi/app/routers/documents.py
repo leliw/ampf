@@ -49,7 +49,7 @@ async def get_all_documents(service: DocumentServiceDep) -> List[DocumentHeader]
 @router.get(ITEM_PATH)
 async def get_document(service: DocumentServiceDep, document_id: UUID) -> Response:
     blob = await service.get(document_id)
-    return Response(content=blob.data.read(), media_type=blob.content_type)
+    return Response(content=blob.data.read(), media_type=blob.content_type, headers={"Content-Disposition": f'attachment; filename="{blob.name}"'})
 
 
 @router.get(f"{ITEM_PATH}/metadata")
