@@ -54,13 +54,14 @@ def client(app: FastAPI) -> Iterable[TestClient]:
     with TestClient(app) as client:
         yield client
 
-
-def test_post_get_put_delete_document(client: TestClient, tmp_path: Path):
+@pytest.mark.asyncio
+async def test_post_get_put_delete_document(client: TestClient, local_async_factory: AsyncLocalFactory):
     # Test POST (Upload a document)
     file_content = "This is a test markdown document."
     file_name = "test_document.md"
-    files = {"file": (file_name, file_content, "text/markdown")}
-    document_create = DocumentCreate(name=file_name, content_type="text/markdown")
+    content_type = "text/markdown"
+    files = {"file": (file_name, file_content, content_type)}
+    document_create = DocumentCreate(name=file_name, content_type=content_type)
     d = document_create.model_dump()
     print(d)
     response = client.post("/api/documents", files=files, data=d)
@@ -69,11 +70,12 @@ def test_post_get_put_delete_document(client: TestClient, tmp_path: Path):
     uploaded_document_header = DocumentHeader(**response.json())
     assert uploaded_document_header.name == file_name
     assert uploaded_document_header.content_type
-    assert uploaded_document_header.content_type.startswith("text/markdown")
+    assert uploaded_document_header.content_type.startswith(content_type)
     document_id = uploaded_document_header.id
 
-    # Verify file exists on disk
-    expected_storage_path = tmp_path / f"blobs/documents/{document_id}_{file_name}"
-    print(expected_storage_path)
-    assert expected_storage_path.exists()
-    assert expected_storage_path.read_text() == file_content
+    # Verify file exists in storage
+    async_storage = local_async_factory.create_blob_storage("documents")
+    uploaded_blob = await async_storage.download_async(f"{document_id}_{file_name}")
+    assert uploaded_blob.name == f"{document_id}_{file_name}"
+    assert uploaded_blob.content_type == content_type
+    assert uploaded_blob.data.read().decode() == file_content
