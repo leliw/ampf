@@ -6,6 +6,8 @@ from typing import List, Optional, Type, override
 
 from pydantic import BaseModel
 
+from ampf.base.exceptions import KeyNotExistsException
+
 from ..base import Blob, BlobHeader
 from ..base.base_blob_async_storage import BaseBlobAsyncStorage
 
@@ -18,6 +20,8 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
+        self.collection_name = collection_name
+        self.clazz = metadata_type
         self.base_path = (
             Path(root_path / collection_name) if root_path else Path(collection_name)
         )
@@ -84,7 +88,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         data_path = self._find_data_path(key)
 
         if not data_path or not meta_path.exists():
-            raise FileNotFoundError(f"Blob with key '{key}' not found.")
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
         with open(data_path, "rb") as f:
             data = f.read()

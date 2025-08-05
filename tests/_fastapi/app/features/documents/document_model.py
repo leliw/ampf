@@ -28,3 +28,7 @@ class DocumentHeader(BaseModel):
     name: str
     content_type: Optional[str] = None
     created_at: datetime
+
+class DocumentPatch(BaseModel):
+    name: Optional[str] = None
+    content_type: Optional[str] = None

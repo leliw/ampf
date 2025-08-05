@@ -13,7 +13,7 @@ from ampf.local_async.async_local_factory import AsyncLocalFactory
 # Test application source files
 from .app.config import ServerConfig
 from .app.dependencies import get_async_factory, get_factory, get_server_config, lifespan
-from .app.features.documents.document_model import DocumentCreate, DocumentHeader
+from .app.features.documents.document_model import Document, DocumentCreate, DocumentHeader, DocumentPatch
 from .app.routers import documents
 
 
@@ -99,3 +99,26 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     assert document["id"] == str(document_id)
     assert document["name"] == file_name
     assert document["content_type"].startswith("text/markdown")
+
+    # Test PUT (Update the document)
+    updated_file_content = "This is the updated content for the document."
+    updated_file_name = "updated_document.txt"
+    updated_content_type = "text/plain"
+    updated_files = {"file": (updated_file_name, updated_file_content, updated_content_type)}
+    document_patch = DocumentPatch(name=updated_file_name, content_type=updated_content_type)
+    response = client.put(f"/api/documents/{document_id}", files=updated_files, data=document_patch.model_dump())
+    assert response.status_code == 200
+    updated_document_header = Document(**response.json())
+    assert updated_document_header.name == updated_file_name
+    assert updated_document_header.content_type
+    assert updated_document_header.content_type.startswith(updated_content_type)
+    assert updated_document_header.id == document_id  # ID should remain the same
+
+    # Verify old file is deleted and new file exists on disk
+    with pytest.raises(KeyNotExistsException):
+        uploaded_blob = await async_storage.download_async(f"{document_id}_{file_name}")
+
+    updated_blob = await async_storage.download_async(f"{document_id}_{updated_file_name}")
+    assert updated_blob.name == f"{document_id}_{updated_file_name}"
+    assert updated_blob.content_type == updated_content_type
+    assert updated_blob.data.read().decode() == updated_file_content
