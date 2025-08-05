@@ -1,18 +1,14 @@
 import logging
-import mimetypes
-import os
-from datetime import datetime
-from pathlib import Path
 from typing import Annotated, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Response, UploadFile
 
 from ampf.base.blob_model import BlobCreate
 from ampf.fastapi import JsonStreamingResponse
 
 from ..dependencies import AsyncFactoryDep, FactoryDep
-from ..features.documents.document_model import Document, DocumentCreate, DocumentHeader, DocumentPatch
+from ..features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from ..features.documents.document_service import DocumentService
 
 router = APIRouter(tags=["Documents"])
@@ -42,7 +38,7 @@ async def upload_document(
 
 
 @router.get("")
-async def get_all_documents(service: DocumentServiceDep) -> List[DocumentHeader]:
+async def get_all_documents(service: DocumentServiceDep) -> List[Document]:
     return JsonStreamingResponse(service.get_all())  # type: ignore
 
 

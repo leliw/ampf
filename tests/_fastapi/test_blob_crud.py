@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Iterable
 
 import pytest
@@ -13,7 +12,7 @@ from ampf.local_async.async_local_factory import AsyncLocalFactory
 # Test application source files
 from .app.config import ServerConfig
 from .app.dependencies import get_async_factory, get_factory, get_server_config, lifespan
-from .app.features.documents.document_model import Document, DocumentCreate, DocumentHeader, DocumentPatch
+from .app.features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from .app.routers import documents
 
 
@@ -64,11 +63,11 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     document_create = DocumentCreate(name=file_name, content_type=content_type)
     response = client.post("/api/documents", files=files, data=document_create.model_dump())
     assert response.status_code == 200
-    uploaded_document_header = DocumentHeader(**response.json())
-    assert uploaded_document_header.name == file_name
-    assert uploaded_document_header.content_type
-    assert uploaded_document_header.content_type.startswith(content_type)
-    document_id = uploaded_document_header.id
+    uploaded_document = Document(**response.json())
+    assert uploaded_document.name == file_name
+    assert uploaded_document.content_type
+    assert uploaded_document.content_type.startswith(content_type)
+    document_id = uploaded_document.id
 
     # Verify file exists in storage
     async_storage = local_async_factory.create_blob_storage("documents")

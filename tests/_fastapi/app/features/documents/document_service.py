@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from ampf.base import BaseAsyncFactory, BaseFactory, Blob
 from ampf.base.blob_model import BlobCreate
 
-from .document_model import Document, DocumentCreate, DocumentHeader, DocumentPatch
+from .document_model import Document, DocumentCreate, DocumentPatch
 
 
 class DocumentService:
@@ -29,8 +29,8 @@ class DocumentService:
         self.storage.save(document)
         return document
 
-    def get_all(self) -> Iterable[DocumentHeader]:
-        return [DocumentHeader(**v.model_dump()) for v in self.storage.get_all()]
+    def get_all(self) -> Iterable[Document]:
+        return self.storage.get_all()
 
     def get_meta(self, id: UUID) -> Document:
         return self.storage.get(id)

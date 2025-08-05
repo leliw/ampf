@@ -5,30 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-class DocumentBase(BaseModel):
+class DocumentCreate(BaseModel):
     name: str
     content_type: Optional[str] = None
 
-
-class DocumentCreate(DocumentBase):
-    pass
-
-
-class DocumentUpdate(DocumentBase):
-    id: UUID
-
-
-class Document(DocumentBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-
-class DocumentHeader(BaseModel):
-    id: UUID
-    name: str
-    content_type: Optional[str] = None
-    created_at: datetime
 
 class DocumentPatch(BaseModel):
     name: Optional[str] = None
     content_type: Optional[str] = None
+
+
+class Document(BaseModel):
+    id: UUID
+    name: str
+    content_type: str
+    created_at: datetime
+    updated_at: datetime
