@@ -14,7 +14,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        metadata_type: Type[T],
+        metadata_type: Optional[Type[T]] = None,
         content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
@@ -54,6 +54,8 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         """Generate a data path with appropriate extension."""
         ext = mimetypes.guess_extension(content_type or "")
         ext = ext if ext else ""  # fallback to no extension
+        if ext and key.endswith(ext):
+            key = key[:-len(ext)]
         return self.base_path / f"{key}{ext}"
 
     @override
@@ -90,7 +92,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         with open(meta_path, "r", encoding="utf-8") as f:
             meta_raw = json.load(f)
 
-        metadata = self.metadata_type.model_validate(meta_raw["metadata"])
+        metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
         content_type = meta_raw.get("content_type")
 
         return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
@@ -121,7 +123,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
             with open(meta_file, "r", encoding="utf-8") as f:
                 meta_raw = json.load(f)
 
-            metadata = self.metadata_type.model_validate(meta_raw["metadata"])
+            metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
             content_type = meta_raw.get("content_type")
 
             headers.append(
