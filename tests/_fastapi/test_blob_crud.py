@@ -49,10 +49,10 @@ def app(config, local_factory, local_async_factory) -> FastAPI:
 
 @pytest.fixture
 def client(app: FastAPI) -> Iterable[TestClient]:
-
     app.include_router(router=documents.router, prefix="/api/documents")
     with TestClient(app) as client:
         yield client
+
 
 @pytest.mark.asyncio
 async def test_post_get_put_delete_document(client: TestClient, local_async_factory: AsyncLocalFactory):
@@ -72,8 +72,8 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
 
     # Verify file exists in storage
     async_storage = local_async_factory.create_blob_storage("documents")
-    uploaded_blob = await async_storage.download_async(f"{document_id}_{file_name}")
-    assert uploaded_blob.name == f"{document_id}_{file_name}"
+    uploaded_blob = await async_storage.download_async(f"{document_id}")
+    assert uploaded_blob.name == f"{document_id}"
     assert uploaded_blob.content_type == content_type
     assert uploaded_blob.data.read().decode() == file_content
 
@@ -108,18 +108,14 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     document_patch = DocumentPatch(name=updated_file_name, content_type=updated_content_type)
     response = client.put(f"/api/documents/{document_id}", files=updated_files, data=document_patch.model_dump())
     assert response.status_code == 200
-    updated_document_header = Document(**response.json())
-    assert updated_document_header.name == updated_file_name
-    assert updated_document_header.content_type
-    assert updated_document_header.content_type.startswith(updated_content_type)
-    assert updated_document_header.id == document_id  # ID should remain the same
+    updated_document = Document(**response.json())
+    assert updated_document.name == updated_file_name
+    assert updated_document.content_type
+    assert updated_document.content_type.startswith(updated_content_type)
+    assert updated_document.id == document_id  # ID should remain the same
 
-    # Verify old blob is deleted and new blob exists 
-    with pytest.raises(KeyNotExistsException):
-        uploaded_blob = await async_storage.download_async(f"{document_id}_{file_name}")
-
-    updated_blob = await async_storage.download_async(f"{document_id}_{updated_file_name}")
-    assert updated_blob.name == f"{document_id}_{updated_file_name}"
+    updated_blob = await async_storage.download_async(f"{document_id}")
+    assert updated_blob.name == f"{document_id}"
     assert updated_blob.content_type == updated_content_type
     assert updated_blob.data.read().decode() == updated_file_content
 
@@ -127,10 +123,25 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     response = client.get(f"/api/documents/{document_id}")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith(updated_content_type)
-    assert (
-        response.headers["content-disposition"]
-        == f'attachment; filename="{updated_file_name}"'
-    )
+    assert response.headers["content-disposition"] == f'attachment; filename="{updated_file_name}"'
+    assert response.content.decode() == updated_file_content
+
+    # Test PATCH metadata
+    patched_file_name = "patched_document.txt"
+    document_patch = DocumentPatch(name=patched_file_name)
+    response = client.patch(f"/api/documents/{document_id}", json=document_patch.model_dump())
+    assert response.status_code == 200
+    patched_document = Document(**response.json())
+    assert patched_document.name == patched_file_name
+    assert patched_document.content_type
+    assert patched_document.content_type.startswith(updated_content_type)
+    assert patched_document.id == document_id  # ID should remain the same
+
+    # Test GET the patched document
+    response = client.get(f"/api/documents/{document_id}")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(updated_content_type)
+    assert response.headers["content-disposition"] == f'attachment; filename="{patched_file_name}"'
     assert response.content.decode() == updated_file_content
 
     # Test DELETE the document
