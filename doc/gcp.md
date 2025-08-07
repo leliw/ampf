@@ -86,12 +86,6 @@ GcpBlobStorage.init_client(
 ## Pub/Sub
 
 Helper classes for Pub/Sub.
-Topics and subscriptions have to be created in advance.
-
-```bash
-gcloud pubsub topics create unit-tests
-gcloud pubsub subscriptions create unit-tests-sub --topic unit-tests
-```
 
 ### GcpTopic
 
@@ -141,6 +135,9 @@ topic.publish(data, attributes)
 
 * `create(self, exist_ok: bool = False) -> Self` - Creates the subscription in GCP if it does not exist. If `exist_ok` is set to `True`, it will not raise an error if the subscription already exists.
 * `delete(self) -> None` - Deletes the subscription in GCP.
+* `receive_messages(self) -> Generator[Message, None, None]` - Returns a generator that yields messages from the subscription.
+* `__iter__(self) -> Generator[T, None, None]` - Allows the subscription to be used as an iterable. It will yield messages converted to Pydantic objects of type `clazz` if provided. Otherwise, it will raise `TypeError` if `clazz` is not set.
+* `receive_firsreceive_first_message(self, filter: Callable[[Message], bool]) -> Optional[Message]` - Receives the first message that matches the filter function. The filter function should take a `Message` object and return `True` if the message matches the criteria. It is useful for testing.
 
 #### Usage
 

@@ -4,9 +4,10 @@ import queue
 import subprocess
 import time
 from concurrent.futures import TimeoutError
-from typing import Generator, Optional, Self, Type
+from typing import Callable, Generator, Optional, Self, Type
 
 from google.cloud import pubsub_v1
+from google.cloud.pubsub_v1.subscriber.message import Message
 from pydantic import BaseModel
 
 
@@ -38,12 +39,17 @@ class GcpSubscription[T: BaseModel]:
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
 
-    def __iter__(self) -> Generator[T, None, None]:
+    def receive_messages(self) -> Generator[Message, None, None]:
+        """Receives messages from the subscription.
+
+        Yields:
+            The received messages.
+        """
         _messages_queue = queue.Queue()
         subscriber = pubsub_v1.SubscriberClient()
         subscription_path = subscriber.subscription_path(self.project_id, self.subscription_id)
 
-        def callback(message: pubsub_v1.subscriber.message.Message) -> None:  # type: ignore
+        def callback(message: Message) -> None:
             _messages_queue.put(message)
             message.ack()
 
@@ -57,14 +63,9 @@ class GcpSubscription[T: BaseModel]:
                         remaining_time_for_cycle = end_time - time.time()
                         if remaining_time_for_cycle <= 0:
                             break
-
                         current_wait_timeout = min(self.per_message_timeout, remaining_time_for_cycle)
-
                         message = _messages_queue.get(block=True, timeout=current_wait_timeout)
-                        if self.clazz:
-                            yield self.clazz.model_validate_json(message.data.decode("utf-8"))
-                        else:
-                            yield message
+                        yield message
                     except queue.Empty:
                         if not streaming_pull_future.running():
                             break
@@ -78,6 +79,20 @@ class GcpSubscription[T: BaseModel]:
                         pass
                     except Exception:
                         pass
+
+    def __iter__(self) -> Generator[T, None, None]:
+        """Iterates over the messages in the subscription.
+
+        Yields:
+            The deserialized messages.
+        """
+        for message in self.receive_messages():
+            if self.clazz:
+                yield self.clazz.model_validate_json(message.data.decode("utf-8"))
+            else:
+                raise TypeError(
+                    "clazz is not set, so cannot deserialize message. Set clazz in the constructor to deserialize messages."
+                )
 
     def create(self, topic_id: str, exist_ok: bool = False) -> Self:
         """Creates the subscription in GCP if it does not exist.
@@ -106,3 +121,15 @@ class GcpSubscription[T: BaseModel]:
             capture_output=True,
             text=True,
         ).check_returncode()
+
+    def receive_first_message(self, filter: Callable[[Message], bool]) -> Optional[Message]:
+        """Receives the first message that satisfies the filter.
+
+        Args:
+            filter: A callable that takes a message and returns True if the message satisfies the filter.
+        Returns:
+            The first message that satisfies the filter, or None if no such message is received within the timeout.
+        """
+        for message in self.receive_messages():
+            if filter(message):
+                return message
