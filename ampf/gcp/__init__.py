@@ -6,6 +6,8 @@ from .gcp_factory import GcpFactory
 from .gcp_storage import GcpStorage
 from .gcp_subscription import GcpSubscription
 from .gcp_topic import GcpTopic
+from .gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse, GcpPubsubMessage
+
 
 __all__ = [
     "GcpFactory",
@@ -16,4 +18,7 @@ __all__ = [
     "GcpBlobAsyncStorage",
     "GcpTopic",
     "GcpSubscription",
+    "GcpPubsubRequest",
+    "GcpPubsubResponse",
+    "GcpPubsubMessage",
 ]

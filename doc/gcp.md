@@ -186,42 +186,124 @@ except Exception as e:
 For services launched in GCP, delivering messages using a standard subscription (Pull) message is not recommended.
 A better solution is to deliver (Push) - sending a message to a specified endpoint.
 
+There are special classes to handle this:
+
+* `GcpPubsubRequest`
+* `GcpPubsubMessage`
+* `GcpPubsubResponse`
+
 An example of an endpoint receiving messages.
 
 ```python
 router = APIRouter(tags=["Pub/Sub Push"])
 
-
-class PubsubMessage(BaseModel):
-    messageId: Optional[str] = None
-    attributes: Optional[Dict[str, str]] = None
-    data: str
-    publishTime: Optional[str] = None
-
-
-class PushRequest(BaseModel):
-    message: PubsubMessage
-    subscription: str
-
-
 @router.post("")
-async def handle_push(request: PushRequest):
+async def handle_push(request: GcpPubsubRequest) -> GcpPubsubResponse:
     try:
-        decoded_data = base64.b64decode(request.message.data).decode("utf-8")
-        response_topic_name = request.message.attributes.get('response_topic')
+        payload = request.decoded_data(D)
+        payload.name = f"Processed: {payload.name}"
+        request.publish_response(payload)
 
-        # Convert data to desired body
-        body = ChunksRequest.model_validate_json(decoded_data)
-        response = ... # Do something with body
-        # Send response to publisher
-        GcpTopic(response_topic_name).publish(response.model_dump_json())
-            
-        return {"status": "acknowledged", "messageId": request.message.messageId}
+        # Return acknowledgment
+        return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
+
     except ValidationError as e:
         _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
         raise HTTPException(status_code=400, detail=f"Wrong message format: {e}")
-
     except Exception as e:
-        _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
+        _log.error("Error processing message ID %s: %s", request.message.messageId, e)
         raise HTTPException(status_code=500, detail=f"Error processing message: {e}")
+```
+
+### Testing
+
+#### Preparation
+
+To test GCP Pub/Sub functionality, you can use fixtures to create a topic and a subscription. The topic will be used to publish messages, and the subscription will be used to receive them.
+
+```python
+import uuid
+
+import pytest
+
+from ampf.gcp.gcp_topic import GcpTopic
+
+
+@pytest.fixture(scope="session")
+def topic():
+    topic_id = "ampf_unit_tests_" + uuid.uuid4().hex[:6]
+    topic = GcpTopic(topic_id).create(exist_ok=True)
+    yield topic
+    topic.delete()
+
+
+@pytest.fixture(scope="session")
+def subscription(topic: GcpTopic):
+    subscription_id = f"{topic.topic_id}_sub"
+    subscription = topic.create_subscription(subscription_id, exist_ok=True)
+    yield subscription
+    subscription.delete()
+```
+
+#### Testing sending messages
+
+To test code that sends messages to a Pub/Sub topic, you can use the below example. Replace `topic.publish(data)` with your actual code that sends messages.
+
+```python
+def test_pubsub(topic: GcpTopic, subscription: GcpSubscription):
+    # Given: Message payload
+    data = D(name=f"Test message {time.time()}")
+    # When: Message is published
+    topic.publish(data)
+    # Then: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.data.decode("utf-8") == data.model_dump_json())
+    assert received_message
+```
+
+#### Testing receiving messages (Push)
+
+To test code that receives messages from a Pub/Sub subscription, you can use the below example. Replace `GcpPubsubRequest` with your actual request structure and
+the endpoint with your actual FastAPI endpoint. At the end, you can check if the message was processed correctly.
+
+```python
+def test_pubsub_push_with_attrs(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: A fake request pushed from a subscription
+    sender_id = uuid4().hex
+    req = GcpPubsubRequest.create(D(name="test"), attributes={"response_topic": topic.topic_id, "sender_id": sender_id})
+    # When: The request is posted
+    response = client.post("/pub-sub", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+```
+
+#### Testing Pub/Sub push subscription workaround
+
+To test the complete flow of sending a message to a topic, receiving it in a push subscription, you can use the following example.
+There is a workaround to handle the push subscription by posting the received message to a FastAPI endpoint.
+
+```python
+def test_pubsub_push_subscription_workaround(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Example code to test flow topic -> subscription -> push -> post
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with  sender_id
+    sender_id = uuid4().hex
+    attributes = {"sender_id": sender_id}
+    topic.publish(d, attributes)
+
+    # When: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: The received message is converted to GcpPubsubRequest
+    req = GcpPubsubRequest.create_from_message(received_message, subscription.subscription_id)
+    # And: The request is posted
+    response = client.post("/pub-sub", json=req.model_dump())
+    
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
 ```

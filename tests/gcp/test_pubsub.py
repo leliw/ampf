@@ -10,7 +10,7 @@ class D(BaseModel):
     name: str
 
 
-def test_basic_pub_sub(topic: GcpTopic, subscription: GcpSubscription):
+def test_basic_pubsub(topic: GcpTopic, subscription: GcpSubscription):
     # Given: A topic and a typed subscription
     typed_subscription = GcpSubscription(subscription.subscription_id, subscription.project_id, D)
     # When: Message is published
@@ -28,7 +28,7 @@ def test_basic_pub_sub(topic: GcpTopic, subscription: GcpSubscription):
     assert data in received_messages, f"Wiadomość '{data}' nie została znaleziona w {received_messages}"
 
 
-def test_pub_sub_with_attrs(topic: GcpTopic, subscription: GcpSubscription):
+def test_pubsub_with_attrs(topic: GcpTopic, subscription: GcpSubscription):
     # Given: A topic and a subscription
     # When: Message is published with attrs
     data = D(name=f"Test message {time.time()}")

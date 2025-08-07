@@ -1,5 +1,5 @@
-
 import uuid
+
 import pytest
 
 from ampf.gcp.gcp_topic import GcpTopic
