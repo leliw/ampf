@@ -17,15 +17,8 @@ def test_basic_pubsub(topic: GcpTopic, subscription: GcpSubscription):
     data = D(name=f"Test message {time.time()}")
     topic.publish(data)
     # Then: Message is received
-    received_messages = []
-    try:
-        for msg_data in typed_subscription:
-            received_messages.append(msg_data)
-            if msg_data == data:
-                break
-    except Exception as e:
-        pytest.fail(f"Generator subskrypcji zgłosił wyjątek: {e}")
-    assert data in received_messages, f"Wiadomość '{data}' nie została znaleziona w {received_messages}"
+    received_data = typed_subscription.receive_first_payload(lambda msg_data: msg_data == data)
+    assert received_data
 
 
 def test_pubsub_with_attrs(topic: GcpTopic, subscription: GcpSubscription):

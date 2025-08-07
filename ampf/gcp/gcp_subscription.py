@@ -133,3 +133,15 @@ class GcpSubscription[T: BaseModel]:
         for message in self.receive_messages():
             if filter(message):
                 return message
+
+    def receive_first_payload(self, filter: Callable[[T], bool]) -> Optional[T]:
+        """Receives the first message **payload** that satisfies the filter.
+
+        Args:
+            filter: A callable that takes a message data and returns True if the payload satisfies the filter.
+        Returns:
+            The first payload that satisfies the filter, or None if no such message is received within the timeout.
+        """
+        for payload in self:
+            if filter(payload):
+                return payload
