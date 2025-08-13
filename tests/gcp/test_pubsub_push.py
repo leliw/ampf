@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Annotated
 from uuid import uuid4
 
@@ -14,6 +15,11 @@ from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 class D(BaseModel):
     name: str
 
+@pytest.fixture(scope="module")
+def subscription(topic: GcpTopic):
+    subscription = topic.create_subscription(clazz=D, exist_ok=True)
+    yield subscription
+    subscription.delete()
 
 def get_config() -> dict:
     return {"msg": "Processed:"}
@@ -95,6 +101,28 @@ def test_pubsub_push_subscription_workaround(topic: GcpTopic, subscription: GcpS
     assert response.status_code == status.HTTP_200_OK
 
 
+def test_pubsub_push_emulator(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with  sender_id
+    sender_id = uuid4().hex
+    attributes = {"sender_id": sender_id}
+    # When: emulator is run
+    with subscription.run_push_emulator(client, "/pub-sub/one_param") as sub_emulator:
+        # And: Message is published
+        topic.publish(d, attributes)
+        while not sub_emulator.isfinished(timeout=5, expected_responses=1):
+            time.sleep(0.1)
+        # Then: The sent message is received
+        assert sub_emulator.messages[0].attributes["sender_id"] == sender_id
+        # And: The message payload is decoded
+        assert sub_emulator.payloads[0].name == d.name
+        # And: The endpoint response is OK
+        assert sub_emulator.responses[0].status_code == status.HTTP_200_OK
+
+
+
+
 def test_pubsub_push_payload_first(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
     # Given: Message payload
     d = D(name="test")
@@ -112,6 +140,7 @@ def test_pubsub_push_payload_first(topic: GcpTopic, subscription: GcpSubscriptio
     assert received_message
     # And: Message is processed
     assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+
 
 def test_pubsub_push_payload_last(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
     # Given: Message payload

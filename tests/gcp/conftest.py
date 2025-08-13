@@ -15,7 +15,6 @@ def topic():
 
 @pytest.fixture(scope="session")
 def subscription(topic: GcpTopic):
-    subscription_id = f"{topic.topic_id}_sub"
-    subscription = topic.create_subscription(subscription_id, exist_ok=True)
+    subscription = topic.create_subscription(exist_ok=True)
     yield subscription
     subscription.delete()

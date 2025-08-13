@@ -323,3 +323,26 @@ def test_pubsub_push_subscription_workaround(topic: GcpTopic, subscription: GcpS
     # Then: Response is OK
     assert response.status_code == status.HTTP_200_OK
 ```
+
+You can also use the `run_push_emulator` method to do the same thing in a more elegant way.
+
+```python
+def test_pubsub_push_emulator(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with  sender_id
+    sender_id = uuid4().hex
+    attributes = {"sender_id": sender_id}
+    # When: emulator is run
+    with subscription.run_push_emulator(client, "/pub-sub/one_param") as sub_emulator:
+        # And: Message is published
+        topic.publish(d, attributes)
+        while not sub_emulator.isfinished(timeout=5, expected_responses=1):
+            time.sleep(0.1)
+        # Then: The sent message is received
+        assert sub_emulator.messages[0].attributes["sender_id"] == sender_id
+        # And: The message payload is decoded
+        assert sub_emulator.payloads[0].name == d.name
+        # And: The endpoint response is OK
+        assert sub_emulator.responses[0].status_code == status.HTTP_200_OK
+```

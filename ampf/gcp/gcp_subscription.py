@@ -1,14 +1,17 @@
+from contextlib import contextmanager
 import logging
 import os
 import queue
 import subprocess
 import time
 from concurrent.futures import TimeoutError
-from typing import Callable, Generator, Optional, Self, Type
+from typing import Callable, Generator, Iterator, Optional, Self, Type
 
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.subscriber.message import Message
 from pydantic import BaseModel
+
+from ampf.gcp.gcp_pubsub_push_emulator import GcpPubsubPushEmulator
 
 
 class GcpSubscription[T: BaseModel]:
@@ -145,3 +148,16 @@ class GcpSubscription[T: BaseModel]:
         for payload in self:
             if filter(payload):
                 return payload
+
+    try:
+        from fastapi.testclient import TestClient
+
+        @contextmanager
+        def run_push_emulator(self, client: TestClient, endpoint_url: str) -> Iterator[GcpPubsubPushEmulator[T]]:
+            subscription_path = pubsub_v1.SubscriberClient.subscription_path(self.project_id, self.subscription_id)
+            emulator = GcpPubsubPushEmulator[T](subscription_path, self.clazz)
+            with emulator.run_push_emulator(client, endpoint_url) as sub_emulator:
+                yield sub_emulator
+
+    except ImportError:
+        pass

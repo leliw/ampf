@@ -79,7 +79,7 @@ class GcpTopic[T: BaseModel]:
 
     def create_subscription[R: BaseModel](
         self,
-        subscription_id: str,
+        subscription_id: Optional[str] = None,
         clazz: Optional[Type[R]] = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
@@ -96,6 +96,7 @@ class GcpTopic[T: BaseModel]:
         Returns:
             The created GcpSubscription object.
         """
+        subscription_id = subscription_id or f"{self.topic_id}-sub"
         subscription = GcpSubscription(
             subscription_id=subscription_id,
             project_id=self.project_id,
