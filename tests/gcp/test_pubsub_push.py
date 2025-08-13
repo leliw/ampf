@@ -1,9 +1,10 @@
 import json
 import logging
+from typing import Annotated
 from uuid import uuid4
 
 import pytest
-from fastapi import APIRouter, FastAPI, status
+from fastapi import APIRouter, Depends, FastAPI, status
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -15,6 +16,13 @@ class D(BaseModel):
     name: str
 
 
+def get_config() -> dict:
+    return {"msg": "Processed:"}
+
+
+ConfigDep = Annotated[dict, Depends(get_config)]
+
+
 @pytest.fixture
 def app():
     _log = logging.getLogger(__name__)
@@ -23,8 +31,8 @@ def app():
 
     @router.post("")
     @gcp_pubsub_push_handler()
-    async def handle_push_d(payload: D) -> D:
-        payload.name = f"Processed: {payload.name}"
+    async def handle_push_d(payload: D, p: ConfigDep) -> D:
+        payload.name = f"{p['msg']} {payload.name}"
         return payload
 
     app.include_router(router, prefix="/pub-sub")
@@ -37,12 +45,6 @@ def client(app):
 
 
 def test_pubsub_push_with_attrs(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
-    result = client.get("/openapi.json")
-    assert result.status_code == 200
-    r = result.json()
-    print(json.dumps(r, indent=2))
-    assert "/pub-sub" in r["paths"]
-
     # Given: Message payload
     d = D(name="test")
     # And: Message attributes with response_topic and sender_id

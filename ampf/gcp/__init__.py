@@ -7,6 +7,8 @@ from .gcp_storage import GcpStorage
 from .gcp_subscription import GcpSubscription
 from .gcp_topic import GcpTopic
 from .gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse, GcpPubsubMessage
+from .gcp_pubsub_push_handler import gcp_pubsub_push_handler
+
 
 
 __all__ = [
@@ -21,4 +23,5 @@ __all__ = [
     "GcpPubsubRequest",
     "GcpPubsubResponse",
     "GcpPubsubMessage",
+    "gcp_pubsub_push_handler",
 ]
