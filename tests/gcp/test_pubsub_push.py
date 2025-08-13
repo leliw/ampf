@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Annotated
 from uuid import uuid4
@@ -23,15 +22,27 @@ def get_config() -> dict:
 ConfigDep = Annotated[dict, Depends(get_config)]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def app():
     _log = logging.getLogger(__name__)
     app = FastAPI()
     router = APIRouter()
 
-    @router.post("")
+    @router.post("/one_param")
     @gcp_pubsub_push_handler()
-    async def handle_push_d(payload: D, p: ConfigDep) -> D:
+    async def handle_push_d1(payload: D) -> D:
+        payload.name = f"Processed: {payload.name}"
+        return payload
+
+    @router.post("/payload_first")
+    @gcp_pubsub_push_handler()
+    async def handle_push_d2(payload: D, p: ConfigDep) -> D:
+        payload.name = f"{p['msg']} {payload.name}"
+        return payload
+
+    @router.post("/payload_last")
+    @gcp_pubsub_push_handler()
+    async def handle_push_d3(p: ConfigDep, payload: D) -> D:
         payload.name = f"{p['msg']} {payload.name}"
         return payload
 
@@ -39,7 +50,7 @@ def app():
     return app
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client(app):
     return TestClient(app)
 
@@ -53,7 +64,7 @@ def test_pubsub_push_with_attrs(topic: GcpTopic, subscription: GcpSubscription, 
     # And: A fake request pushed from a subscription
     req = GcpPubsubRequest.create(d, attributes=attributes)
     # When: The request is posted
-    response = client.post("/pub-sub", json=req.model_dump())
+    response = client.post("/pub-sub/one_param", json=req.model_dump())
     # Then: Response is OK
     assert response.status_code == status.HTTP_200_OK
     # And: Message is received
@@ -78,7 +89,44 @@ def test_pubsub_push_subscription_workaround(topic: GcpTopic, subscription: GcpS
     # And: The received message is converted to GcpPubsubRequest
     req = GcpPubsubRequest.create_from_message(received_message, subscription.subscription_id)
     # And: The request is posted
-    response = client.post("/pub-sub", json=req.model_dump())
+    response = client.post("/pub-sub/one_param", json=req.model_dump())
 
     # Then: Response is OK
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_pubsub_push_payload_first(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/payload_first", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+
+def test_pubsub_push_payload_last(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/payload_last", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
