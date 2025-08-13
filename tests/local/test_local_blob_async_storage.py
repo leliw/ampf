@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.local_async.local_blob_async_storage import LocalBlobAsyncStorage, Blob, BlobHeader
 
 
@@ -108,7 +109,7 @@ async def test_delete_blob(storage: LocalBlobAsyncStorage):
 
 @pytest.mark.asyncio
 async def test_download_missing_blob_raises(storage: LocalBlobAsyncStorage):
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(KeyNotExistsException):
         await storage.download_async("not_existing")
 
 
