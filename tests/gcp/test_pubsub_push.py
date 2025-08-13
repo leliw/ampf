@@ -1,13 +1,14 @@
+import json
 import logging
 from uuid import uuid4
 
 import pytest
-from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi import APIRouter, FastAPI, status
 from fastapi.testclient import TestClient
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
-from ampf.gcp import GcpSubscription, GcpTopic
-from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse
+from ampf.gcp import GcpSubscription, GcpTopic, gcp_pubsub_push_handler
+from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 
 
 class D(BaseModel):
@@ -21,21 +22,10 @@ def app():
     router = APIRouter()
 
     @router.post("")
-    async def handle_push(request: GcpPubsubRequest) -> GcpPubsubResponse:
-        try:
-            payload = request.decoded_data(D)
-            payload.name = f"Processed: {payload.name}"
-            request.publish_response(payload)
-
-            # Return acknowledgment
-            return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
-
-        except ValidationError as e:
-            _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
-            raise HTTPException(status_code=400, detail=f"Wrong message format: {e}")
-        except Exception as e:
-            _log.error("Error processing message ID %s: %s", request.message.messageId, e)
-            raise HTTPException(status_code=500, detail=f"Error processing message: {e}")
+    @gcp_pubsub_push_handler()
+    async def handle_push_d(payload: D) -> D:
+        payload.name = f"Processed: {payload.name}"
+        return payload
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -47,6 +37,12 @@ def client(app):
 
 
 def test_pubsub_push_with_attrs(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    result = client.get("/openapi.json")
+    assert result.status_code == 200
+    r = result.json()
+    print(json.dumps(r, indent=2))
+    assert "/pub-sub" in r["paths"]
+
     # Given: Message payload
     d = D(name="test")
     # And: Message attributes with response_topic and sender_id
@@ -81,6 +77,6 @@ def test_pubsub_push_subscription_workaround(topic: GcpTopic, subscription: GcpS
     req = GcpPubsubRequest.create_from_message(received_message, subscription.subscription_id)
     # And: The request is posted
     response = client.post("/pub-sub", json=req.model_dump())
-    
+
     # Then: Response is OK
     assert response.status_code == status.HTTP_200_OK

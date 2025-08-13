@@ -215,6 +215,22 @@ async def handle_push(request: GcpPubsubRequest) -> GcpPubsubResponse:
         raise HTTPException(status_code=500, detail=f"Error processing message: {e}")
 ```
 
+### gcp_pubsub_push_handler
+
+This is a decorator for handling GCP Pub/Sub push messages. It can be used to wrap FastAPI endpoints that receive push messages from Pub/Sub.
+Below code is coresponding to the above endpoint, but using the decorator.
+
+```python
+@router.post("")
+@gcp_pubsub_push_handler()
+async def handle_push(payload: D) -> D:
+    payload.name = f"Processed: {payload.name}"
+    return payload
+```
+
+If decorated function returns a Pydantic model, it will be automatically converted to `GcpPubsubResponse` and sent back as a response by the method `publish_response()`.
+The message is acknowledged if the function does not raise an exception.
+
 ### Testing
 
 #### Preparation
