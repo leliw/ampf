@@ -77,14 +77,14 @@ class GcpTopic[T: BaseModel]:
             text=True,
         ).check_returncode()
 
-    def create_subscription(
+    def create_subscription[R: BaseModel](
         self,
         subscription_id: str,
-        clazz: Optional[Type[T]] = None,
+        clazz: Optional[Type[R]] = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
         exist_ok: bool = False,
-    ) -> GcpSubscription[T]:
+    ) -> GcpSubscription[R]:
         """Creates a subscription to the topic in GCP.
 
         Args:
