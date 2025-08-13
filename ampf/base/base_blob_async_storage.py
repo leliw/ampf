@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Iterable, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -13,6 +13,21 @@ class BaseBlobAsyncStorage[T: BaseModel](ABC):
     checking existence, and listing blobs.
     """
 
+    def __init__(
+        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
+    ):
+        """
+        Initializes the storage.
+
+        Args:
+            collection_name: The name of the collection (root folder)
+            clazz: The class of the metadata.
+            content_type: The content type of the blobs.
+        """
+        self.collection_name = collection_name
+        self.clazz = clazz
+        self.content_type = content_type
+
     @abstractmethod
     async def upload_async(self, blob: Blob[T]) -> None:
         """
@@ -24,12 +39,12 @@ class BaseBlobAsyncStorage[T: BaseModel](ABC):
         pass
 
     @abstractmethod
-    async def download_async(self, key: str) -> Blob[T]:
+    async def download_async(self, name: str) -> Blob[T]:
         """
         Downloads binary data based on the blob key.
 
         Args:
-            key: The key identifying the blob to download.
+            name: The name identifying the blob to download.
 
         Returns:
             The downloaded blob object.
@@ -37,21 +52,38 @@ class BaseBlobAsyncStorage[T: BaseModel](ABC):
         pass
 
     @abstractmethod
-    def delete(self, key: str) -> None:
+    def delete(self, name: str) -> None:
         """
-        Deletes a blob with the given key.
+        Deletes a blob with the given name.
 
         Args:
-            key: The key of the blob to delete.
+            name: The name of the blob to delete.
         """
         pass
 
     @abstractmethod
-    def exists(self, key: str) -> bool:
-        """Checks if a blob with the given key exists."""
+    def exists(self, name: str) -> bool:
+        """Checks if a blob with the given name exists."""
         pass
 
     @abstractmethod
     def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix."""
         pass
+
+    def put_metadata(self, name: str, metadata: T) -> None:
+        pass
+
+    def get_metadata(self, name: str) -> Optional[T]:
+        pass
+
+    def names(self, prefix: Optional[str] = None) -> Iterable[str]:
+        return [blob.name for blob in self.list_blobs(prefix)]
+
+    def drop(self) -> None:
+        for name in self.names():
+            self.delete(name)
+
+    def delete_folder(self, folder_name: str) -> None:
+        for name in self.names(folder_name):
+            self.delete(name)

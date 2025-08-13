@@ -3,6 +3,8 @@ from .in_memory_async_factory import InMemoryAsyncFactory
 from .in_memory_storage import InMemoryStorage
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_storage import InMemoryBlobStorage
+from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
+
 
 __all__ = [
     "InMemoryStorage",
@@ -10,4 +12,5 @@ __all__ = [
     "InMemoryAsyncStorage",
     "InMemoryFactory",
     "InMemoryBlobStorage",
+    "InMemoryBlobAsyncStorage",
 ]

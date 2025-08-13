@@ -6,6 +6,8 @@ from typing import List, Optional, Type, override
 
 from pydantic import BaseModel
 
+from ampf.base.exceptions import KeyNotExistsException
+
 from ..base import Blob, BlobHeader
 from ..base.base_blob_async_storage import BaseBlobAsyncStorage
 
@@ -14,10 +16,12 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        metadata_type: Type[T],
+        metadata_type: Optional[Type[T]] = None,
         content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
+        self.collection_name = collection_name
+        self.clazz = metadata_type
         self.base_path = (
             Path(root_path / collection_name) if root_path else Path(collection_name)
         )
@@ -54,20 +58,22 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         """Generate a data path with appropriate extension."""
         ext = mimetypes.guess_extension(content_type or "")
         ext = ext if ext else ""  # fallback to no extension
+        if ext and key.endswith(ext):
+            key = key[:-len(ext)]
         return self.base_path / f"{key}{ext}"
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
-        data_path = self._generate_data_path(blob.key, blob.content_type)
-        meta_path = self._get_meta_path(blob.key)
+        data_path = self._generate_data_path(blob.name, blob.content_type)
+        meta_path = self._get_meta_path(blob.name)
 
         async def write_data():
             with open(data_path, "wb") as f:
-                f.write(blob.data)
+                f.write(blob.data.read())
 
         async def write_meta():
             meta_dict = {
-                "key": blob.key,
+                "key": blob.name,
                 "content_type": blob.content_type,
                 "metadata": blob.metadata.model_dump() if blob.metadata else {},
             }
@@ -82,7 +88,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         data_path = self._find_data_path(key)
 
         if not data_path or not meta_path.exists():
-            raise FileNotFoundError(f"Blob with key '{key}' not found.")
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
         with open(data_path, "rb") as f:
             data = f.read()
@@ -90,10 +96,10 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
         with open(meta_path, "r", encoding="utf-8") as f:
             meta_raw = json.load(f)
 
-        metadata = self.metadata_type.model_validate(meta_raw["metadata"])
+        metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
         content_type = meta_raw.get("content_type")
 
-        return Blob[T](key=key, metadata=metadata, content_type=content_type, data=data)
+        return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
 
     @override
     def delete(self, key: str) -> None:
@@ -121,10 +127,10 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
             with open(meta_file, "r", encoding="utf-8") as f:
                 meta_raw = json.load(f)
 
-            metadata = self.metadata_type.model_validate(meta_raw["metadata"])
+            metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
             content_type = meta_raw.get("content_type")
 
             headers.append(
-                BlobHeader(key=key, metadata=metadata, content_type=content_type)
+                BlobHeader(name=key, metadata=metadata, content_type=content_type)
             )
         return headers

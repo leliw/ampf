@@ -14,7 +14,7 @@ def gcp_factory():
     # Creating firestore client is very slow.
     # Scope == session speeds up tests
     GcpFactory.init_client()
-    return GcpFactory()
+    return GcpFactory(bucket_name='unit-tests-001 ')
 
 
 @pytest.fixture(scope="session")
