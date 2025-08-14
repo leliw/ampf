@@ -8,7 +8,7 @@ from ampf.base import BaseAsyncBlobStorage, BaseBlobStorage, KeyNotExistsExcepti
 
 # from ampf.gcp import GcpBlobStorage
 from ampf.base.blob_model import Blob
-from ampf.gcp import GcpBlobAsyncStorage
+from ampf.gcp import GcpAsyncBlobStorage
 from ampf.in_memory import InMemoryBlobAsyncStorage
 
 # from ampf.local import LocalBlobStorage
@@ -19,7 +19,7 @@ class MyMetadata(BaseModel):
     age: int = Field(...)
 
 
-@pytest.fixture(params=[GcpBlobAsyncStorage])
+@pytest.fixture(params=[GcpAsyncBlobStorage])
 def storage(gcp_factory, request, tmp_path):
     # if request.param == LocalBlobStorage:
     #     storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)

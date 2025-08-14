@@ -11,7 +11,7 @@ from ampf.base.blob_model import Blob
 from .gcp_base_blob_storage import GcpBaseBlobStorage
 
 
-class GcpBlobAsyncStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
+class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
     _log = logging.getLogger(__name__)
 
     def __init__(

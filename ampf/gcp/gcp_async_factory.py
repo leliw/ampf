@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
 from ampf.gcp.gcp_async_storage import GcpAsyncStorage
-from ampf.gcp.gcp_blob_async_storage import GcpBlobAsyncStorage
+from ampf.gcp.gcp_async_blob_storage import GcpAsyncBlobStorage
 
 from .gcp_blob_storage import GcpBlobStorage
 
@@ -47,6 +47,6 @@ class GcpAsyncFactory(BaseAsyncFactory):
             raise ValueError(
                 "Bucket name must be provided either during factory initialization or when calling create_blob_async_storage."
             )
-        return GcpBlobAsyncStorage(
+        return GcpAsyncBlobStorage(
             bucket_name=bucket_name, collection_name=collection_name, clazz=clazz, content_type=content_type
         )
