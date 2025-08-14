@@ -1,17 +1,17 @@
 import logging
-from typing import Iterable, Optional, Type, override
+from typing import Optional, Type, override
 
 import aiohttp
-from google.cloud import storage
 from google.cloud.storage.client import Client as StorageClient
 from pydantic import BaseModel
 
 from ampf.base.base_blob_async_storage import BaseBlobAsyncStorage
-from ampf.base.blob_model import Blob, BlobHeader
-from ampf.base.exceptions import KeyNotExistsException
+from ampf.base.blob_model import Blob
+
+from .gcp_base_blob_storage import GcpBaseBlobStorage
 
 
-class GcpBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
+class GcpBlobAsyncStorage[T: BaseModel](GcpBaseBlobStorage, BaseBlobAsyncStorage):
     _log = logging.getLogger(__name__)
 
     def __init__(
@@ -22,17 +22,12 @@ class GcpBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
         content_type: str = "text/plain",
         storage_client: Optional[StorageClient] = None,
     ):
-        super().__init__(collection_name, clazz, content_type)
-        self.bucket_name = bucket_name
-        self._storage_client = storage_client or storage.Client()
-        if bucket_name:
-            self._bucket = self._storage_client.bucket(bucket_name)
-        else:
-            raise ValueError(
-                f"No bucket specified or found for collection '{collection_name}'. Please provide a valid bucket_name."
-            )
+        BaseBlobAsyncStorage.__init__(self, collection_name, clazz, content_type)
+        GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
 
-    def _get_signed_url(self, name: str, method: str, content_type: Optional[str] = None, expiration: int = 3600) -> str:
+    def _get_signed_url(
+        self, name: str, method: str, content_type: Optional[str] = None, expiration: int = 3600
+    ) -> str:
         """Generates a signed URL for the given key.
 
         Args:
@@ -53,6 +48,11 @@ class GcpBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
+        """Uploads binary data to the storage.
+
+        Args:
+            blob: The blob object containing data and metadata to upload.
+        """
         contet_type = blob.content_type or self.content_type or "application/octet-stream"
         signed_url = self._get_signed_url(blob.name, "PUT", content_type=contet_type)
 
@@ -67,6 +67,14 @@ class GcpBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
 
     @override
     async def download_async(self, name: str) -> Blob[T]:
+        """Downloads binary data based on the blob key.
+
+        Args:
+            name: The name identifying the blob to download.
+
+        Returns:
+            The downloaded blob object.
+        """
         metadata = self.get_metadata(name)
         signed_url = self._get_signed_url(name, "GET")
 
@@ -76,47 +84,3 @@ class GcpBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
                 data = await response.read()
 
         return Blob(name=name, data=data, content_type=response.content_type, metadata=metadata)
-
-
-    @override
-    def delete(self, name: str) -> None:
-        blob = self._get_blob(name)
-        blob.delete()
-
-
-    @override
-    def exists(self, key: str) -> bool:
-        pass
-
-    @override
-    def list_blobs(self, prefix: Optional[str] = None) -> Iterable[BlobHeader[T]]:
-        if self.collection_name:
-            prefix = f"{self.collection_name}/{prefix or ""}"
-        else:
-            prefix = ""
-        col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
-        for blob in self._bucket.list_blobs(prefix=prefix):
-            yield BlobHeader(
-                name=blob.name[col_name_len:],
-                content_type=blob.content_type,
-                metadata=self.clazz(**blob.metadata) if self.clazz and blob.metadata else None,
-            )
-
-    def _get_blob(self, name: str) -> storage.Blob:
-        return self._bucket.blob(f"{self.collection_name}/{name}" if self.collection_name else name)
-
-    def put_metadata(self, name: str, metadata: T) -> None:
-        blob = self._get_blob(name)
-        blob.metadata = metadata.model_dump()
-        blob.patch()
-
-    def get_metadata(self, name: str) -> Optional[T]:
-        blob = self._get_blob(name)
-        if not blob.exists():
-            raise KeyNotExistsException(self.collection_name, self.clazz, name)
-        if not blob.metadata:
-            # I don't know why, but sometimes the metadata is None (ML)
-            blob.reload()
-        if not blob.metadata or not self.clazz:
-            return None
-        return self.clazz(**blob.metadata)

@@ -148,6 +148,18 @@ async def test_delete(storage: BaseBlobAsyncStorage):
     assert blob.name not in list(storage.names())
 
 @pytest.mark.asyncio
+async def test_exists(storage: BaseBlobAsyncStorage):
+    # Give: An uploaded file
+    blob = Blob(name="file.txt", data="test data")
+    await storage.upload_async(blob)
+    # Then: It exists
+    assert storage.exists(blob.name)
+    # When: Delete the file
+    storage.delete(blob.name)
+    # Then: It not exists
+    assert not storage.exists(blob.name)
+
+@pytest.mark.asyncio
 async def test_list_blobs(storage: BaseBlobAsyncStorage):
     # Give: An uploaded blob
     blob = Blob(name="test/file.txt", data="test data")
