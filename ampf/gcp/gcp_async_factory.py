@@ -16,18 +16,14 @@ class GcpAsyncFactory(BaseAsyncFactory):
         self._storage_client = storage.Client()
 
     def create_storage[T: BaseModel](
-        self,
-        collection_name: str,
-        clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        self, collection_name: str, clazz: Type[T], key: Optional[Callable[[T], str]] = None
     ) -> BaseAsyncStorage[T]:
         return GcpAsyncStorage(
             collection_name,
             clazz,
             db=self._async_db,
-            key_name=key_name,
             key=key,
+            root_storage=self.root_storage,
         )
 
     def create_blob_storage[T: BaseModel](
