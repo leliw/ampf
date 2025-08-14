@@ -17,7 +17,7 @@ class D(BaseModel):
 
 @pytest.fixture(scope="module")
 def subscription(topic: GcpTopic):
-    subscription = topic.create_subscription(clazz=D, exist_ok=True)
+    subscription = topic.create_subscription(clazz=D, processing_timeout=10.0,exist_ok=True)
     yield subscription
     subscription.delete()
 
