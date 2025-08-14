@@ -1,6 +1,8 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import Dict, List, Optional
+from uuid import UUID, uuid4
+
 import pytest
+from pydantic import BaseModel, Field
 
 from ampf.gcp import GcpStorage
 from ampf.gcp.gcp_async_storage import GcpAsyncStorage
@@ -10,6 +12,18 @@ from ampf.gcp.gcp_factory import GcpFactory
 class TC(BaseModel):
     name: str
     embedding: Optional[List[float]] = None
+
+
+class Task(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+
+
+class Job(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    tasks_l: List[Task] = Field(default_factory=list)
+    tasks_d: Dict[UUID, Task] = Field(default_factory=dict)
 
 
 @pytest.fixture()
@@ -22,6 +36,20 @@ def storage(gcp_factory: GcpFactory, collection_name: str):
 @pytest.fixture()
 async def async_storage(gcp_factory: GcpFactory, collection_name: str):
     storage = GcpAsyncStorage(collection_name, TC)
+    yield storage
+    await storage.drop()
+
+
+@pytest.fixture()
+def job_storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = gcp_factory.create_storage(collection_name, Job)
+    yield storage
+    storage.drop()
+
+
+@pytest.fixture()
+async def async_job_storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = GcpAsyncStorage(collection_name, Job)
     yield storage
     await storage.drop()
 
@@ -84,3 +112,23 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     assert nearest[0] == tc1
     # And: The second is the second
     assert nearest[1] == tc2
+
+
+def test_uuid_saving(job_storage: GcpStorage[Job]):
+    # Given: A job with a task
+    t = Task(name="test")
+    j = Job(name="test", tasks_l=[t], tasks_d={t.id: t})
+    # When: Save it
+    job_storage.save(j)
+    # Then: It is saved
+    assert job_storage.get(j.id) == j
+
+@pytest.mark.asyncio()
+async def test_uuid_async_saving(async_job_storage: GcpAsyncStorage[Job]):
+    # Given: A job with a task
+    t = Task(name="test")
+    j = Job(name="test", tasks_l=[t], tasks_d={t.id: t})
+    # When: Save it
+    await async_job_storage.save(j)
+    # Then: It is saved
+    assert await async_job_storage.get(j.id) == j
