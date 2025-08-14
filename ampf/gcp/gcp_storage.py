@@ -63,9 +63,17 @@ class GcpStorage[T: BaseModel](BaseCollectionStorage[T]):
         Returns:
             The preprocessed data.
         """
-        for k, v in data.items():
-            if isinstance(v, uuid.UUID):
-                data[k] = str(v)
+        def convert_uuids(obj):
+            if isinstance(obj, dict):
+                return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_uuids(item) for item in obj]
+            elif isinstance(obj, uuid.UUID):
+                return str(obj)
+            else:
+                return obj
+
+        data = convert_uuids(data) # type: ignore
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
         return data
@@ -127,8 +135,8 @@ class GcpStorage[T: BaseModel](BaseCollectionStorage[T]):
             query_vector=Vector(embedding),
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
-        ).get()
-        for ds in vq:
+        ).get() # type: ignore
+        for ds in vq: # type: ignore
             yield self.clazz(**ds.to_dict())
 
     def create_collection[C: BaseModel](

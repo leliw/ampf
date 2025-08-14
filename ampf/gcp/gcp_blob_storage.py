@@ -27,11 +27,11 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         clazz: Optional[Type[T]] = None,
         content_type: str =  "text/plain",
         bucket_name: Optional[str] = None,
+        storage_client: Optional[storage.Client] = None,
     ):
         super().__init__(collection_name, clazz, content_type)
         self._log = logging.getLogger(__name__)
-        if not self._storage_client:
-            self._storage_client = storage.Client()
+        self._storage_client = storage_client or storage.Client()
         if bucket_name:
             self._bucket = self._storage_client.bucket(bucket_name)
             if not self._default_bucket:

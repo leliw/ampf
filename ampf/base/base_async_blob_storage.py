@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from .blob_model import Blob, BlobHeader
 
 
-class BaseBlobAsyncStorage[T: BaseModel](ABC):
+class BaseAsyncBlobStorage[T: BaseModel](ABC):
     """
     Abstract base class for asynchronous blob storage operations.
     This class defines the interface for uploading, downloading, deleting,

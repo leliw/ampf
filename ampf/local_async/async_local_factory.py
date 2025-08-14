@@ -4,7 +4,7 @@ from typing import Callable, Optional, Type
 from pydantic import BaseModel
 
 
-from ..base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobAsyncStorage
+from ..base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
 from ..local import StrPath
 from .local_blob_async_storage import LocalBlobAsyncStorage
 from .json_multi_files_async_storage import JsonMultiFilesAsyncStorage
@@ -47,5 +47,5 @@ class AsyncLocalFactory(BaseAsyncFactory):
 
     def create_blob_storage[T: BaseModel](
         self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
-    ) -> BaseBlobAsyncStorage[T]:
+    ) -> BaseAsyncBlobStorage[T]:
         return LocalBlobAsyncStorage(collection_name, clazz, content_type, root_path=self._root_path)

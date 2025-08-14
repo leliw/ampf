@@ -1,7 +1,7 @@
 from .gcp_async_factory import GcpAsyncFactory
 from .gcp_async_storage import GcpAsyncStorage
 from .gcp_blob_storage import GcpBlobStorage
-from .gcp_blob_async_storage import GcpBlobAsyncStorage
+from .gcp_async_blob_storage import GcpAsyncBlobStorage
 from .gcp_factory import GcpFactory
 from .gcp_storage import GcpStorage
 from .gcp_subscription import GcpSubscription
@@ -19,7 +19,7 @@ __all__ = [
     "GcpStorage",
     "GcpAsyncStorage",
     "GcpBlobStorage",
-    "GcpBlobAsyncStorage",
+    "GcpAsyncBlobStorage",
     "GcpTopic",
     "GcpSubscription",
     "GcpPubsubRequest",

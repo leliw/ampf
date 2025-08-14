@@ -9,10 +9,10 @@ from pydantic import BaseModel
 from ampf.base.exceptions import KeyNotExistsException
 
 from ..base import Blob, BlobHeader
-from ..base.base_blob_async_storage import BaseBlobAsyncStorage
+from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
 
-class LocalBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage[T]):
+class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,

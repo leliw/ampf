@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Callable, List, Optional, Type
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Type
 import uuid
 
 from google.cloud import exceptions, firestore
@@ -23,14 +23,20 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         key: Optional[Callable[[T], str]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
+        root_storage: Optional[str] = None,
+
     ):
         super().__init__(collection, clazz, key_name, key)
         self._db = db or firestore.AsyncClient(project=project, database=database)
-        self._coll_ref = self._db.collection(self.collection_name)
+        self.root_storage = root_storage
+        self._collection = (
+            f"{root_storage}/{collection}" if root_storage else collection
+        )
+        self._coll_ref = self._db.collection(self._collection)
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit
 
-    def on_before_save(self, data: dict) -> dict:
+    def on_before_save(self, data: Dict[str, Any]) -> dict:
         """Converts the embedding field to a Vector object.
 
         Args:
@@ -38,9 +44,17 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         Returns:
             The preprocessed data.
         """
-        for k, v in data.items():
-            if isinstance(v, uuid.UUID):
-                data[k] = str(v)
+        def convert_uuids(obj):
+            if isinstance(obj, dict):
+                return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_uuids(item) for item in obj]
+            elif isinstance(obj, uuid.UUID):
+                return str(obj)
+            else:
+                return obj
+
+        data = convert_uuids(data) # type: ignore
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
         return data

@@ -2,7 +2,7 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobAsyncStorage
+from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
 
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
 from .in_memory_storage import InMemoryStorage
@@ -29,5 +29,5 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
 
     def create_blob_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T], content_type: Optional[str] = None
-    ) -> BaseBlobAsyncStorage[T]:
+    ) -> BaseAsyncBlobStorage[T]:
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)

@@ -1,7 +1,7 @@
 [project]
 name = "ampf"
 description = "Angular & Material & Python & FastAPI"
-version = "0.3.05"
+version = "0.3.07"
 license = "MIT"
 authors = [
     { name = "Marcin Leliwa", email = "marcin.leliwa@gmail.com" }
@@ -36,6 +36,9 @@ huggingface = [
 weaviate = [
     "weaviate-client>=4.15.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["hatchling"]
