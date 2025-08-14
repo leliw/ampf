@@ -1,6 +1,7 @@
+import logging
 from typing import Callable, Optional, Type
 
-from google.cloud import firestore
+from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ..base import BaseAsyncStorage, BaseBlobStorage, BaseFactory, BaseStorage
@@ -10,32 +11,15 @@ from .gcp_storage import GcpStorage
 
 
 class GcpFactory(BaseFactory):
-    _db = None
-
-    @classmethod
-    def init_client(cls, default_bucket: Optional[str] = None):
-        if not cls._db:
-            cls._db = firestore.Client()
-            cls._async_db = firestore.AsyncClient()
-        if default_bucket:
-            GcpBlobStorage.init_client(default_bucket)
-
-    @classmethod
-    def get_db(cls) -> firestore.Client:
-        if not cls._db:
-            cls._db = firestore.Client()
-        return cls._db
-
-    @classmethod
-    def get_async_db(cls) -> firestore.AsyncClient:
-        if not cls._async_db:
-            cls._async_db = firestore.AsyncClient()
-        return cls._async_db
+    _log = logging.getLogger(__name__)
 
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
         self.root_storage = root_storage[:-1] if root_storage and root_storage.endswith("/") else root_storage
-        if not self._db:
-            self.init_client(default_bucket=bucket_name)
+        self.bucket_name = bucket_name
+        self._log.debug("Using GcpFactory with root_storage=%s and bucket_name=%s", self.root_storage, self.bucket_name)
+        self._db = firestore.Client()
+        self._async_db = firestore.AsyncClient()
+        self._storage_client = storage.Client()
 
     def create_storage[T: BaseModel](
         self,
@@ -47,7 +31,7 @@ class GcpFactory(BaseFactory):
         return GcpStorage(
             collection_name,
             clazz,
-            db=self.get_db(),
+            db=self._db,
             key_name=key_name,
             key=key,
             root_storage=self.root_storage,
@@ -65,10 +49,11 @@ class GcpFactory(BaseFactory):
         key_name: Optional[str] = None,
         key: Optional[Callable[[T], str]] = None,
     ) -> BaseAsyncStorage[T]:
+        self._log.debug("Creating async storage with root_storage=%s", self.root_storage)
         return GcpAsyncStorage(
             f"{self.root_storage}/{collection_name}" if self.root_storage else collection_name,
             clazz,
-            db=self.get_async_db(),
+            db=self._async_db,
             key_name=key_name,
             key=key,
         )

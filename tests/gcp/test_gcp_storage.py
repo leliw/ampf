@@ -19,10 +19,9 @@ def storage(gcp_factory: GcpFactory, collection_name: str):
     storage.drop()
 
 
-@pytest.mark.asyncio()
 @pytest.fixture()
 async def async_storage(gcp_factory: GcpFactory, collection_name: str):
-    storage = gcp_factory.create_async_storage(collection_name, TC)
+    storage = GcpAsyncStorage(collection_name, TC)
     yield storage
     await storage.drop()
 

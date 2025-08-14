@@ -12,7 +12,7 @@ class GcpAsyncFactory(BaseAsyncFactory):
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
         self.root_storage = root_storage[:-1] if root_storage and root_storage.endswith("/") else root_storage
         self.bucket_name = bucket_name
-        self._db = firestore.AsyncClient()
+        self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
 
     def create_storage[T: BaseModel](
@@ -25,7 +25,7 @@ class GcpAsyncFactory(BaseAsyncFactory):
         return GcpAsyncStorage(
             collection_name,
             clazz,
-            db=self._db,
+            db=self._async_db,
             key_name=key_name,
             key=key,
         )

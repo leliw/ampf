@@ -1,11 +1,16 @@
+import logging
+from typing import Type
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+
 import pytest
+from pydantic import BaseModel, Field
 
 from ampf.base import BaseAsyncStorage, KeyExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
-from ampf.local_async import JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage
+from ampf.local_async import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
+
+_log = logging.getLogger(__name__)
 
 
 class D(BaseModel):
@@ -27,15 +32,14 @@ class Duuid(BaseModel):
         GcpAsyncStorage,
     ]
 )
-def storage(gcp_factory, request, tmp_path):
-    if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = request.param("test", D, root_path=tmp_path)
-    elif request.param == GcpAsyncStorage:
-        storage = gcp_factory.create_async_storage("test", D)
+async def storage(gcp_factory, request, tmp_path):
+    clazz: Type[BaseAsyncStorage[D]] = request.param
+    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+        storage = clazz("test", D, root_path=tmp_path)  # type: ignore
     else:
-        storage = request.param("test", D)
+        storage = clazz("test", D)
     yield storage
-    storage.drop()
+    await storage.drop()
 
 
 @pytest.fixture(
@@ -46,15 +50,14 @@ def storage(gcp_factory, request, tmp_path):
         GcpAsyncStorage,
     ]
 )
-def storage_uuid(gcp_factory, request, tmp_path):
-    if request.param in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = request.param("test", Duuid, root_path=tmp_path)
-    elif request.param == GcpAsyncStorage:
-        storage = gcp_factory.create_async_storage("test", Duuid)
+async def storage_uuid(request, tmp_path):
+    clazz: Type[BaseAsyncStorage[Duuid]] = request.param
+    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+        storage = clazz("test", Duuid, root_path=tmp_path)  # type: ignore
     else:
-        storage = request.param("test", Duuid)
+        storage = clazz("test", Duuid)
     yield storage
-    storage.drop()
+    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -65,7 +68,6 @@ async def test_put_and_get(storage: BaseAsyncStorage):
     await storage.put("foo", d)
     # Then: Is created
     assert d == await storage.get("foo")
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -81,7 +83,6 @@ async def test_keys(storage: BaseAsyncStorage):
     assert "foo" in keys
     assert "bar" in keys
     assert len(keys) == 2
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -92,7 +93,6 @@ async def test_create_new(storage: BaseAsyncStorage):
     await storage.create(d)
     # Then: Is created
     assert ["foo"] == [key async for key in storage.keys()]
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -105,7 +105,6 @@ async def test_create_already_exists(storage: BaseAsyncStorage):
     # I try to create it again
     with pytest.raises(KeyExistsException):
         await storage.create(d)
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -116,7 +115,6 @@ async def test_save_not_exists(storage: BaseAsyncStorage):
     await storage.save(d)
     # Then: Is saved
     assert ["foo"] == [key async for key in storage.keys()]
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -129,7 +127,6 @@ async def test_save_exists(storage: BaseAsyncStorage):
     await storage.save(d)
     # Then: Is saved
     assert ["foo"] == [key async for key in storage.keys()]
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -142,7 +139,6 @@ async def test_delete_existing(storage: BaseAsyncStorage):
     await storage.delete("foo")
     # Then: It is not exist
     assert not await storage.key_exists("foo")
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -158,7 +154,6 @@ async def test_get_all(storage: BaseAsyncStorage):
     assert d1 in all_elements
     assert d2 in all_elements
     assert len(all_elements) == 2
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -171,7 +166,6 @@ async def test_key_exists(storage: BaseAsyncStorage):
     # When: I check if key exists
     assert await storage.key_exists("foo")
     assert not await storage.key_exists("baz")
-    await storage.drop()
 
 
 @pytest.mark.asyncio
@@ -183,7 +177,6 @@ async def test_is_empty(storage: BaseAsyncStorage):
     await storage.save(d)
     # Then: Is not empty
     assert not await storage.is_empty()
-    await storage.drop()
 
 
 @pytest.mark.asyncio
