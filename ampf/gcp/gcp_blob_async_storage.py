@@ -5,13 +5,13 @@ import aiohttp
 from google.cloud.storage.client import Client as StorageClient
 from pydantic import BaseModel
 
-from ampf.base.base_blob_async_storage import BaseBlobAsyncStorage
+from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
 
 
-class GcpBlobAsyncStorage[T: BaseModel](GcpBaseBlobStorage, BaseBlobAsyncStorage):
+class GcpBlobAsyncStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
     _log = logging.getLogger(__name__)
 
     def __init__(
@@ -22,7 +22,7 @@ class GcpBlobAsyncStorage[T: BaseModel](GcpBaseBlobStorage, BaseBlobAsyncStorage
         content_type: str = "text/plain",
         storage_client: Optional[StorageClient] = None,
     ):
-        BaseBlobAsyncStorage.__init__(self, collection_name, clazz, content_type)
+        BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
 
     def _get_signed_url(

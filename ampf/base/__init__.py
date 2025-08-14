@@ -1,7 +1,7 @@
 from .base_async_factory import BaseAsyncFactory
 from .base_async_storage import BaseAsyncStorage
 from .base_blob_storage import BaseBlobStorage, FileNameMimeType
-from .base_blob_async_storage import BaseBlobAsyncStorage
+from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_collection_storage import BaseCollectionStorage
 from .base_decorator import BaseDecorator
 from .base_email_sender import BaseEmailSender
@@ -29,7 +29,7 @@ __all__ = [
     "SmtpEmailSender",
     "BaseCollectionStorage",
     "CollectionDef",
-    "BaseBlobAsyncStorage",
+    "BaseAsyncBlobStorage",
     "Blob",
     "BlobHeader",
 ]

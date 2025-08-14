@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field
 
-from ampf.base import BaseBlobAsyncStorage, BaseBlobStorage, KeyNotExistsException
+from ampf.base import BaseAsyncBlobStorage, BaseBlobStorage, KeyNotExistsException
 
 # from ampf.gcp import GcpBlobStorage
 from ampf.base.blob_model import Blob
@@ -35,7 +35,7 @@ def storage(gcp_factory, request, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_upload_blob(storage: BaseBlobAsyncStorage):
+async def test_upload_blob(storage: BaseAsyncBlobStorage):
     # Given: A file name with content
     file_name = "test/file"
     data = b"test data"
@@ -47,7 +47,7 @@ async def test_upload_blob(storage: BaseBlobAsyncStorage):
 
 
 @pytest.mark.asyncio
-async def test_upload_blob_with_metadata(storage: BaseBlobAsyncStorage):
+async def test_upload_blob_with_metadata(storage: BaseAsyncBlobStorage):
     file_name = "test/file"
     data = b"test data"
     metadata = MyMetadata(name="test", age=10)
@@ -70,7 +70,7 @@ def test_upload_file_with_metadata(storage: BaseBlobStorage, tmp_path: Path):
     assert metadata == storage.get_metadata("test")
 
 @pytest.mark.asyncio
-async def test_download_blob(storage: BaseBlobAsyncStorage):
+async def test_download_blob(storage: BaseAsyncBlobStorage):
     # Given: A file name with content 
     blob = Blob(name="file.txt", data="test data")
     # And: It is stored
@@ -82,7 +82,7 @@ async def test_download_blob(storage: BaseBlobAsyncStorage):
     assert downloaded_blob.data.read() == blob.data.read()
 
 @pytest.mark.asyncio
-async def test_download_nonexistent_blob(storage: BaseBlobAsyncStorage):
+async def test_download_nonexistent_blob(storage: BaseAsyncBlobStorage):
     # Given: A not existing file name
     file_name = "file_not_exists.txt"
     # When: It is downloaded
@@ -91,7 +91,7 @@ async def test_download_nonexistent_blob(storage: BaseBlobAsyncStorage):
         await storage.download_async(file_name)
 
 @pytest.mark.asyncio
-async def test_get_metadata(storage: BaseBlobAsyncStorage):
+async def test_get_metadata(storage: BaseAsyncBlobStorage):
     # Given: A blob with metadata
     blob = Blob(name="file.txt", data="test data", metadata=MyMetadata(name="test", age=10))
     # And: It is stored
@@ -102,7 +102,7 @@ async def test_get_metadata(storage: BaseBlobAsyncStorage):
     assert retrieved_metadata == blob.metadata
 
 
-def test_get_nonexistent_metadata(storage: BaseBlobAsyncStorage):
+def test_get_nonexistent_metadata(storage: BaseAsyncBlobStorage):
     # Given: A not existing file name
     file_name = "file_not_exists.txt"
     # When: Get a metadata
@@ -126,7 +126,7 @@ def test_get_nonexistent_metadata(storage: BaseBlobAsyncStorage):
 #         assert f.read() == data
 
 @pytest.mark.asyncio
-async def test_names(storage: BaseBlobAsyncStorage):
+async def test_names(storage: BaseAsyncBlobStorage):
     # Given: A blob with content
     blob = Blob(name="file.txt", data="test data")
     # And: It is stored
@@ -137,7 +137,7 @@ async def test_names(storage: BaseBlobAsyncStorage):
     assert blob.name in list(names)
 
 @pytest.mark.asyncio
-async def test_delete(storage: BaseBlobAsyncStorage):
+async def test_delete(storage: BaseAsyncBlobStorage):
     # Give: An uploaded file
     blob = Blob(name="file.txt", data="test data")
     await storage.upload_async(blob)
@@ -148,7 +148,7 @@ async def test_delete(storage: BaseBlobAsyncStorage):
     assert blob.name not in list(storage.names())
 
 @pytest.mark.asyncio
-async def test_exists(storage: BaseBlobAsyncStorage):
+async def test_exists(storage: BaseAsyncBlobStorage):
     # Give: An uploaded file
     blob = Blob(name="file.txt", data="test data")
     await storage.upload_async(blob)
@@ -160,7 +160,7 @@ async def test_exists(storage: BaseBlobAsyncStorage):
     assert not storage.exists(blob.name)
 
 @pytest.mark.asyncio
-async def test_list_blobs(storage: BaseBlobAsyncStorage):
+async def test_list_blobs(storage: BaseAsyncBlobStorage):
     # Give: An uploaded blob
     blob = Blob(name="test/file.txt", data="test data")
     await storage.upload_async(blob)
@@ -172,7 +172,7 @@ async def test_list_blobs(storage: BaseBlobAsyncStorage):
     assert blobs[0].content_type == "text/plain"
 
 @pytest.mark.asyncio
-async def test_delete_folder(storage: BaseBlobAsyncStorage):
+async def test_delete_folder(storage: BaseAsyncBlobStorage):
     # Give: An uploaded blob in test1 folder
     blob1 = Blob(name="test1/file.txt", data="test data")
     await storage.upload_async(blob1)

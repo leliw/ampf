@@ -3,7 +3,7 @@ from typing import Callable, Optional, Type
 from google.cloud import firestore
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseBlobAsyncStorage
+from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
 from ampf.gcp.gcp_async_storage import GcpAsyncStorage
 from ampf.gcp.gcp_blob_async_storage import GcpBlobAsyncStorage
 
@@ -41,7 +41,7 @@ class GcpAsyncFactory(BaseAsyncFactory):
         clazz: Optional[Type[T]] = None,
         content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
-    ) -> BaseBlobAsyncStorage[T]:
+    ) -> BaseAsyncBlobStorage[T]:
         bucket_name = bucket_name or self.bucket_name
         if not bucket_name:
             raise ValueError(

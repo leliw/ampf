@@ -2,11 +2,11 @@ from typing import List, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base.base_blob_async_storage import BaseBlobAsyncStorage
+from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob, BlobHeader
 
 
-class InMemoryBlobAsyncStorage[T: BaseModel](BaseBlobAsyncStorage):
+class InMemoryBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage):
     buckets = {}
 
     def __init__(
