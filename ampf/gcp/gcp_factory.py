@@ -38,9 +38,24 @@ class GcpFactory(BaseFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
+        self,
+        collection_name: str,
+        clazz: Optional[Type[T]] = None,
+        content_type: str = "text/plain",
+        bucket_name: Optional[str] = None,
     ) -> BaseBlobStorage[T]:
-        return GcpBlobStorage(collection_name, clazz, content_type)
+        bucket_name = bucket_name or self.bucket_name
+        if not bucket_name:
+            raise ValueError(
+                "Bucket name must be provided either during factory initialization or when calling create_blob_async_storage."
+            )
+        return GcpBlobStorage(
+            bucket_name=bucket_name,
+            collection_name=collection_name,
+            clazz=clazz,
+            content_type=content_type,
+            storage_client=self._storage_client,
+        )
 
     def create_async_storage[T: BaseModel](
         self,

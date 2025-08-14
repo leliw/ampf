@@ -2,7 +2,7 @@ import logging
 from typing import Optional, Type, override
 
 import aiohttp
-from google.cloud.storage.client import Client as StorageClient
+from google.cloud import storage
 from pydantic import BaseModel
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
@@ -20,7 +20,7 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
         collection_name: Optional[str] = None,
         clazz: Optional[Type[T]] = None,
         content_type: str = "text/plain",
-        storage_client: Optional[StorageClient] = None,
+        storage_client: Optional[storage.Client] = None,
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)

@@ -13,7 +13,7 @@ from ampf.in_memory.in_memory_factory import InMemoryFactory
 def gcp_factory():
     # Creating firestore client is very slow.
     # Scope == session speeds up tests
-    return GcpFactory(bucket_name='unit-tests-001 ')
+    return GcpFactory(bucket_name='unit-tests-001')
 
 
 @pytest.fixture(scope="session")
