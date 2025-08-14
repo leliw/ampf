@@ -119,3 +119,7 @@ class GcpPubsubResponse(BaseModel):
 
     status: Literal["acknowledged"]
     messageId: Optional[str] = None
+
+    @classmethod
+    def create(cls, message_id: Optional[str] = None) -> Self:
+        return cls(status="acknowledged", messageId=message_id)
