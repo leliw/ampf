@@ -231,6 +231,18 @@ async def handle_push(payload: D) -> D:
 If decorated function returns a Pydantic model, it will be automatically converted to `GcpPubsubResponse` and sent back as a response by the method `publish_response()`.
 The message is acknowledged if the function does not raise an exception.
 
+You can also add dependencies as parameter and set `default_response_topic` (it is used if there are not `response_topic` message attribute).
+
+```python
+@router.post("/markdown-converted")
+@gcp_pubsub_push_handler()
+async def handle_push_markdown_converted(
+    config: ConfigDep, orchestrator: JobOrchestratorDep, request: GcpPubsubRequest, payload: PdfConversionResponse
+) -> ChunksRequest:
+    request.set_default_response_topic(config.chunking_requests_topic)
+    return orchestrator.handle_markdown_converted(payload)
+```
+
 ### Testing
 
 #### Preparation

@@ -7,7 +7,6 @@ try:
 
     from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse
 
-
     def gcp_pubsub_push_handler():
         """
         Decorator for FastAPI endpoints to handle Google Cloud Pub/Sub push messages.
@@ -17,56 +16,58 @@ try:
         _log = logging.getLogger(__name__)
 
         def decorator(func):
-            # Inspect the function signature to find the parameter annotated with a Pydantic BaseModel
             sig = inspect.signature(func)
             payload_name = None
             payload_class = None
+            gcp_request_name = None
             for name, param in sig.parameters.items():
                 ann = param.annotation
-                if inspect.isclass(ann) and issubclass(ann, BaseModel):
+                if ann is GcpPubsubRequest:
+                    gcp_request_name = name
+                elif inspect.isclass(ann) and issubclass(ann, BaseModel):
                     payload_name = name
                     payload_class = ann
-                    break
             if payload_name is None:
                 raise TypeError("No parameter annotated with a Pydantic BaseModel found in endpoint.")
 
             async def wrapper(*args, **kwargs) -> GcpPubsubResponse:
-                """
-                Wrapper function that:
-                - Decodes and validates the Pub/Sub message payload
-                - Calls the decorated endpoint function with the validated payload
-                - Handles validation and processing errors
-                - Publishes a response if returned by the endpoint
-                - Returns a standardized acknowledgment response
-                """
                 try:
-                    # Extract the GcpPubsubRequest from the arguments
-                    request: GcpPubsubRequest = args[0] if len(args) > 0 else kwargs.get(payload_name)  # type: ignore
-                    # Decode and validate the payload using the specified Pydantic model
-                    payload = request.decoded_data(payload_class)  # type: ignore
-                    kwargs[payload_name] = payload
-                    # Remove the original request from args before passing to the endpoint
-                    new_args = args[1:] if len(args) > 0 else args
-                    result = await func(*new_args, **kwargs)
+                    # If GcpPubsubRequest is already in the signature, use it directly
+                    if gcp_request_name:
+                        request: GcpPubsubRequest = kwargs.get(gcp_request_name) # type: ignore
+                        if request is None and len(args) > 0:
+                            # Try to get by position
+                            param_names = list(sig.parameters.keys())
+                            idx = param_names.index(gcp_request_name)
+                            request = args[idx] if idx < len(args) else None
+                        if request is None:
+                            raise TypeError("GcpPubsubRequest argument not found in call.")
+                        payload = request.decoded_data(payload_class) # type: ignore
+                        kwargs[payload_name] = payload
+                        result = await func(*args, **kwargs)
+                    else:
+                        # Extract the GcpPubsubRequest from the arguments (assume first positional)
+                        request: GcpPubsubRequest = args[0] if len(args) > 0 else kwargs.get(payload_name)  # type: ignore
+                        payload = request.decoded_data(payload_class)  # type: ignore
+                        kwargs[payload_name] = payload
+                        # Remove the original request from args before passing to the endpoint
+                        new_args = args[1:] if len(args) > 0 else args
+                        result = await func(*new_args, **kwargs)
                     if result:
-                        # Optionally publish a response if the decorated function returns one
                         request.publish_response(result)
-                    # Return acknowledgment response
                     return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
                 except ValidationError as e:
-                    # Handle payload validation errors
                     _log.error("Error processing message ID: %s: %s", request.message.messageId, e)
                     raise HTTPException(status_code=400, detail=f"Wrong message format: {e}")
                 except Exception as e:
-                    # Handle all other processing errors
                     _log.error("Error processing message ID %s: %s", request.message.messageId, e)
                     raise HTTPException(status_code=500, detail=f"Error processing message: {e}")
 
-            # Adjust the wrapper's signature to expect a GcpPubsubRequest instead of the original payload model
             params = []
             for name, param in sig.parameters.items():
                 if name == payload_name:
-                    params.append(param.replace(annotation=GcpPubsubRequest))
+                    if not gcp_request_name:
+                        params.append(param.replace(annotation=GcpPubsubRequest))
                 else:
                     params.append(param)
             wrapper.__signature__ = sig.replace(parameters=params, return_annotation=GcpPubsubResponse)

@@ -29,7 +29,7 @@ ConfigDep = Annotated[dict, Depends(get_config)]
 
 
 @pytest.fixture(scope="module")
-def app():
+def app(topic: GcpTopic):
     _log = logging.getLogger(__name__)
     app = FastAPI()
     router = APIRouter()
@@ -49,6 +49,13 @@ def app():
     @router.post("/payload_last")
     @gcp_pubsub_push_handler()
     async def handle_push_d3(p: ConfigDep, payload: D) -> D:
+        payload.name = f"{p['msg']} {payload.name}"
+        return payload
+
+    @router.post("/def-resp-topic")
+    @gcp_pubsub_push_handler()
+    async def handle_push_d4(p: ConfigDep, payload: D, request: GcpPubsubRequest) -> D:
+        request.set_default_response_topic(topic.topic_id)
         payload.name = f"{p['msg']} {payload.name}"
         return payload
 
@@ -152,6 +159,24 @@ def test_pubsub_push_payload_last(topic: GcpTopic, subscription: GcpSubscription
     req = GcpPubsubRequest.create(d, attributes=attributes)
     # When: The request is posted
     response = client.post("/pub-sub/payload_last", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+
+def test_pubsub_push_default_response_topic(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes without response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/def-resp-topic", json=req.model_dump())
     # Then: Response is OK
     assert response.status_code == status.HTTP_200_OK
     # And: Message is received

@@ -92,6 +92,18 @@ class GcpPubsubRequest(BaseModel):
         _log.debug("Decoded data: %s", decoded_data)
         return clazz.model_validate_json(decoded_data)
 
+    def set_default_response_topic(self, topic_name: str) -> None:
+        """Sets the default response topic in the message attributes.
+
+        Args:
+            topic_name: The name of the default topic to set.
+        """
+        if not self.message.attributes:
+            self.message.attributes = {}
+        if "response_topic" not in self.message.attributes:
+            self.message.attributes["response_topic"] = topic_name
+            _log.debug("Set default response topic: %s", topic_name)
+            
     def publish_response(self, response: BaseModel, default_topic_name: Optional[str] = None) -> None:
         """Publishes a response to a specified topic. Topic can be specified in the message attributes or defaults to a provided topic name.
         If `sender_id` is provided in the message attributes, it will be published with the response.
