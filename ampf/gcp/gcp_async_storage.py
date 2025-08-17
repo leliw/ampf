@@ -19,14 +19,13 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncStorage[T]):
         db: Optional[firestore.AsyncClient] = None,
         project: Optional[str] = None,
         database: Optional[str] = None,
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[str | Callable[[T], str]] = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
         root_storage: Optional[str] = None,
 
     ):
-        super().__init__(collection, clazz, key_name, key)
+        super().__init__(collection, clazz, key)
         self._db = db or firestore.AsyncClient(project=project, database=database)
         self.root_storage = root_storage
         self._collection = (

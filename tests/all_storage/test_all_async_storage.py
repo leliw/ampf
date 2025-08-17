@@ -36,9 +36,9 @@ class Duuid(BaseModel):
 async def storage(gcp_factory, request, tmp_path):
     clazz: Type[BaseAsyncStorage[D]] = request.param
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("test", D, root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", D, root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("test", D)
+        storage = clazz("tests-ampf-gcp", D)
     yield storage
     await storage.drop()
 
@@ -54,9 +54,9 @@ async def storage(gcp_factory, request, tmp_path):
 async def storage_uuid(request, tmp_path):
     clazz: Type[BaseAsyncStorage[Duuid]] = request.param
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("test", Duuid, root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", Duuid, root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("test", Duuid)
+        storage = clazz("tests-ampf-gcp", Duuid)
     yield storage
     await storage.drop()
 
