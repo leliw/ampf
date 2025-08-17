@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterator, Optional, Type
+from typing import Any, Callable, Dict, Iterator, Optional, Type
 
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
     ):
         BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
         BaseQuery.__init__(self, self.get_all)
-        self.items = {}
+        self.items: Dict[str, T] = {}
 
     def put(self, key: Any, value: T) -> None:
         self.items[str(key)] = value.model_copy(deep=True)
@@ -31,7 +31,7 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
-    def keys(self) -> Iterator[T]:
+    def keys(self) -> Iterator[str]:
         for key in self.items.keys():
             yield key
 

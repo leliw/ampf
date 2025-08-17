@@ -1,5 +1,5 @@
 import logging
-from typing import Type
+from typing import List, Optional, Type
 from uuid import UUID, uuid4
 
 import pytest
@@ -16,6 +16,7 @@ _log = logging.getLogger(__name__)
 class D(BaseModel):
     name: str
     value: str
+    embedding: Optional[List[float]] = None
 
 
 class Duuid(BaseModel):
@@ -190,3 +191,21 @@ async def test_uuid(storage_uuid: BaseAsyncStorage):
     assert o == await storage_uuid.get(o.uuid)
     await storage_uuid.delete(d.uuid)
     assert not await storage_uuid.key_exists(d.uuid)
+
+
+@pytest.mark.asyncio
+async def test_embedding(storage: BaseAsyncStorage[D]):
+    # Given: Data with embedding
+    tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
+    tc2 = D(name="test2", value="2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    await storage.put("1", tc1)
+    await storage.put("2", tc2)
+    # And: Find nearest
+    nearest = [item async for item in storage.find_nearest(tc1.embedding or [])]
+    # Then: All two are returned
+    assert len(nearest) == 2
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+    # And: The second is the second
+    assert nearest[1] == tc2
