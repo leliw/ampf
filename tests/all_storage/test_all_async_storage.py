@@ -199,8 +199,8 @@ async def test_embedding(storage: BaseAsyncStorage[D]):
     tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
     tc2 = D(name="test2", value="2", embedding=[4.0, 5.0, 6.0])
     # When: Save them
-    await storage.put("1", tc1)
-    await storage.put("2", tc2)
+    await storage.put("test1", tc1)
+    await storage.put("test2", tc2)
     # And: Find nearest
     nearest = [item async for item in storage.find_nearest(tc1.embedding or [])]
     # Then: All two are returned
