@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Callable, Optional, Type
+from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -13,19 +14,25 @@ from .exceptions import KeyExistsException
 class BaseAsyncStorage[T: BaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
+    _log = logging.getLogger(__name__)
+
     def __init__(
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[str | Callable[[T], str]] = None,
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
     ):
         self.collection_name = collection_name
         self.clazz = clazz
-        if not key and not key_name:
+        if not key:
             field_names = list(clazz.model_fields.keys())
             key = field_names[0]
-        self.key = key or key_name
+        self.key = key
+        self.embedding_field_name = embedding_field_name
+        self.embedding_search_limit = embedding_search_limit
+
 
     @abstractmethod
     async def put(self, key: Any, value: T) -> None:
@@ -86,3 +93,33 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         async for _ in self.keys():
             return False
         return True
+
+    async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterable[T]:
+        """Finds the nearest knowledge base items to the given vector.
+
+        Args:
+            embedding: The vector to search for.
+            limit: The maximum number of results to return.
+        Returns:
+            An iterator of the nearest items.
+        """
+        try:
+            self._log
+            from sentence_transformers.util import cos_sim
+
+            self._log.warning("Embedding search is not optimized for performance.")
+            self._log.warning("Consider using a vector database for production.")
+
+            limit = limit or self.embedding_search_limit
+            ret: List[Tuple[T, float]] = []
+            async for item in self.get_all():
+                em = getattr(item, self.embedding_field_name)
+                if em:
+                    similarity = cos_sim(embedding, em)
+                    ret.append((item, similarity.item()))
+            ret.sort(key=lambda x: x[1], reverse=True)
+            for item in ret[:limit]:
+                yield item[0]
+        except ImportError:
+            self._log.error("The package `sentence_transformers` is not installed ")
+            self._log.error("Try: pip install ampf[huggingface]")

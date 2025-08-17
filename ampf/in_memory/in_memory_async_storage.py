@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Callable, Type
+from typing import AsyncIterator, Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -11,11 +11,17 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncStorage):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key: Optional[str | Callable[[T], str]] = None,
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
     ):
-        super().__init__(collection_name, clazz, key_name, key)
-        self.storage = InMemoryStorage(collection_name, clazz, key_name, key)
+        super().__init__(collection_name, clazz, key, embedding_field_name, embedding_search_limit)
+        self.storage = InMemoryStorage(
+            collection_name,
+            clazz,
+            key_name = key if isinstance(key, str) else None,
+            key = key if isinstance(key, Callable) else None,
+        )
 
     async def put(self, key: str, value: T) -> None:
         self.storage.put(key, value)

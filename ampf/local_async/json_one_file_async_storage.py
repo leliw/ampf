@@ -19,11 +19,12 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncStorage[T], FileAsyncStorag
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[str | Callable[[T], str]] = None,
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,        
         root_path: Optional[StrPath] = None,
     ):
-        BaseAsyncStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseAsyncStorage.__init__(self, collection_name, clazz, key, embedding_field_name, embedding_search_limit)
         FileAsyncStorage.__init__(self, default_ext=DEF_EXT, root_path=root_path)
 
         if "." not in collection_name:
