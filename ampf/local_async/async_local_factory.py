@@ -25,7 +25,6 @@ class AsyncLocalFactory(BaseAsyncFactory):
         return JsonMultiFilesAsyncStorage(
             collection_name=collection_name,
             clazz=clazz,
-            key_name=key_name,
             key=key,
             root_path=self._root_path,
         )
@@ -40,7 +39,6 @@ class AsyncLocalFactory(BaseAsyncFactory):
         return JsonOneFileAsyncStorage(
             collection_name=collection_name,
             clazz=clazz,
-            key_name=key_name,
             key=key,
             root_path=self._root_path,
         )
