@@ -1,36 +1,25 @@
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Type
+from typing import List, Optional, Type
 
 from pydantic import BaseModel
+
+from ampf.base.base_decorator import BaseDecorator
 
 from .base_storage import BaseStorage
 
 
-class BaseCollectionStorage[T: BaseModel](BaseStorage[T]):
+class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
 
     def __init__(
         self,
-        collection_name: str,
-        clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[str | Callable[[T], str]] = None,
+        storage: BaseStorage[T],
         collections: Optional[List[BaseCollectionStorage]] = None,
-        embedding_field_name: str = "embedding",
-        embedding_search_limit: int = 5,
     ):
-        super().__init__(
-            collection_name=collection_name,
-            clazz=clazz,
-            key_name=key_name,
-            key=key,
-            embedding_field_name=embedding_field_name,
-            embedding_search_limit=embedding_search_limit,
-        )
-        self.collection_name = collection_name
+        super().__init__(storage)
         self.subcollections: dict[str, BaseCollectionStorage] = {}
         self.sub_classes: dict[Type, str] = {}
         if collections:
@@ -64,7 +53,11 @@ class BaseCollectionStorage[T: BaseModel](BaseStorage[T]):
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        ret: BaseCollectionStorage = self.create_collection(parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key=sub.key) # type: ignore
+        ret: BaseCollectionStorage = BaseCollectionStorage(
+            self.create_collection(
+                parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key=sub.key
+            )
+        )
         for c in sub.subcollections.values():
             ret.add_collection(c)
         return ret

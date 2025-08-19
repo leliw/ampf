@@ -9,10 +9,10 @@ from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
 from pydantic import BaseModel
 
-from ..base import BaseCollectionStorage, KeyNotExistsException
+from ..base import BaseStorage, KeyNotExistsException
 
 
-class GcpStorage[T: BaseModel](BaseCollectionStorage[T]):
+class GcpStorage[T: BaseModel](BaseStorage[T]):
     """A simple wrapper around Google Cloud Firestore."""
 
     def __init__(

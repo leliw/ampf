@@ -94,9 +94,7 @@ class BaseFactory(ABC):
             Blob storage object.
         """
 
-    def create_collection[T: BaseModel](
-        self, definition: CollectionDef[T] | dict
-    ) -> BaseCollectionStorage[T]:
+    def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
         Args:
@@ -106,9 +104,9 @@ class BaseFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef.model_validate(dict)
-        ret: BaseCollectionStorage = self.create_storage(
-            definition.collection_name, definition.clazz, definition.key_name
-        ) # type: ignore
+        ret = BaseCollectionStorage(
+            self.create_storage(definition.collection_name, definition.clazz, definition.key_name)
+        )
         for subcol in definition.subcollections or []:
             ret.add_collection(self.create_collection(subcol))
         return ret

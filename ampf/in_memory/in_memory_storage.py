@@ -3,11 +3,11 @@ from typing import Any, Callable, Dict, Iterator, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import KeyNotExistsException
-from ampf.base.base_collection_storage import BaseCollectionStorage
+from ampf.base.base_collection_storage import BaseStorage
 from ampf.base.base_query import BaseQuery
 
 
-class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
+class InMemoryStorage[T: BaseModel](BaseStorage, BaseQuery):
     """In memory storage implementation"""
 
     def __init__(
@@ -17,7 +17,7 @@ class InMemoryStorage[T: BaseModel](BaseCollectionStorage, BaseQuery):
         key_name: Optional[str] = None,
         key: Optional[Callable[[T], str]] = None,
     ):
-        BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
         BaseQuery.__init__(self, self.get_all)
         self.items: Dict[str, T] = {}
 

@@ -105,11 +105,10 @@ class BaseStorage[T: BaseModel](ABC):
         parent_key: str,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[str | Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
-        return self.__class__(new_collection_name, clazz, key_name=key_name, key=key)
+        return self.__class__(new_collection_name, clazz, key=key)
 
     def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector.

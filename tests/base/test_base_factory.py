@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 import pytest
 
-from ampf.base import BaseFactory, BaseStorage
+from ampf.base import BaseFactory, BaseStorage, BaseCollectionStorage
+from ampf.base.base_factory import CollectionDef
 from ampf.in_memory import InMemoryFactory
 
 
@@ -29,6 +30,42 @@ def test_crete_storage_with_key(factory: BaseFactory):
     # Then: A storage is created
     assert s1 is not None
     assert issubclass(s1.__class__, BaseStorage)
+
+
+class D1(BaseModel):
+    id: str
+    name: str
+
+
+class D2(BaseModel):
+    id: str
+    name: str
+
+
+class D3(BaseModel):
+    id: str
+    name: str
+
+
+def test_create_storage_tree(factory: BaseFactory):
+    # Given: A storage tree definition
+    storage_def = CollectionDef(
+        "collections", D1, "id", [CollectionDef("documents", D2, "id", [CollectionDef("markdowns", D3, "id"),])]
+    )
+    # When: The storage tree is created
+    storage = factory.create_collection(storage_def)
+    # Then: The storage tree is created
+    assert storage is not None
+    assert issubclass(storage.__class__, BaseCollectionStorage)
+    # And: The substorage is available (by name)
+    substorage = storage.get_collection("1", "documents")
+    assert substorage is not None
+    # And: The substorage is available (by class)
+    substorage = storage.get_collection("1", D2)
+    assert substorage is not None
+
+
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
