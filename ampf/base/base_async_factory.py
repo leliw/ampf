@@ -4,6 +4,8 @@ from typing import Callable, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
+from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
+from ampf.base.base_factory import CollectionDef
 
 from .base_async_storage import BaseAsyncStorage
 
@@ -63,3 +65,20 @@ class BaseAsyncFactory(ABC):
         Returns:
             Blob storage object.
         """
+
+    def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseAsyncCollectionStorage[T]:
+        """Creates collection from its definition. Definition can contain also subcollections definitions.
+
+        Args:
+            definition: Collection definition
+        Returns:
+            Collection object.
+        """
+        if isinstance(definition, dict):
+            definition = CollectionDef.model_validate(dict)
+        ret = BaseAsyncCollectionStorage(
+            self.create_storage(definition.collection_name, definition.clazz, definition.key_name)
+        )
+        for subcol in definition.subcollections or []:
+            ret.add_collection(self.create_collection(subcol))
+        return ret
