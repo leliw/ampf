@@ -77,8 +77,19 @@ class BaseAsyncFactory(ABC):
         if isinstance(definition, dict):
             definition = CollectionDef.model_validate(dict)
         ret = BaseAsyncCollectionStorage(
-            self.create_storage(definition.collection_name, definition.clazz, definition.key_name)
+            self.create_storage(definition.collection_name, definition.clazz, key=definition.key_name)
         )
         for subcol in definition.subcollections or []:
             ret.add_collection(self.create_collection(subcol))
+        return ret
+
+    def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseAsyncCollectionStorage[T]:
+        """Creates storage tree from its definition.
+
+        Args:
+            root: Collection definition
+        Returns:
+            Collection object.
+        """
+        ret = self.create_collection(root)
         return ret

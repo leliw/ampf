@@ -53,7 +53,7 @@ def test_create_storage_tree(factory: BaseFactory):
         "collections", D1, "id", [CollectionDef("documents", D2, "id", [CollectionDef("markdowns", D3, "id"),])]
     )
     # When: The storage tree is created
-    storage = factory.create_collection(storage_def)
+    storage = factory.create_storage_tree(storage_def)
     # Then: The storage tree is created
     assert storage is not None
     assert issubclass(storage.__class__, BaseCollectionStorage)

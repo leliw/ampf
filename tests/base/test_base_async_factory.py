@@ -66,7 +66,7 @@ def test_create_storage_tree(factory: BaseAsyncFactory):
         ],
     )
     # When: The storage tree is created
-    storage = factory.create_collection(storage_def)
+    storage = factory.create_storage_tree(storage_def)
     # Then: The storage tree is created
     assert storage is not None
     assert issubclass(storage.__class__, BaseAsyncCollectionStorage)

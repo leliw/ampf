@@ -39,7 +39,10 @@ These methods are implemented in this class.
 * is_empty(self) -> `bool`: Is storage empty?
 * create_collection(self, key: str, collection_name: str, clazz: Type[T]) -> BaseStorage[T]: Creates a new storage object for subcollection (see below)
 
-## Collections hierarchy - subcollections
+## BaseCollectionStorage - collections hierarchy - subcollections
+
+Base class for storage implementations which also deliver subcollections.
+It is used to organize collections in a hierarchy. It is an extension of `BaseStorage`.
 
 ### Deprecated
 
@@ -50,7 +53,7 @@ Subcollections can be created by using `/` character in a key or by using `creat
 
 Collections are defined with `CollectionDef` class.
 The attribute `collections` defines subcollections of the
-parent collection. Then root collection is created by `factory.create_collection()` method
+parent collection. Then root collection is created by `factory.create_collection()` (or `factory.create_create_storage_tree`) method
 and subcollections are obtained by `storage.get_collection()` method. There are two parameters:
 
 * key of the parent collection
@@ -64,7 +67,7 @@ storage_def = CollectionDef("sites", Sitemap, "site", subcollections=[
     CollectionDef("clean_markdown", SitePage),
     CollectionDef("chunks", Chunk),
 ])
-storage = factory.create_collection(storage_def)
+storage = factory.create_storage_tree(storage_def)
 
 ... 
 
