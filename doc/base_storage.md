@@ -59,7 +59,7 @@ and subcollections are obtained by `storage.get_collection()` method. There are 
 Example:
 
 ```python
-storage_def = CollectionDef("sites", Sitemap, "site", collections=[
+storage_def = CollectionDef("sites", Sitemap, "site", subcollections=[
     CollectionDef("raw_markdown", SitePage),
     CollectionDef("clean_markdown", SitePage),
     CollectionDef("chunks", Chunk),
