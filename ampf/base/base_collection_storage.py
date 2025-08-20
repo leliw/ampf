@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import List, Optional, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
 from ampf.base.base_decorator import BaseDecorator
 
 from .base_storage import BaseStorage
+from .collection_def import CollectionDef
 
 
 class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
@@ -16,24 +17,16 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
 
     def __init__(
         self,
-        storage: BaseStorage[T],
-        collections: Optional[List[BaseCollectionStorage]] = None,
+        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseStorage[T]],
+        definition: CollectionDef[T],
     ):
+        self.create_storage = create_storage
+        storage = self.create_storage(definition.collection_name, definition.clazz, definition.key)
         super().__init__(storage)
-        self.subcollections: dict[str, BaseCollectionStorage] = {}
-        self.sub_classes: dict[Type, str] = {}
-        if collections:
-            for sc in collections:
-                self.add_collection(sc)
+        subcollections_list = definition.subcollections or []
+        self.subcollections = {sc.collection_name: sc for sc in subcollections_list}
+        self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
-    def add_collection[Y: BaseModel](self, subcollection: BaseCollectionStorage[Y]):
-        """Adds subcollection definition
-
-        Args:
-            subcollection (BaseCollectionStorage[Y]): subcollectiondefinition
-        """
-        self.subcollections[subcollection.collection_name] = subcollection
-        self.sub_classes[subcollection.clazz] = subcollection.collection_name
 
     def get_collection[Y: BaseModel](
         self, parent_key: str, subcollection_name_or_class: str | Type[Y]
@@ -54,10 +47,12 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
         ret: BaseCollectionStorage = BaseCollectionStorage(
-            self.create_collection(
-                parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key=sub.key
-            )
+            self.create_storage,
+            CollectionDef(
+                collection_name=f"{self.decorated.collection_name}/{parent_key}/{sub.collection_name}",
+                clazz=sub.clazz,
+                key=sub.key,
+                subcollections=sub.subcollections,
+            ),
         )
-        for c in sub.subcollections.values():
-            ret.add_collection(c)
         return ret

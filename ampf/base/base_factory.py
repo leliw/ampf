@@ -1,36 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional, Type
+from typing import Callable, Optional, Type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from .base_blob_storage import BaseBlobStorage
-from .base_collection_storage import BaseCollectionStorage
+from .base_collection_storage import BaseCollectionStorage, CollectionDef
 from .base_storage import BaseStorage
-
-
-class CollectionDef[T: BaseModel](BaseModel):
-    """Parameters defining CollectionStorage"""
-
-    collection_name: str
-    clazz: Type[T]
-    key_name: Optional[str] = None
-    subcollections: Optional[List[CollectionDef]] = Field(default_factory=list)
-
-    def __init__(
-        self,
-        collection_name: str,
-        clazz: Type,
-        key_name: Optional[str] = None,
-        subcollections: Optional[List[CollectionDef]] = None,
-    ):
-        super().__init__(
-            collection_name=collection_name,
-            clazz=clazz,
-            key_name=key_name,
-            subcollections=subcollections or list(),
-        )
 
 
 class BaseFactory(ABC):
@@ -41,15 +18,15 @@ class BaseFactory(ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[str | Callable[[T], str]] = None,
+        key_name: Optional[str] = None,
     ) -> BaseStorage[T]:
         """Creates standard key-value storage for items of given class.
 
         Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key_name: name of item's property which is used as a key
+            key: name of item's property which is used as a key
 
         Returns:
             Storage object.
@@ -59,23 +36,23 @@ class BaseFactory(ABC):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[str | Callable[[T], str]] = None,
+        key_name: Optional[str] = None,
     ) -> BaseStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
         It should be used fro smaller collections.
         It creates standard storage by default.
 
-                Args:
+        Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key_name: name of item's property which is used as a key
+            key: name of item's property which is used as a key
 
         Returns:
             Storage object.
         """
-        return self.create_storage(collection_name, clazz, key_name, key)
+        return self.create_storage(collection_name, clazz, key or key_name)
 
     @abstractmethod
     def create_blob_storage[T: BaseModel](
@@ -104,12 +81,7 @@ class BaseFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef.model_validate(dict)
-        ret = BaseCollectionStorage(
-            self.create_storage(definition.collection_name, definition.clazz, key=definition.key_name)
-        )
-        for subcol in definition.subcollections or []:
-            ret.add_collection(self.create_collection(subcol))
-        return ret
+        return BaseCollectionStorage(self.create_storage, definition)
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseCollectionStorage[T]:
         """Creates storage tree from its definition.
@@ -119,5 +91,4 @@ class BaseFactory(ABC):
         Returns:
             Collection object.
         """
-        ret = self.create_collection(root)
-        return ret
+        return self.create_collection(root)

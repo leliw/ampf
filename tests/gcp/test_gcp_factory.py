@@ -30,7 +30,7 @@ def test_create_storage_wr(gcp_factory_with_root: GcpFactory, collection_name: s
     # When: Item is stored with root
     storage_wr.save(T(name="XXX"))
     # Then: Item is stored in root
-    coll_ref = storage_wr._db.collection("root/path/" + collection_name)
+    coll_ref = storage_wr._db.collection("root/path/" + collection_name) # type: ignore
     ret = coll_ref.document("XXX").get().to_dict()
     assert ret["name"] == "XXX"
     # Clean up
@@ -39,11 +39,8 @@ def test_create_storage_wr(gcp_factory_with_root: GcpFactory, collection_name: s
 
 def test_create_collections_wr(gcp_factory_with_root: GcpFactory, collection_name: str):
     # Given: Colection definition
-    c_def = CollectionDef(
-        collection_name,
-        T,
-        key_name="name",
-        subcollections=[CollectionDef("subcollection", T, key_name="name")],
+    c_def = CollectionDef(collection_name, T, "name",[
+        CollectionDef("subcollection", T, "name")],
     )
     # And: Storage with root
     collection_wr = gcp_factory_with_root.create_collection(c_def)

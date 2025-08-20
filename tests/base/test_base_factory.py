@@ -1,9 +1,12 @@
-from pydantic import BaseModel
-import pytest
+from pathlib import Path
 
-from ampf.base import BaseFactory, BaseStorage, BaseCollectionStorage
+import pytest
+from pydantic import BaseModel
+
+from ampf.base import BaseFactory, BaseStorage
 from ampf.base.base_factory import CollectionDef
 from ampf.in_memory import InMemoryFactory
+from ampf.local.local_factory import LocalFactory
 
 
 class D(BaseModel):
@@ -47,24 +50,38 @@ class D3(BaseModel):
     name: str
 
 
-def test_create_storage_tree(factory: BaseFactory):
+def test_create_storage_tree(tmp_path: Path):
+    factory = LocalFactory(tmp_path)
+    
     # Given: A storage tree definition
-    storage_def = CollectionDef(
-        "collections", D1, "id", [CollectionDef("documents", D2, "id", [CollectionDef("markdowns", D3, "id"),])]
+    storage_def = CollectionDef("collections", D1, "id", [
+            CollectionDef("documents", D2, "id", [
+                    CollectionDef("markdowns", D3, "id"),
+                ],
+            )
+        ],
     )
+    
     # When: The storage tree is created
     storage = factory.create_storage_tree(storage_def)
-    # Then: The storage tree is created
-    assert storage is not None
-    assert issubclass(storage.__class__, BaseCollectionStorage)
+    # And: Storage saves data
+    storage.save(D1(id="1", name="foo"))
+
+    # Then: Data is saved
+    assert (tmp_path / "collections" / "1.json").exists()
     # And: The substorage is available (by name)
-    substorage = storage.get_collection("1", "documents")
-    assert substorage is not None
+    substorage1 = storage.get_collection("1", "documents")
+    assert substorage1 is not None
+
+    substorage1.save(D2(id="2", name="bar"))
+    assert (tmp_path / "collections" / "1" / "documents" / "2.json").exists()
+
     # And: The substorage is available (by class)
-    substorage = storage.get_collection("1", D2)
-    assert substorage is not None
-
-
+    substorage2 = storage.get_collection("1", D2)
+    assert substorage2 is not None
+    # And: The substorage is available (by class)
+    substorage3 = substorage2.get_collection("1", D3)
+    assert substorage3 is not None
 
 
 if __name__ == "__main__":
