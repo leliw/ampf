@@ -4,8 +4,7 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base.base_decorator import BaseDecorator
-
+from .base_decorator import BaseDecorator
 from .base_storage import BaseStorage
 from .collection_def import CollectionDef
 
@@ -27,7 +26,6 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
         self.subcollections = {sc.collection_name: sc for sc in subcollections_list}
         self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
-
     def get_collection[Y: BaseModel](
         self, parent_key: str, subcollection_name_or_class: str | Type[Y]
     ) -> BaseCollectionStorage[Y]:
@@ -46,7 +44,7 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        ret: BaseCollectionStorage = BaseCollectionStorage(
+        return BaseCollectionStorage(
             self.create_storage,
             CollectionDef(
                 collection_name=f"{self.decorated.collection_name}/{parent_key}/{sub.collection_name}",
@@ -54,5 +52,4 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
                 key=sub.key,
                 subcollections=sub.subcollections,
             ),
-        )
-        return ret
+        )  # type: ignore

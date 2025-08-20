@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Optional, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base.base_async_storage import BaseAsyncStorage
-from ampf.base.base_decorator import BaseDecorator
+from .base_async_storage import BaseAsyncStorage
+from .base_decorator import BaseDecorator
+from .collection_def import CollectionDef
 
 
 class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncStorage[T]]):
@@ -15,24 +16,15 @@ class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncStorage[T]
 
     def __init__(
         self,
-        storage: BaseAsyncStorage[T],
-        collections: Optional[List[BaseAsyncCollectionStorage]] = None,
+        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseAsyncStorage[T]],
+        definition: CollectionDef[T],
     ):
+        self.create_storage = create_storage
+        storage = self.create_storage(definition.collection_name, definition.clazz, definition.key)
         super().__init__(storage)
-        self.subcollections: dict[str, BaseAsyncCollectionStorage] = {}
-        self.sub_classes: dict[Type, str] = {}
-        if collections:
-            for sc in collections:
-                self.add_collection(sc)
-
-    def add_collection[Y: BaseModel](self, subcollection: BaseAsyncCollectionStorage[Y]):
-        """Adds subcollection definition
-
-        Args:
-            subcollection (BaseCollectionStorage[Y]): subcollectiondefinition
-        """
-        self.subcollections[subcollection.collection_name] = subcollection
-        self.sub_classes[subcollection.clazz] = subcollection.collection_name
+        subcollections_list = definition.subcollections or []
+        self.subcollections = {sc.collection_name: sc for sc in subcollections_list}
+        self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
     def get_collection[Y: BaseModel](
         self, parent_key: str, subcollection_name_or_class: str | Type[Y]
@@ -52,11 +44,12 @@ class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncStorage[T]
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        ret = BaseAsyncCollectionStorage(
-            self.create_collection(
-                parent_key=parent_key, collection_name=sub.collection_name, clazz=sub.clazz, key=sub.key
-            )
-        )
-        for c in sub.subcollections.values():
-            ret.add_collection(c)
-        return ret
+        return BaseAsyncCollectionStorage(
+            self.create_storage,
+            CollectionDef(
+                collection_name=f"{self.decorated.collection_name}/{parent_key}/{sub.collection_name}",
+                clazz=sub.clazz,
+                key=sub.key,
+                subcollections=sub.subcollections,
+            ),
+        ) # type: ignore
