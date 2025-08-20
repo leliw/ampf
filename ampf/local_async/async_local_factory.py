@@ -3,12 +3,11 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-
-from ..base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
+from ..base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
 from ..local import StrPath
-from .local_blob_async_storage import LocalBlobAsyncStorage
 from .json_multi_files_async_storage import JsonMultiFilesAsyncStorage
 from .json_one_file_async_storage import JsonOneFileAsyncStorage
+from .local_blob_async_storage import LocalBlobAsyncStorage
 
 
 class AsyncLocalFactory(BaseAsyncFactory):
@@ -19,7 +18,6 @@ class AsyncLocalFactory(BaseAsyncFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[Callable[[T], str] | str] = None,
     ) -> BaseAsyncStorage[T]:
         return JsonMultiFilesAsyncStorage(
@@ -33,7 +31,6 @@ class AsyncLocalFactory(BaseAsyncFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
         key: Optional[Callable[[T], str] | str] = None,
     ) -> BaseAsyncStorage[T]:
         return JsonOneFileAsyncStorage(

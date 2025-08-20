@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel
@@ -36,18 +37,18 @@ def test_crete_storage_with_key(factory: BaseFactory):
 
 
 class D1(BaseModel):
-    id: str
     name: str
+    id: UUID
 
 
 class D2(BaseModel):
-    id: str
     name: str
+    id: UUID
 
 
 class D3(BaseModel):
-    id: str
     name: str
+    id: UUID
 
 
 def test_create_storage_tree(tmp_path: Path):
@@ -65,22 +66,24 @@ def test_create_storage_tree(tmp_path: Path):
     # When: The storage tree is created
     storage = factory.create_storage_tree(storage_def)
     # And: Storage saves data
-    storage.save(D1(id="1", name="foo"))
+    id1 = uuid4()
+    storage.save(D1(id=id1, name="foo"))
 
     # Then: Data is saved
-    assert (tmp_path / "collections" / "1.json").exists()
+    assert (tmp_path / "collections" / f"{id1}.json").exists()
     # And: The substorage is available (by name)
-    substorage1 = storage.get_collection("1", "documents")
+    substorage1 = storage.get_collection(id1, "documents")
     assert substorage1 is not None
 
-    substorage1.save(D2(id="2", name="bar"))
-    assert (tmp_path / "collections" / "1" / "documents" / "2.json").exists()
+    id2 = uuid4()
+    substorage1.save(D2(id=id2, name="bar"))
+    assert (tmp_path / "collections" / f"{id1}" / "documents" / f"{id2}.json").exists()
 
     # And: The substorage is available (by class)
-    substorage2 = storage.get_collection("1", D2)
+    substorage2 = storage.get_collection(id1, D2)
     assert substorage2 is not None
     # And: The substorage is available (by class)
-    substorage3 = substorage2.get_collection("1", D3)
+    substorage3 = substorage2.get_collection(id2, D3)
     assert substorage3 is not None
 
 

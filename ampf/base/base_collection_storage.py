@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -27,7 +27,7 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
         self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
     def get_collection[Y: BaseModel](
-        self, parent_key: str, subcollection_name_or_class: str | Type[Y]
+        self, parent_key: Any, subcollection_name_or_class: str | Type[Y]
     ) -> BaseCollectionStorage[Y]:
         """Returns subcollection for given key.
 
