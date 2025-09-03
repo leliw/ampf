@@ -2,6 +2,8 @@ import logging
 from typing import Optional, Type, override
 
 import aiohttp
+import google.auth.exceptions
+import google.auth.transport.requests
 from google.cloud import storage
 from pydantic import BaseModel
 
@@ -9,6 +11,7 @@ from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
+
 
 
 class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
@@ -37,12 +40,20 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
         Returns:
             The signed URL.
         """
+        try:
+            creds, _ = google.auth.default()
+            creds.refresh(google.auth.transport.requests.Request())
+        except google.auth.exceptions.RefreshError:
+            creds = None
+
         blob = self._get_blob(name)
         signed_url = blob.generate_signed_url(
             version="v4",
             expiration=expiration,
             method=method,
             content_type=content_type,
+            service_account_email=creds.service_account_email if creds else None,  # type: ignore
+            access_token=creds.token if creds else None,
         )
         return signed_url
 
