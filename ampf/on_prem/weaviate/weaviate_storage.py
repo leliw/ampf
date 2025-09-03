@@ -5,14 +5,14 @@ from typing import Callable, Iterable, Iterator, List, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base import BaseCollectionStorage, KeyNotExistsException
+from ampf.base import BaseStorage, KeyNotExistsException
 from weaviate.classes.config import Configure, DataType, Property, VectorDistances
 from weaviate.classes.query import MetadataQuery, Filter
 
 from .weaviate_db import WeaviateDB
 
 
-class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
+class WeaviateStorage[T: BaseModel](BaseStorage[T]):
     _log = logging.getLogger(__name__)
 
     def __init__(
@@ -23,7 +23,7 @@ class WeaviateStorage[T: BaseModel](BaseCollectionStorage[T]):
         key: Optional[Callable[[T], str]] = None,
         db: Optional[WeaviateDB] = None,
     ):
-        BaseCollectionStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
         # BaseQuery.__init__(self, self.get_all)
         self.db = db or WeaviateDB()
         self.collection = self.db.get_collection(

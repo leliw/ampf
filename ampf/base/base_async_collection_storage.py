@@ -4,19 +4,19 @@ from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
+from .base_async_storage import BaseAsyncStorage
 from .base_decorator import BaseDecorator
-from .base_storage import BaseStorage
 from .collection_def import CollectionDef
 
 
-class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
+class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncStorage[T]]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
 
     def __init__(
         self,
-        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseStorage[T]],
+        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseAsyncStorage[T]],
         definition: CollectionDef[T],
     ):
         self.create_storage = create_storage
@@ -28,7 +28,7 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
 
     def get_collection[Y: BaseModel](
         self, parent_key: Any, subcollection_name_or_class: str | Type[Y]
-    ) -> BaseCollectionStorage[Y]:
+    ) -> BaseAsyncCollectionStorage[Y]:
         """Returns subcollection for given key.
 
         Subcollection can be identified by its name or class.
@@ -44,7 +44,7 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
         else:
             subcollection_name = subcollection_name_or_class
         sub = self.subcollections[subcollection_name]
-        return BaseCollectionStorage(
+        return BaseAsyncCollectionStorage(
             self.create_storage,
             CollectionDef(
                 collection_name=f"{self.decorated.collection_name}/{parent_key}/{sub.collection_name}",
@@ -52,4 +52,4 @@ class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
                 key=sub.key,
                 subcollections=sub.subcollections,
             ),
-        )  # type: ignore
+        ) # type: ignore

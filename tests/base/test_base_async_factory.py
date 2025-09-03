@@ -1,13 +1,14 @@
 from pathlib import Path
 from uuid import UUID, uuid4
-
 import pytest
 from pydantic import BaseModel
 
-from ampf.base import BaseFactory, BaseStorage
+from ampf.base import BaseAsyncFactory, BaseStorage
 from ampf.base.base_factory import CollectionDef
-from ampf.in_memory import InMemoryFactory
-from ampf.local.local_factory import LocalFactory
+from ampf.in_memory import InMemoryAsyncFactory
+from ampf.local_async import AsyncLocalFactory
+
+
 
 
 class D(BaseModel):
@@ -17,10 +18,10 @@ class D(BaseModel):
 
 @pytest.fixture
 def factory():
-    return InMemoryFactory()
+    return InMemoryAsyncFactory()
 
 
-def test_crete_compact_storage(factory: BaseFactory):
+def test_crete_compact_storage(factory: BaseAsyncFactory):
     # When: A compact storage is created
     s1 = factory.create_compact_storage("xxx", D)
     # Then: A storage is created
@@ -28,7 +29,7 @@ def test_crete_compact_storage(factory: BaseFactory):
     assert issubclass(s1.__class__, BaseStorage)
 
 
-def test_crete_storage_with_key(factory: BaseFactory):
+def test_crete_storage_with_key(factory: BaseAsyncFactory):
     # When: A compact storage is created
     s1 = factory.create_storage("xxx", D, key=lambda d: d.name)
     # Then: A storage is created
@@ -48,11 +49,11 @@ class D2(BaseModel):
 
 class D3(BaseModel):
     name: str
-    id: UUID
+    id: str
 
-
-def test_create_storage_tree(tmp_path: Path):
-    factory = LocalFactory(tmp_path)
+@pytest.mark.asyncio
+async def test_create_storage_tree(tmp_path: Path):
+    factory = AsyncLocalFactory(tmp_path)
     
     # Given: A storage tree definition
     storage_def = CollectionDef("collections", D1, "id", [
@@ -67,7 +68,7 @@ def test_create_storage_tree(tmp_path: Path):
     storage = factory.create_storage_tree(storage_def)
     # And: Storage saves data
     id1 = uuid4()
-    storage.save(D1(id=id1, name="foo"))
+    await storage.save(D1(id=id1, name="foo"))
 
     # Then: Data is saved
     assert (tmp_path / "collections" / f"{id1}.json").exists()
@@ -76,7 +77,7 @@ def test_create_storage_tree(tmp_path: Path):
     assert substorage1 is not None
 
     id2 = uuid4()
-    substorage1.save(D2(id=id2, name="bar"))
+    await substorage1.save(D2(id=id2, name="bar"))
     assert (tmp_path / "collections" / f"{id1}" / "documents" / f"{id2}.json").exists()
 
     # And: The substorage is available (by class)

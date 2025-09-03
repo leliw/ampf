@@ -3,9 +3,11 @@ from .base_async_storage import BaseAsyncStorage
 from .base_blob_storage import BaseBlobStorage, FileNameMimeType
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_collection_storage import BaseCollectionStorage
+from .base_async_collection_storage import BaseAsyncCollectionStorage
+from .collection_def import CollectionDef
 from .base_decorator import BaseDecorator
 from .base_email_sender import BaseEmailSender
-from .base_factory import BaseFactory, CollectionDef
+from .base_factory import BaseFactory
 from .base_query import BaseQuery
 from .base_storage import BaseStorage
 from .blob_model import Blob, BlobHeader
@@ -20,6 +22,7 @@ __all__ = [
     "BaseStorage",
     "BaseQuery",
     "BaseAsyncStorage",
+    "BaseAsyncCollectionStorage",
     "KeyExistsException",
     "KeyNotExistsException",
     "BaseBlobStorage",

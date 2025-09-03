@@ -9,6 +9,9 @@ class KeyException(Exception):
         self.clazz = clazz
         self.key = key
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}: collection_name={self.collection_name}, clazz={self.clazz}, key={self.key}"
+        
 
 class KeyNotExistsException(KeyException):
     def __init__(

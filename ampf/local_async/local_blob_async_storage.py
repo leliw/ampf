@@ -17,7 +17,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         self,
         collection_name: str,
         metadata_type: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
+        content_type: str = "text/plain",
         root_path: Optional[Path] = None,
     ):
         self.collection_name = collection_name
