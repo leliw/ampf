@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Iterator, List, Mapping, Optional
+from typing import AsyncIterable, AsyncIterator, Iterator, List, Mapping, Optional
 
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ class StreamedException(BaseModel):
 class JsonStreamingResponse[T: BaseModel](StreamingResponse):
     """Streams Pydantic objects to client as JSON.
 
-    Stream contain array of JSON objects. Each object and  "[","]" 
+    Stream contain array of JSON objects. Each object and  "[","]"
     are in one line. Each object starts with "," (except first line).
     """
 
@@ -33,24 +33,19 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         self,
         content: Iterator[T] | AsyncIterator[T],
         status_code: int = 200,
-        headers: Mapping[str, str] = None,
+        headers: Optional[Mapping[str, str]] = None,
         media_type: str = "application/json",
-        background: BackgroundTask = None,
+        background: Optional[BackgroundTask] = None,
     ):
-        super().__init__(
-            self.objects_to_text(content), status_code, headers, media_type, background
-        )
+        super().__init__(self.objects_to_text(content), status_code, headers, media_type, background)
         self.media_type = media_type
 
-
-    async def objects_to_text(
-        self, responses: Iterator[T] | AsyncIterator[T]
-    ) -> Iterator[str] | AsyncIterator[str]:
+    async def objects_to_text(self, responses: Iterator[T] | AsyncIterator[T]) -> AsyncIterator[str]:
         """Converts object iterator to JSON string iterator of these objects."""
         yield "[\n"
         try:
             i = 0
-            if isinstance(responses, AsyncIterator):
+            if isinstance(responses, AsyncIterator) or isinstance(responses, AsyncIterable):
                 async for r in responses:
                     yield self.object_to_text(i, r)
                     i += 1
@@ -62,6 +57,6 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
             yield self.object_to_text(i, StreamedException.from_exception(e))
         yield "]\n"
 
-    def object_to_text(self, i: int, o: T) -> str:
+    def object_to_text(self, i: int, o: BaseModel) -> str:
         """Converts object to JSON string."""
         return f"{',' if i > 0 else ''}{o.model_dump_json()}\n"
