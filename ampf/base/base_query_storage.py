@@ -16,6 +16,15 @@ class BaseQueryStorage[T: BaseModel](BaseStorage[T], BaseQuery[T]):
         collection_name: str,
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key = key)
+        BaseStorage.__init__(
+            self,
+            collection_name,
+            clazz,
+            key=key,
+            embedding_field_name=embedding_field_name,
+            embedding_search_limit=embedding_search_limit,
+        )
         BaseQuery.__init__(self, self.get_all)
