@@ -27,12 +27,12 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
         self.clazz = clazz
 
     @override
-
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
         col_ref = self.decorated
         col_ref = col_ref.where(field, op, value)
         return GcpQuery(col_ref, self.clazz)
 
+    @override
     def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
         """Get all documents from the collection."""
         coll_ref = self.decorated
