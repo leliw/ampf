@@ -6,6 +6,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from ampf.base import BaseAsyncStorage, KeyExistsException
+from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
 from ampf.local_async import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
@@ -209,3 +210,21 @@ async def test_embedding(storage: BaseAsyncStorage[D]):
     assert nearest[0] == tc1
     # And: The second is the second
     assert nearest[1] == tc2
+
+@pytest.mark.asyncio
+async def test_query(storage: BaseAsyncQueryStorage):
+    # Given: Stored two elements with the same value and one with other
+    await storage.save(D(name="foo", value="beer"))
+    await storage.save(D(name="bar", value="beer"))
+    await storage.save(D(name="baz", value="wine"))
+    # When: Get all items with "beer"
+    ret = [item async for item in storage.where("value", "==", "beer").get_all()]
+    # Then: Two items are returned
+    assert len(ret) == 2
+    assert ret[0].name in ["foo", "bar"]
+    assert ret[1].name in ["foo", "bar"]
+    # When: Get all items different than "beer"
+    ret = [item async for item in storage.where("value", "!=", "beer").get_all()]
+    # Then: One item is returned
+    assert len(ret) == 1
+    assert ret[0].name == "baz"

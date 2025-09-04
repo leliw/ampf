@@ -8,13 +8,13 @@ from pydantic import BaseModel
 
 from ampf.base.exceptions import KeyNotExistsException
 
-from ..base import BaseAsyncStorage
+from ..base import BaseAsyncQueryStorage
 from .file_async_storage import FileAsyncStorage, StrPath
 
 DEF_EXT = "json"
 
 
-class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncStorage[T], FileAsyncStorage):
+class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncStorage):
     def __init__(
         self,
         collection_name: str,
@@ -24,7 +24,7 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncStorage[T], FileAsyncStorag
         embedding_search_limit: int = 5,        
         root_path: Optional[StrPath] = None,
     ):
-        BaseAsyncStorage.__init__(self, collection_name, clazz, key, embedding_field_name, embedding_search_limit)
+        BaseAsyncQueryStorage.__init__(self, collection_name, clazz, key, embedding_field_name, embedding_search_limit)
         FileAsyncStorage.__init__(self, default_ext=DEF_EXT, root_path=root_path)
 
         if "." not in collection_name:
