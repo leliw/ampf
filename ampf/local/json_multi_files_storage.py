@@ -7,11 +7,11 @@ from typing import Any, Callable, Iterator, Optional, Self, Type
 
 from pydantic import BaseModel
 
-from ..base import BaseStorage, KeyNotExistsException
+from ..base import BaseQueryStorage, KeyNotExistsException
 from .file_storage import FileStorage
 
 
-class JsonMultiFilesStorage[T: BaseModel](BaseStorage[T], FileStorage):
+class JsonMultiFilesStorage[T: BaseModel](BaseQueryStorage[T], FileStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
@@ -23,7 +23,7 @@ class JsonMultiFilesStorage[T: BaseModel](BaseStorage[T], FileStorage):
         subfolder_characters: Optional[int] = None,
         root_path: Optional[Path] = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseQueryStorage.__init__(self, collection_name, clazz, key_name or key)
         FileStorage.__init__(
             self,
             folder_name=collection_name,
