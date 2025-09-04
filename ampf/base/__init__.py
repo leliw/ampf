@@ -9,6 +9,7 @@ from .base_decorator import BaseDecorator
 from .base_email_sender import BaseEmailSender
 from .base_factory import BaseFactory
 from .base_query import BaseQuery
+from .base_query_storage import BaseQueryStorage
 from .base_storage import BaseStorage
 from .blob_model import Blob, BlobHeader
 from .email_template import EmailTemplate
@@ -20,9 +21,12 @@ __all__ = [
     "BaseFactory",
     "BaseAsyncFactory",
     "BaseStorage",
-    "BaseQuery",
     "BaseAsyncStorage",
     "BaseAsyncCollectionStorage",
+
+    "BaseQuery",
+    "BaseQueryStorage",
+
     "KeyExistsException",
     "KeyNotExistsException",
     "BaseBlobStorage",

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class BaseQuery[T: BaseModel](ABC):
-    """Base query implementation"""
+    """Base query with defalt, brute force implementation."""
 
     def __init__(self, src: Callable[[], Iterator[T]]):
         self._src = src
