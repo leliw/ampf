@@ -4,19 +4,19 @@ from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from .base_async_storage import BaseAsyncStorage
+from .base_async_query_storage import BaseAsyncQueryStorage
 from .base_decorator import BaseDecorator
 from .collection_def import CollectionDef
 
 
-class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncStorage[T]]):
+class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncQueryStorage[T]]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
 
     def __init__(
         self,
-        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseAsyncStorage[T]],
+        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseAsyncQueryStorage[T]],
         definition: CollectionDef[T],
     ):
         self.create_storage = create_storage

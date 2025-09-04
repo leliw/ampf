@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from .base_blob_storage import BaseBlobStorage
 from .base_collection_storage import BaseCollectionStorage, CollectionDef
-from .base_storage import BaseStorage
+from .base_query_storage import BaseQueryStorage
 
 
 class BaseFactory(ABC):
@@ -20,7 +20,7 @@ class BaseFactory(ABC):
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
         key_name: Optional[str] = None,
-    ) -> BaseStorage[T]:
+    ) -> BaseQueryStorage[T]:
         """Creates standard key-value storage for items of given class.
 
         Args:
@@ -38,7 +38,7 @@ class BaseFactory(ABC):
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
         key_name: Optional[str] = None,
-    ) -> BaseStorage[T]:
+    ) -> BaseQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
         It should be used fro smaller collections.
