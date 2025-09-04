@@ -1,18 +1,52 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Iterator, List, Optional, Type
 import uuid
+from typing import Any, Callable, Dict, Iterator, List, Optional, Type, override
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
 from pydantic import BaseModel
+from typing_extensions import Literal
 
-from ..base import BaseStorage, KeyNotExistsException
+from ampf.base.base_decorator import BaseDecorator
+from ampf.base.base_query import BaseQuery
+
+from ..base import BaseQueryStorage, KeyNotExistsException
 
 
-class GcpStorage[T: BaseModel](BaseStorage[T]):
+class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
+    def __init__(self, decorated: firestore.Query, clazz: Type[T]):
+        """Initialize the decorator with a decorated object.
+
+        Args:
+            decorated (T): The object to be decorated.
+        """
+        super().__init__(decorated)
+        self.clazz = clazz
+
+    @override
+
+    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
+        col_ref = self.decorated
+        col_ref = col_ref.where(field, op, value)
+        return GcpQuery(col_ref, self.clazz)
+
+    def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
+        """Get all documents from the collection."""
+        coll_ref = self.decorated
+        if order_by:
+            for o in order_by:
+                if isinstance(o, tuple):
+                    coll_ref = coll_ref.order_by(o[0], direction=o[1])
+                else:
+                    coll_ref = coll_ref.order_by(o)
+        for doc in coll_ref.stream():
+            yield self.clazz.model_validate(doc.to_dict())
+
+
+class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
     """A simple wrapper around Google Cloud Firestore."""
 
     def __init__(
@@ -43,16 +77,13 @@ class GcpStorage[T: BaseModel](BaseStorage[T]):
         super().__init__(
             collection,
             clazz,
-            key_name=key_name,
-            key=key,
+            key=key or key_name,
             embedding_field_name=embedding_field_name,
             embedding_search_limit=embedding_search_limit,
         )
         self._db = db or firestore.Client(project=project, database=database)
         self.root_storage = root_storage
-        self._collection = (
-            f"{root_storage}/{collection}" if root_storage else collection
-        )
+        self._collection = f"{root_storage}/{collection}" if root_storage else collection
         self._coll_ref = self._db.collection(self._collection)
 
     def on_before_save(self, data: Dict[str, Any]) -> dict:
@@ -63,6 +94,7 @@ class GcpStorage[T: BaseModel](BaseStorage[T]):
         Returns:
             The preprocessed data.
         """
+
         def convert_uuids(obj):
             if isinstance(obj, dict):
                 return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
@@ -73,7 +105,7 @@ class GcpStorage[T: BaseModel](BaseStorage[T]):
             else:
                 return obj
 
-        data = convert_uuids(data) # type: ignore
+        data = convert_uuids(data)  # type: ignore
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
         return data
@@ -135,8 +167,8 @@ class GcpStorage[T: BaseModel](BaseStorage[T]):
             query_vector=Vector(embedding),
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
-        ).get() # type: ignore
-        for ds in vq: # type: ignore
+        ).get()  # type: ignore
+        for ds in vq:  # type: ignore
             yield self.clazz(**ds.to_dict())
 
     def create_collection[C: BaseModel](
@@ -149,3 +181,10 @@ class GcpStorage[T: BaseModel](BaseStorage[T]):
     ) -> GcpStorage[C]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return GcpStorage(new_collection_name, clazz, key_name=key_name, key=key, root_storage=self.root_storage)
+
+    @override
+    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
+        """Apply a filter to the query"""
+        coll_ref = self._coll_ref
+        coll_ref = coll_ref.where(field, op, value)
+        return GcpQuery(coll_ref, self.clazz)

@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 import pytest
 
 from ampf.base import BaseStorage, KeyExistsException, KeyNotExistsException
+from ampf.base.base_query_storage import BaseQueryStorage
 from ampf.gcp import GcpStorage
 from ampf.in_memory import InMemoryStorage
 from ampf.local import JsonOneFileStorage, JsonMultiFilesStorage
@@ -176,3 +177,20 @@ def test_uuid(storage_uuid: BaseStorage):
     assert o == storage_uuid.get(o.uuid)
     storage_uuid.delete(d.uuid)
     assert not storage_uuid.key_exists(d.uuid)
+
+def test_query(storage: BaseQueryStorage):
+    # Given: Stored two elements with the same value and one with other
+    storage.save(D(name="foo", value="beer"))
+    storage.save(D(name="bar", value="beer"))
+    storage.save(D(name="baz", value="wine"))
+    # When: Get all items with "beer"
+    ret = list(storage.where("value", "==", "beer").get_all())
+    # Then: Two items are returned
+    assert len(ret) == 2
+    assert ret[0].name in ["foo", "bar"]
+    assert ret[1].name in ["foo", "bar"]
+    # When: Get all items different than "beer"
+    ret = list(storage.where("value", "!=", "beer").get_all())
+    # Then: One item is returned
+    assert len(ret) == 1
+    assert ret[0].name == "baz"
