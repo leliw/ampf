@@ -47,3 +47,8 @@ def test_query(storage: BaseQueryStorage):
     assert len(ret) == 2
     assert ret[0].name == "foo"
     assert ret[1].name == "bar"
+    # When: Get all items different than "beer"
+    ret = list(storage.where("value", "!=", "beer").get_all())
+    # Then: One item is returned
+    assert len(ret) == 1
+    assert ret[0].name == "baz"
