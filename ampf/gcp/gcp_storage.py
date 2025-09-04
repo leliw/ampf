@@ -15,6 +15,15 @@ from ampf.base.base_query import BaseQuery
 
 from ..base import BaseQueryStorage, KeyNotExistsException
 
+def convert_uuids(obj):
+    if isinstance(obj, dict):
+        return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_uuids(item) for item in obj]
+    elif isinstance(obj, uuid.UUID):
+        return str(obj)
+    else:
+        return obj
 
 class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
     def __init__(self, decorated: firestore.Query, clazz: Type[T]):
@@ -28,9 +37,9 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
 
     @override
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
-        col_ref = self.decorated
-        col_ref = col_ref.where(field, op, value)
-        return GcpQuery(col_ref, self.clazz)
+        coll_ref = self.decorated
+        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        return GcpQuery(coll_ref, self.clazz)
 
     @override
     def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
@@ -94,17 +103,6 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         Returns:
             The preprocessed data.
         """
-
-        def convert_uuids(obj):
-            if isinstance(obj, dict):
-                return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_uuids(item) for item in obj]
-            elif isinstance(obj, uuid.UUID):
-                return str(obj)
-            else:
-                return obj
-
         data = convert_uuids(data)  # type: ignore
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
@@ -186,5 +184,5 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
-        coll_ref = coll_ref.where(field, op, value)
+        coll_ref = coll_ref.where(field, op, convert_uuids(value))
         return GcpQuery(coll_ref, self.clazz)

@@ -194,3 +194,12 @@ def test_query(storage: BaseQueryStorage):
     # Then: One item is returned
     assert len(ret) == 1
     assert ret[0].name == "baz"
+
+def test_query_uuid(storage_uuid: BaseQueryStorage):
+    # Given: A stred element with UUID filed
+    d = Duuid(name="foo", value="beer")
+    storage_uuid.create(d)
+    # When: Filrter by UUID
+    ret = [item for item in storage_uuid.where("uuid", "==", d.uuid).get_all()]
+    # Then: The element is returned
+    assert len(ret) == 1

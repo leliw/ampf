@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from typing import Any, AsyncIterator, Callable, Dict, List, Literal, Optional, Type, override
 
 from google.cloud import exceptions, firestore
@@ -11,6 +10,8 @@ from pydantic import BaseModel
 from ampf.base import BaseAsyncQueryStorage, KeyNotExistsException
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
+
+from .gcp_storage import convert_uuids
 
 
 class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
@@ -25,9 +26,9 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
 
     @override
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpAsyncQuery[T]:
-        col_ref = self.decorated
-        col_ref = col_ref.where(field, op, value)
-        return GcpAsyncQuery(col_ref, self.clazz)
+        coll_ref = self.decorated
+        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        return GcpAsyncQuery(coll_ref, self.clazz)
 
     @override
     async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
@@ -72,17 +73,6 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         Returns:
             The preprocessed data.
         """
-
-        def convert_uuids(obj):
-            if isinstance(obj, dict):
-                return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_uuids(item) for item in obj]
-            elif isinstance(obj, uuid.UUID):
-                return str(obj)
-            else:
-                return obj
-
         data = convert_uuids(data)  # type: ignore
         if self.embedding_field_name in data:
             data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
@@ -151,5 +141,5 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpAsyncQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
-        coll_ref = coll_ref.where(field, op, value)
+        coll_ref = coll_ref.where(field, op, convert_uuids(value))
         return GcpAsyncQuery(coll_ref, self.clazz)
