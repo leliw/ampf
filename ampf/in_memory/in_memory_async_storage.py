@@ -2,11 +2,11 @@ from typing import AsyncIterator, Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncStorage
+from ampf.base import BaseAsyncQueryStorage
 from ampf.in_memory.in_memory_storage import InMemoryStorage
 
 
-class InMemoryAsyncStorage[T: BaseModel](BaseAsyncStorage):
+class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
     def __init__(
         self,
         collection_name: str,
