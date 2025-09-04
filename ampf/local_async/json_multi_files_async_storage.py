@@ -9,13 +9,13 @@ import aiofiles
 import aiofiles.os
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncStorage
+from ampf.base import BaseAsyncQueryStorage
 from ampf.base.exceptions import KeyNotExistsException
 
 from .file_async_storage import FileAsyncStorage, StrPath
 
 
-class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncStorage[T], FileAsyncStorage):
+class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyncStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
@@ -28,7 +28,7 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncStorage[T], FileAsyncStor
         subfolder_characters: Optional[int] = None,
         root_path: Optional[StrPath] = None,
     ):
-        BaseAsyncStorage.__init__(self, collection_name, clazz, key, embedding_field_name, embedding_search_limit)
+        BaseAsyncQueryStorage.__init__(self, collection_name, clazz, key, embedding_field_name, embedding_search_limit)
         FileAsyncStorage.__init__(
             self,
             folder_name=collection_name,

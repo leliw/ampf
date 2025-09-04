@@ -5,6 +5,7 @@ Set of helper classes:
 * [Base] - package with base classes (mostly abstract)
   * [BaseFactory](doc/base_factory.md) - base class for factory implementations which create other objects.
   * [BaseStorage](doc/base_storage.md) - base class for storage implementations which store Pydantic objects.
+  * [BaseQueryStorage](doc/base__query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
   * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.
 * FastAPI - helper classes for FatAPI framework
   * StaticFileResponse - return static files or index.html (Angular files)

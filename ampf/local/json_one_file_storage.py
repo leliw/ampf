@@ -6,13 +6,13 @@ from typing import Any, Callable, Dict, Iterator, Optional, Type
 
 from pydantic import BaseModel
 
-from ..base import BaseStorage, KeyNotExistsException
+from ..base import BaseQueryStorage, KeyNotExistsException
 from .file_storage import FileStorage, StrPath
 
 DEF_EXT = "json"
 
 
-class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
+class JsonOneFileStorage[T: BaseModel](BaseQueryStorage[T], FileStorage):
     """Stores data on disk in one json file as a dictionary.
     
     If key_name is set then key value isn't stored in dictionary
@@ -26,7 +26,7 @@ class JsonOneFileStorage[T: BaseModel](BaseStorage[T], FileStorage):
         key: Optional[Callable[[T], str]] = None,
         root_path: Optional[StrPath] = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseQueryStorage.__init__(self, collection_name, clazz, key_name or key)
         FileStorage.__init__(self, default_ext=DEF_EXT, root_path=root_path)
 
         if "." not in collection_name:

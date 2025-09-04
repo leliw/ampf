@@ -1,22 +1,37 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Callable, Iterator
+from typing import Any, Callable, Iterator
 
 from pydantic import BaseModel
+from typing_extensions import Literal
 
 
 class BaseQuery[T: BaseModel](ABC):
-    """Base query implementation"""
+    """Base query with defalt, brute force implementation."""
 
     def __init__(self, src: Callable[[], Iterator[T]]):
         self._src = src
 
-    def where(self, field: str, op: str, value: str) -> BaseQuery[T]:
+    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseQuery[T]:
         """Apply a filter to the query"""
 
         def it(src=self._src):
-            return (o for o in src() if o.__getattribute__(field) == value)
+            match op:
+                case "==":
+                    return (o for o in src() if o.__getattribute__(field) == value)
+                case "!=":
+                    return (o for o in src() if o.__getattribute__(field) != value)
+                case "<":
+                    return (o for o in src() if o.__getattribute__(field) < value)
+                case "<=":
+                    return (o for o in src() if o.__getattribute__(field) <= value)
+                case ">":
+                    return (o for o in src() if o.__getattribute__(field) > value)
+                case ">=":
+                    return (o for o in src() if o.__getattribute__(field) >= value)
+                case _:
+                    raise ValueError(f"Unknown operator {op}")
 
         return BaseQuery(it)
 

@@ -5,18 +5,18 @@ from typing import Any, Callable, Optional, Type
 from pydantic import BaseModel
 
 from .base_decorator import BaseDecorator
-from .base_storage import BaseStorage
+from .base_query_storage import BaseQueryStorage
 from .collection_def import CollectionDef
 
 
-class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseStorage[T]]):
+class BaseCollectionStorage[T: BaseModel](BaseDecorator[BaseQueryStorage[T]]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
 
     def __init__(
         self,
-        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseStorage[T]],
+        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseQueryStorage[T]],
         definition: CollectionDef[T],
     ):
         self.create_storage = create_storage

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
-from .base_async_storage import BaseAsyncStorage
+from .base_async_query_storage import BaseAsyncQueryStorage
 from .collection_def import CollectionDef
 
 
@@ -18,7 +18,7 @@ class BaseAsyncFactory(ABC):
         collection_name: str,
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
-    ) -> BaseAsyncStorage[T]:
+    ) -> BaseAsyncQueryStorage[T]:
         """Creates standard key-value storage for items of given class.
 
         Args:
@@ -35,7 +35,7 @@ class BaseAsyncFactory(ABC):
         collection_name: str,
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
-    ) -> BaseAsyncStorage[T]:
+    ) -> BaseAsyncQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
         It should be used fro smaller collections.
