@@ -28,11 +28,23 @@ class BaseStorage[T: BaseModel](ABC):
         self.collection_name = collection_name
         self.clazz = clazz
         if not key and not key_name:
-            field_names = list(clazz.model_fields.keys())
-            key = field_names[0]
+            key = BaseStorage._find_key_name(clazz)
         self.key = key or key_name
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit
+
+    @classmethod
+    def _find_key_name(cls, clazz: Type[T]) -> str:
+        field_names = list(clazz.model_fields.keys())
+        if "id" in field_names:
+            return "id"
+        elif "uuid" in field_names:
+            return "uuid"
+        elif "uid" in field_names:
+            return "uid"
+        else:
+            return field_names[0]
+    
 
     @abstractmethod
     def put(self, key: Any, value: T) -> None:

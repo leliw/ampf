@@ -8,6 +8,8 @@ from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Optional, 
 
 from pydantic import BaseModel
 
+from ampf.base.base_storage import BaseStorage
+
 from .exceptions import KeyExistsException
 
 
@@ -27,8 +29,7 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         self.collection_name = collection_name
         self.clazz = clazz
         if not key:
-            field_names = list(clazz.model_fields.keys())
-            key = field_names[0]
+            key = BaseStorage._find_key_name(clazz)
         self.key = key
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit

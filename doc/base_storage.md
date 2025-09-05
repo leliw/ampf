@@ -13,7 +13,7 @@ Type parameter:
 
 * collection_name(`str`): Name of collection in storage
 * clazz(`Type[T]`): Class of objects stored in storage,
-* key(`str | Callable[[T], str]`): Name of key field or function to get key from object, default is the first field
+* key(`str | Callable[[T], str]`): Name of key field or function to get key from object, default is `id`, `uid`, `uuid` or the first field
 * embedding_field_name(`str`) = "embedding": Name of field in object which contains embedding vector
 * embedding_search_limit(`int`) = 5: Limit of objects to be returned by embedding search
 
