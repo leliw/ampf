@@ -1,3 +1,6 @@
+from typing import AsyncIterator, Coroutine, Iterator
+
+
 try:
     import inspect
     import logging
@@ -44,7 +47,7 @@ try:
                             raise TypeError("GcpPubsubRequest argument not found in call.")
                         payload = request.decoded_data(payload_class) # type: ignore
                         kwargs[payload_name] = payload
-                        result = await func(*args, **kwargs)
+                        ret = func(*args, **kwargs)
                     else:
                         # Extract the GcpPubsubRequest from the arguments (assume first positional)
                         request: GcpPubsubRequest = args[0] if len(args) > 0 else kwargs.get(payload_name)  # type: ignore
@@ -52,9 +55,20 @@ try:
                         kwargs[payload_name] = payload
                         # Remove the original request from args before passing to the endpoint
                         new_args = args[1:] if len(args) > 0 else args
-                        result = await func(*new_args, **kwargs)
-                    if result:
-                        request.publish_response(result)
+                        ret = func(*new_args, **kwargs)
+                    if isinstance(ret, AsyncIterator):
+                        async for result in ret:
+                            request.publish_response(result)
+                    elif isinstance(ret, Iterator):
+                        for result in ret:
+                            request.publish_response(result)
+                    else:
+                        if isinstance(ret, Coroutine):
+                            result = await ret
+                        else:
+                            result = ret
+                        if result:
+                            request.publish_response(result)
                     return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
                 except ValidationError as e:
                     _log.error("Error processing message ID: %s: %s", request.message.messageId, e)

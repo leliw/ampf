@@ -243,6 +243,16 @@ async def handle_push_markdown_converted(
     return orchestrator.handle_markdown_converted(payload)
 ```
 
+Wrapped function can also return an (async) generator to send multiple messages as response.
+
+```python
+@router.post("/multi_return")
+@gcp_pubsub_push_handler()
+async def handle_push_multi_return(payload: D) -> AsyncIterator[D]:
+    for i in range(3):
+        yield D(name=f"Processed: {payload.name} {i}")
+```
+
 ### Testing
 
 #### Preparation

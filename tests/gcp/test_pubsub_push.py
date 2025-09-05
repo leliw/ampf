@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Annotated
+from typing import Annotated, AsyncIterator, Iterator
 from uuid import uuid4
 
 import pytest
@@ -15,11 +15,13 @@ from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 class D(BaseModel):
     name: str
 
+
 @pytest.fixture(scope="module")
 def subscription(topic: GcpTopic):
-    subscription = topic.create_subscription(clazz=D, processing_timeout=10.0,exist_ok=True)
+    subscription = topic.create_subscription(clazz=D, processing_timeout=10.0, exist_ok=True)
     yield subscription
     subscription.delete()
+
 
 def get_config() -> dict:
     return {"msg": "Processed:"}
@@ -58,6 +60,36 @@ def app(topic: GcpTopic):
         request.set_default_response_topic(topic.topic_id)
         payload.name = f"{p['msg']} {payload.name}"
         return payload
+
+    @router.post("/async_value")
+    @gcp_pubsub_push_handler()
+    async def handle_push_async_value(payload: D) -> D:
+        payload.name = f"Processed: {payload.name}"
+        return payload
+
+    @router.post("/sync_value")
+    @gcp_pubsub_push_handler()
+    def handle_push_sync_value(payload: D) -> D:
+        payload.name = f"Processed: {payload.name}"
+        return payload
+
+    @router.post("/sync_iterator")
+    @gcp_pubsub_push_handler()
+    def handle_push_sync_iterator(payload: D) -> Iterator[D]:
+        payload.name = f"Processed: {payload.name}"
+        yield payload
+
+    @router.post("/async_iterator")
+    @gcp_pubsub_push_handler()
+    async def handle_push_async_iterator(payload: D) -> AsyncIterator[D]:
+        payload.name = f"Processed: {payload.name}"
+        yield payload
+
+    @router.post("/multi_return")
+    @gcp_pubsub_push_handler()
+    async def handle_push_multi_return(payload: D) -> AsyncIterator[D]:
+        for i in range(3):
+            yield D(name=f"Processed: {payload.name} {i}")
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -128,8 +160,6 @@ def test_pubsub_push_emulator(topic: GcpTopic, subscription: GcpSubscription, cl
         assert sub_emulator.responses[0].status_code == status.HTTP_200_OK
 
 
-
-
 def test_pubsub_push_payload_first(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
     # Given: Message payload
     d = D(name="test")
@@ -167,6 +197,7 @@ def test_pubsub_push_payload_last(topic: GcpTopic, subscription: GcpSubscription
     # And: Message is processed
     assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
 
+
 def test_pubsub_push_default_response_topic(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
     # Given: Message payload
     d = D(name="test")
@@ -184,3 +215,48 @@ def test_pubsub_push_default_response_topic(topic: GcpTopic, subscription: GcpSu
     assert received_message
     # And: Message is processed
     assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+
+
+@pytest.fixture(params=["sync_value", "async_value", "sync_iterator", "async_iterator"])
+def endpoint(request):
+    return f"/pub-sub/{request.param}"
+
+
+def test_different_function_types(topic: GcpTopic, subscription: GcpSubscription, client: TestClient, endpoint: str):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post(endpoint, json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
+
+def test_multi_return(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/multi_return", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Messages are received
+    cnt = 0
+    for message in subscription.receive_messages():
+        if message.attributes["sender_id"] == sender_id:
+            cnt += 1
+            assert D.model_validate_json(message.data.decode("utf-8")).name.startswith(f"Processed: {d.name}")
+        if cnt == 3:
+            break
