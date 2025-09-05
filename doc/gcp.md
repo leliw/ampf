@@ -243,7 +243,9 @@ async def handle_push_markdown_converted(
     return orchestrator.handle_markdown_converted(payload)
 ```
 
-Wrapped function can also return an (async) generator to send multiple messages as response.
+#### Handling iterators
+
+The wrapped function can also return an (async) generator to send multiple messages as response.
 
 ```python
 @router.post("/multi_return")
@@ -251,6 +253,24 @@ Wrapped function can also return an (async) generator to send multiple messages 
 async def handle_push_multi_return(payload: D) -> AsyncIterator[D]:
     for i in range(3):
         yield D(name=f"Processed: {payload.name} {i}")
+```
+
+#### Multiple steps processing
+
+You can also chain multiple steps of processing using Pub/Sub topics. The first step processes the message and forwards the response to another topic, where another subscription can receive it and process it further. Just use `request.forward_response_to_topic(next_step_topic)` method to set the next topic.
+`forward_response_to_topic()` takes precedence over `default_response_topic` and `response_topic` attribute, but `response_topic` is passed to the next step as an attribute, so next step can return the response to the original sender or forward it to next step.
+
+```python
+    @router.post("/step-1")
+    @gcp_pubsub_push_handler()
+    async def handle_push_step_1(request: GcpPubsubRequest, payload: D) -> D:
+        request.forward_response_to_topic(topic2.topic_id)
+        return D(name=f"Step 1 processed: {payload.name}")
+
+    @router.post("/step-2")
+    @gcp_pubsub_push_handler()
+    async def handle_push_step_2(payload: D) -> D:
+        return D(name=f"Step 2 processed: {payload.name}")
 ```
 
 ### Testing

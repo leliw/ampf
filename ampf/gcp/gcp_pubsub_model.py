@@ -1,6 +1,8 @@
 import base64
+from datetime import datetime, timezone
 import logging
 from typing import Dict, Literal, Optional, Self, Type
+from uuid import uuid4
 
 from pydantic import BaseModel
 
@@ -29,7 +31,12 @@ class GcpPubsubMessage(BaseModel):
         Returns:
             The created GcpPubsubMessage.
         """
-        return cls(attributes=attributes, data=base64.b64encode(data.model_dump_json().encode("utf-8")).decode("utf-8"))
+        return cls(
+            attributes=attributes,
+            data=base64.b64encode(data.model_dump_json().encode("utf-8")).decode("utf-8"),
+            messageId = uuid4().hex,
+            publishTime=str(datetime.now(timezone.utc))
+        )
 
 
 class GcpPubsubRequest(BaseModel):
@@ -103,7 +110,13 @@ class GcpPubsubRequest(BaseModel):
         if "response_topic" not in self.message.attributes:
             self.message.attributes["response_topic"] = topic_name
             _log.debug("Set default response topic: %s", topic_name)
-            
+
+    def forward_response_to_topic(self, topic_name: str) -> None:
+        if not self.message.attributes:
+            self.message.attributes = {}
+        self.message.attributes["forward_to__topic"] = topic_name
+        _log.debug("Set forward to topic: %s", topic_name)
+
     def publish_response(self, response: BaseModel, default_topic_name: Optional[str] = None) -> None:
         """Publishes a response to a specified topic. Topic can be specified in the message attributes or defaults to a provided topic name.
         If `sender_id` is provided in the message attributes, it will be published with the response.
@@ -119,7 +132,18 @@ class GcpPubsubRequest(BaseModel):
             response_topic_name = default_topic_name
             sender_id = None
 
-        if response_topic_name:
+        if self.message.attributes and "forward_to__topic" in self.message.attributes:
+            forward_topic_name = self.message.attributes["forward_to__topic"]
+            _log.debug("Publishing response to topic: %s", forward_topic_name)
+            topic = GcpTopic(forward_topic_name)
+            _log.debug("Response: %s", response.model_dump_json())
+            attributes = {}
+            if sender_id:
+                attributes["sender_id"] = sender_id
+            if response_topic_name:
+                attributes["response_topic"] = response_topic_name
+            topic.publish(response, attributes)
+        elif response_topic_name:
             _log.debug("Publishing response to topic: %s", response_topic_name)
             topic = GcpTopic(response_topic_name)
             _log.debug("Response: %s", response.model_dump_json())

@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Annotated, AsyncIterator, Iterator
 from uuid import uuid4
+import uuid
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI, status
@@ -14,6 +15,19 @@ from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 
 class D(BaseModel):
     name: str
+
+@pytest.fixture(scope="module")
+def topic2():
+    topic_id = "ampf_unit_tests_step2_" + uuid.uuid4().hex[:6]
+    topic = GcpTopic(topic_id).create(exist_ok=True)
+    yield topic
+    topic.delete()
+
+@pytest.fixture(scope="module")
+def subscription2(topic2: GcpTopic):
+    subscription = topic2.create_subscription(exist_ok=True)
+    yield subscription
+    subscription.delete()
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +45,7 @@ ConfigDep = Annotated[dict, Depends(get_config)]
 
 
 @pytest.fixture(scope="module")
-def app(topic: GcpTopic):
+def app(topic: GcpTopic, topic2: GcpTopic):
     _log = logging.getLogger(__name__)
     app = FastAPI()
     router = APIRouter()
@@ -90,6 +104,18 @@ def app(topic: GcpTopic):
     async def handle_push_multi_return(payload: D) -> AsyncIterator[D]:
         for i in range(3):
             yield D(name=f"Processed: {payload.name} {i}")
+
+    @router.post("/step-1")
+    @gcp_pubsub_push_handler()
+    async def handle_push_step_1(request: GcpPubsubRequest, payload: D) -> D:
+        request.forward_response_to_topic(topic2.topic_id)
+        return D(name=f"Step 1 processed: {payload.name}")
+
+    @router.post("/step-2")
+    @gcp_pubsub_push_handler()
+    async def handle_push_step_2(payload: D) -> D:
+        return D(name=f"Step 2 processed: {payload.name}")
+
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -260,3 +286,28 @@ def test_multi_return(topic: GcpTopic, subscription: GcpSubscription, client: Te
             assert D.model_validate_json(message.data.decode("utf-8")).name.startswith(f"Processed: {d.name}")
         if cnt == 3:
             break
+
+
+
+def test_multistep(topic: GcpTopic, subscription: GcpSubscription, subscription2: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+
+    with subscription2.run_push_emulator(client, "/pub-sub/step-2") as sub_emulator:
+        # When: The request is posted
+        response = client.post("/pub-sub/step-1", json=req.model_dump())
+        # Then: Response is OK
+        assert response.status_code == status.HTTP_200_OK
+        while not sub_emulator.isfinished(timeout=20, expected_responses=1):
+            time.sleep(0.1)
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    assert received_message.attributes["sender_id"] == sender_id
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Step 2 processed: Step 1 processed: {d.name}"
