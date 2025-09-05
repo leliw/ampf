@@ -5,10 +5,10 @@ import pytest
 
 from ampf.in_memory import InMemoryStorage, InMemoryAsyncStorage
 
+
 @pytest.fixture(params=[InMemoryStorage, InMemoryAsyncStorage])
 def StorageClass(request):
     return request.param
-
 
 
 def test_key_id(StorageClass):
