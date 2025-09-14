@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from ampf.base import BaseAsyncStorage, KeyExistsException
 from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
 from ampf.local_async import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
@@ -141,6 +142,13 @@ async def test_delete_existing(storage: BaseAsyncStorage):
     await storage.delete("foo")
     # Then: It is not exist
     assert not await storage.key_exists("foo")
+
+@pytest.mark.asyncio
+async def test_delete_not_existing(storage: BaseAsyncStorage):
+    # When: I delete it
+    with pytest.raises(KeyNotExistsException):
+        await storage.delete("not_exists")
+
 
 
 @pytest.mark.asyncio

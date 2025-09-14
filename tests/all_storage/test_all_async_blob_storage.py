@@ -1,4 +1,5 @@
 from pathlib import Path
+import tempfile
 
 import pytest
 from pydantic import BaseModel, Field
@@ -8,6 +9,7 @@ from ampf.base import BaseAsyncBlobStorage, BaseBlobStorage, KeyNotExistsExcepti
 # from ampf.gcp import GcpBlobStorage
 from ampf.base.blob_model import Blob
 from ampf.gcp import GcpAsyncBlobStorage
+from ampf.local_async.local_blob_async_storage import LocalBlobAsyncStorage
 
 # from ampf.local import LocalBlobStorage
 
@@ -16,20 +18,20 @@ class MyMetadata(BaseModel):
     name: str = Field(...)
     age: int = Field(...)
 
+@pytest.fixture
+def temp_storage_dir():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
 
-@pytest.fixture(params=[GcpAsyncBlobStorage])
-def storage(gcp_factory, request, tmp_path):
-    # if request.param == LocalBlobStorage:
-    #     storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)
-    # else:
-    #     if request.param == GcpBlobStorage:
-    #         bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
-    #         if not bucket_name:
-    #             raise ValueError("GOOGLE_DEFAULT_BUCKET_NAME is not set")
-    #         GcpBlobStorage.init_client(bucket_name)
-    storage = request.param(
-        "unit-tests-001", collection_name="test_all_async_blob_storage", clazz=MyMetadata, content_type="text/plain"
-    )
+
+@pytest.fixture(params=[GcpAsyncBlobStorage, LocalBlobAsyncStorage])
+def storage(gcp_factory, request, temp_storage_dir):
+    if request.param == LocalBlobAsyncStorage:
+         storage = request.param(temp_storage_dir, MyMetadata, content_type="text/plain")
+    elif request.param == GcpAsyncBlobStorage:
+        storage = request.param(
+            "unit-tests-001", collection_name="test_all_async_blob_storage", clazz=MyMetadata, content_type="text/plain"
+        )
     yield storage
     storage.drop()
 

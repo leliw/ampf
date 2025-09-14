@@ -1,12 +1,10 @@
 import pytest
-import asyncio
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel
 from ampf.base.exceptions import KeyNotExistsException
-from ampf.local_async.local_blob_async_storage import LocalBlobAsyncStorage, Blob, BlobHeader
+from ampf.local_async.local_blob_async_storage import LocalBlobAsyncStorage, Blob
 
 
 class SampleMetadata(BaseModel):

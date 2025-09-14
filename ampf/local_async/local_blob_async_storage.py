@@ -1,6 +1,7 @@
 import asyncio
 import json
 import mimetypes
+import os
 from pathlib import Path
 from typing import List, Optional, Type, override
 
@@ -22,15 +23,15 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     ):
         self.collection_name = collection_name
         self.clazz = metadata_type
-        self.base_path = (
-            Path(root_path / collection_name) if root_path else Path(collection_name)
-        )
+        self.base_path = Path(root_path / collection_name) if root_path else Path(collection_name)
         self.metadata_type = metadata_type
         self.content_type = content_type
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _get_meta_path(self, key: str) -> Path:
-        return self.base_path / f"{key}.json"
+        path = self.base_path / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
 
     def _find_data_path(self, key: str) -> Optional[Path]:
         """Find data file path for the given key.
@@ -50,7 +51,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         # If no direct match, or if the direct match was a .json file or not a file,
         # search for files with the key name plus an additional extension (e.g., key.ext)
         matches_with_extension = list(self.base_path.glob(f"{key}.*"))
-        
+
         valid_extended_matches = [m for m in matches_with_extension if m.is_file() and m.suffix != ".json"]
         return valid_extended_matches[0] if valid_extended_matches else None
 
@@ -59,13 +60,14 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         ext = mimetypes.guess_extension(content_type or "")
         ext = ext if ext else ""  # fallback to no extension
         if ext and key.endswith(ext):
-            key = key[:-len(ext)]
+            key = key[: -len(ext)]
         return self.base_path / f"{key}{ext}"
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
         data_path = self._generate_data_path(blob.name, blob.content_type)
         meta_path = self._get_meta_path(blob.name)
+        os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
             with open(data_path, "wb") as f:
@@ -95,8 +97,12 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
 
         with open(meta_path, "r", encoding="utf-8") as f:
             meta_raw = json.load(f)
+            metadata = (
+                self.metadata_type.model_validate(meta_raw["metadata"])
+                if meta_raw["metadata"] and self.metadata_type
+                else None
+            )
 
-        metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
         content_type = meta_raw.get("content_type")
 
         return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
@@ -108,8 +114,11 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
 
         if data_path and data_path.exists():
             data_path.unlink()
-        if meta_path.exists():
-            meta_path.unlink()
+            if meta_path.exists():
+                meta_path.unlink()
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+
 
     @override
     def exists(self, key: str) -> bool:
@@ -119,18 +128,35 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     @override
     def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
         headers = []
-        for meta_file in self.base_path.glob("*.json"):
-            key = meta_file.stem
+        # Use rglob to recursively find all .json files in the directory tree.
+        for meta_file in self.base_path.rglob("*.json"):
+            # Calculate the key by making the path relative to the base_path
+            # and removing the .json suffix.
+            key = str(meta_file.relative_to(self.base_path))[:-5]
+
             if prefix and not key.startswith(prefix):
                 continue
 
             with open(meta_file, "r", encoding="utf-8") as f:
                 meta_raw = json.load(f)
-
-            metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if self.metadata_type else None
+                metadata = (
+                    self.metadata_type.model_validate(meta_raw["metadata"])
+                    if meta_raw["metadata"] and self.metadata_type
+                    else None
+                )
             content_type = meta_raw.get("content_type")
 
-            headers.append(
-                BlobHeader(name=key, metadata=metadata, content_type=content_type)
-            )
+            headers.append(BlobHeader(name=key, metadata=metadata, content_type=content_type))
         return headers
+
+    @override
+    def get_metadata(self, name: str) -> T:
+        if not self.metadata_type:
+            raise ValueError("clazz must be set")
+        meta_path = self._get_meta_path(name)
+        try:
+            with open(meta_path, "rt", encoding="utf8") as f:
+                meta_raw = json.load(f)
+            return self.metadata_type.model_validate(meta_raw["metadata"])
+        except FileNotFoundError:
+            raise KeyNotExistsException

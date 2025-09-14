@@ -79,5 +79,8 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncS
     async def delete(self, key: Any) -> None:
         key = str(key)
         data = await self._load_data()
-        data.pop(key, None)
-        await self._save_data(data)
+        if key in data:
+            data.pop(key, None)
+            await self._save_data(data)
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)

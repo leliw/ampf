@@ -3,6 +3,7 @@ from typing import AsyncIterator, Callable, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncQueryStorage
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory.in_memory_storage import InMemoryStorage
 
 
@@ -27,6 +28,8 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
         self.storage.put(key, value)
 
     async def get(self, key: str) -> T:
+        if not self.storage.key_exists(key):
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)        
         return self.storage.get(key)
 
     async def keys(self) -> AsyncIterator[str]:
@@ -34,6 +37,8 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
             yield key
 
     async def delete(self, key: str) -> None:
+        if not self.storage.key_exists(key):
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
         self.storage.delete(key)
 
     async def drop(self) -> None:

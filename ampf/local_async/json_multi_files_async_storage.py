@@ -75,7 +75,10 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
 
     async def delete(self, key: Any) -> None:
         full_path = self._key_to_full_path(str(key))
-        await aiofiles.os.remove(full_path)
+        try:
+            await aiofiles.os.remove(full_path)
+        except FileNotFoundError:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     def _key_to_full_path(self, key: Any) -> Path:
         return self._create_file_path(str(key))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterator, Callable, Dict, List, Literal, Optional, Type, override
 
-from google.cloud import exceptions, firestore
+from google.cloud import firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from pydantic import BaseModel
@@ -95,12 +95,13 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         async for doc in self._coll_ref.stream():
             yield doc.id
 
-    async def delete(self, key: Any) -> bool:
+    async def delete(self, key: Any) -> None:
         """Delete a document from the collection."""
-        try:
-            await self._coll_ref.document(str(key)).delete()
-            return True
-        except exceptions.NotFound:
+        doc_ref = self._coll_ref.document(str(key))
+        doc = await doc_ref.get()
+        if doc.exists:
+            await doc_ref.delete()
+        else:
             raise KeyNotExistsException(key)
 
     async def drop(self) -> None:
