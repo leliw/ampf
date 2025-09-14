@@ -80,6 +80,8 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
 
     def delete(self, key: str):
         blob = self._get_blob(key)
+        if not blob.exists():
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
         blob.delete()
 
     def keys(self) -> Iterator[str]:

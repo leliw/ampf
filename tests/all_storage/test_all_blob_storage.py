@@ -126,6 +126,12 @@ def test_delete(storage: BaseBlobStorage):
     # Then: The file is deleted
     assert file_name not in list(storage.keys())
 
+def test_delete_not_existing(storage: BaseBlobStorage):
+    # When: I delete the file
+    with pytest.raises(KeyNotExistsException) as e:
+        storage.delete("not_existing")
+    # Then: The file is deleted
+    assert e.value.key == "not_existing"
 
 def test_list_blobs(storage: BaseBlobStorage):
     # Give: An uploaded file

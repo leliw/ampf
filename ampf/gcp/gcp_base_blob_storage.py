@@ -1,6 +1,7 @@
 import logging
 from typing import Iterable, Optional, Type
 
+import google.api_core.exceptions
 from google.cloud import storage
 from pydantic import BaseModel
 
@@ -78,8 +79,11 @@ class GcpBaseBlobStorage[T: BaseModel]:
         Args:
             name: The name of the blob to delete.
         """
-        blob = self._get_blob(name)
-        blob.delete()
+        try:
+            blob = self._get_blob(name)
+            blob.delete()
+        except google.api_core.exceptions.NotFound:
+            raise KeyNotExistsException(self.collection_name, self.clazz, name)
 
     def exists(self, name: str) -> bool:
         """Checks if a blob with the given name exists.

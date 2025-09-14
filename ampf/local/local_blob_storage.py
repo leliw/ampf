@@ -155,13 +155,14 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         try:
             os.remove(file_path)
         except FileNotFoundError:
-            pass
-        # Attempt to delete the metadata file as well
-        metadata_file_path = file_path.with_suffix(".json")
-        try:
-            os.remove(metadata_file_path)
-        except FileNotFoundError:
-            pass
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        finally:
+            # Attempt to delete the metadata file as well
+            metadata_file_path = file_path.with_suffix(".json")
+            try:
+                os.remove(metadata_file_path)
+            except FileNotFoundError:
+                pass
 
     def move_blob(self, source_key: str, dest_key: str):
         """Moves a blob and its metadata from a source key to a destination key.

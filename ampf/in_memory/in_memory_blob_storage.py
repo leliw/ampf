@@ -1,4 +1,4 @@
-from typing import Any, Iterator, Type
+from typing import Any, Iterator, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
@@ -10,7 +10,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
 
     buckets = {}
 
-    def __init__(self, bucket_name: str, clazz: Type[T], content_type: str = None):
+    def __init__(self, bucket_name: str, clazz: Type[T], content_type: Optional[str] = None):
         self.bucket_name = bucket_name
         self.clazz = clazz
         self.content_type = content_type
@@ -18,7 +18,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
             self.buckets[self.bucket_name] = {}
 
     def upload_blob(
-        self, key: str, data: bytes, metadata: T = None, content_type: str = None
+        self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
     ) -> None:
         if key not in self.buckets[self.bucket_name]:
             self.buckets[self.bucket_name][key] = {}
@@ -44,6 +44,8 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
         return self.buckets[self.bucket_name][key]["metadata"]
 
     def delete(self, key: str):
+        if key not in self.buckets[self.bucket_name]:
+            raise KeyNotExistsException(self.bucket_name, self.clazz, key)
         self.buckets[self.bucket_name].pop(key, None)
 
     def keys(self) -> Iterator[str]:
@@ -52,7 +54,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
     def drop(self) -> None:
         self.buckets.pop(self.bucket_name, None)
 
-    def list_blobs(self, dir: str = None) -> Iterator[Any]:
+    def list_blobs(self, dir: Optional[str] = None) -> Iterator[Any]:
         if self.bucket_name not in self.buckets:
             return
         if dir:
