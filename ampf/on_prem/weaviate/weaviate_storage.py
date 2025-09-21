@@ -1,13 +1,15 @@
 import json
 import logging
 import uuid
-from typing import Callable, Iterable, Iterator, List, Optional, Type
+from typing import Any, Callable, Iterable, Iterator, List, Literal, Optional, Type
 
 from pydantic import BaseModel
 
 from ampf.base import BaseStorage, KeyNotExistsException
 from weaviate.classes.config import Configure, DataType, Property, VectorDistances
 from weaviate.classes.query import MetadataQuery, Filter
+
+from ampf.base.base_query import BaseQuery
 
 from .weaviate_db import WeaviateDB
 
@@ -101,3 +103,6 @@ class WeaviateStorage[T: BaseModel](BaseStorage[T]):
             print(o.properties)
             print(o.metadata.distance)
             yield self.clazz.model_validate(o.properties)
+
+    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseQuery[T]:
+        return super().where(field, op, value)

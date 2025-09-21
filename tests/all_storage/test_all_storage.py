@@ -1,3 +1,4 @@
+from typing import List, Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 import pytest
@@ -12,7 +13,7 @@ from ampf.local import JsonOneFileStorage, JsonMultiFilesStorage
 class D(BaseModel):
     name: str
     value: str
-
+    embedding: Optional[List[float]] = None
 
 class Duuid(BaseModel):
     uuid: UUID = Field(default_factory=uuid4)
@@ -177,6 +178,36 @@ def test_uuid(storage_uuid: BaseStorage):
     assert o == storage_uuid.get(o.uuid)
     storage_uuid.delete(d.uuid)
     assert not storage_uuid.key_exists(d.uuid)
+
+def test_embedding(storage: BaseStorage[D]):
+    # Given: Data with embedding
+    tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
+    tc2 = D(name="test2", value="2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    storage.put("test1", tc1)
+    storage.put("test2", tc2)
+    # And: Find nearest
+    nearest = [item for item in storage.find_nearest(tc1.embedding or [])]
+    # Then: All two are returned
+    assert len(nearest) == 2
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+    # And: The second is the second
+    assert nearest[1] == tc2
+
+def test_where_embedding(storage: BaseStorage[D]):
+    # Given: Data with embedding
+    tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
+    tc2 = D(name="test2", value="2", embedding=[4.0, 5.0, 6.0])
+    # And: They are stored
+    storage.put("test1", tc1)
+    storage.put("test2", tc2)
+    # When: Find nearest with extra filter
+    nearest = list([x for x in storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])])
+    # Then: Only one is returned
+    assert len(nearest) == 1
+    assert nearest[0] == tc1
+
 
 def test_query(storage: BaseQueryStorage):
     # Given: Stored two elements with the same value and one with other

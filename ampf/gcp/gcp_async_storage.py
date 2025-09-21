@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Dict, List, Literal, Optional, Type, override
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Type, override
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -10,12 +10,19 @@ from pydantic import BaseModel
 from ampf.base import BaseAsyncQueryStorage, KeyNotExistsException
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
+from ampf.base.base_query import OP
 
 from .gcp_storage import convert_uuids
 
 
 class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
-    def __init__(self, decorated: firestore.AsyncQuery, clazz: Type[T]):
+    def __init__(
+        self,
+        decorated: firestore.AsyncQuery,
+        clazz: Type[T],
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
+    ):
         """Initialize the decorator with a decorated object.
 
         Args:
@@ -23,12 +30,32 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
         """
         super().__init__(decorated)
         self.clazz = clazz
+        self.embedding_field_name = embedding_field_name
+        self.embedding_search_limit = embedding_search_limit
 
     @override
-    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpAsyncQuery[T]:
+    def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         coll_ref = self.decorated
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
-        return GcpAsyncQuery(coll_ref, self.clazz)
+        return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
+
+    async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
+        """Finds the nearest knowledge base items to the given vector."
+
+        Args:
+            embedding: The vector to search for.
+            limit: The maximum number of results to return.
+        Returns:
+            An iterator of the nearest items.
+        """
+        coll_ref = self.decorated
+        async for ds in coll_ref.find_nearest(
+            vector_field=self.embedding_field_name,
+            query_vector=Vector(embedding),
+            distance_measure=DistanceMeasure.COSINE,
+            limit=limit or self.embedding_search_limit,
+        ).stream():  # type: ignore
+            yield self.clazz.model_validate(ds.to_dict())
 
     @override
     async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
@@ -139,8 +166,8 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
             yield self.clazz(**ds.to_dict())
 
     @override
-    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpAsyncQuery[T]:
+    def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
-        return GcpAsyncQuery(coll_ref, self.clazz)
+        return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)

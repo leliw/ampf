@@ -8,12 +8,12 @@ from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
 from pydantic import BaseModel
-from typing_extensions import Literal
 
 from ampf.base.base_decorator import BaseDecorator
-from ampf.base.base_query import BaseQuery
+from ampf.base.base_query import OP, BaseQuery
 
 from ..base import BaseQueryStorage, KeyNotExistsException
+
 
 def convert_uuids(obj):
     if isinstance(obj, dict):
@@ -25,8 +25,15 @@ def convert_uuids(obj):
     else:
         return obj
 
+
 class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
-    def __init__(self, decorated: firestore.Query, clazz: Type[T]):
+    def __init__(
+        self,
+        decorated: firestore.Query,
+        clazz: Type[T],
+        embedding_field_name: str = "embedding",
+        embedding_search_limit: int = 5,
+    ):
         """Initialize the decorator with a decorated object.
 
         Args:
@@ -34,12 +41,32 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
         """
         super().__init__(decorated)
         self.clazz = clazz
+        self.embedding_field_name = embedding_field_name
+        self.embedding_search_limit = embedding_search_limit
 
     @override
-    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
+    def where(self, field: str, op: OP, value: Any) -> GcpQuery[T]:
         coll_ref = self.decorated
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
         return GcpQuery(coll_ref, self.clazz)
+
+    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+        """Finds the nearest knowledge base items to the given vector."
+
+        Args:
+            embedding: The vector to search for.
+            limit: The maximum number of results to return.
+        Returns:
+            An iterator of the nearest items.
+        """
+        coll_ref = self.decorated
+        for ds in coll_ref.find_nearest(
+            vector_field=self.embedding_field_name,
+            query_vector=Vector(embedding),
+            distance_measure=DistanceMeasure.COSINE,
+            limit=limit or self.embedding_search_limit,
+        ).stream():  # type: ignore
+            yield self.clazz.model_validate(ds.to_dict())
 
     @override
     def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
@@ -181,8 +208,8 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         return GcpStorage(new_collection_name, clazz, key_name=key_name, key=key, root_storage=self.root_storage)
 
     @override
-    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> GcpQuery[T]:
+    def where(self, field: str, op: OP, value: Any) -> GcpQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
-        return GcpQuery(coll_ref, self.clazz)
+        return GcpQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)

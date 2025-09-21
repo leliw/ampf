@@ -219,6 +219,20 @@ async def test_embedding(storage: BaseAsyncStorage[D]):
     # And: The second is the second
     assert nearest[1] == tc2
 
+@pytest.mark.asyncio()
+async def test_async_where_embedding(storage: BaseAsyncStorage[D]):
+    # Given: Data with embedding
+    tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
+    tc2 = D(name="test2", value="2", embedding=[4.0, 5.0, 6.0])
+    # And: They are stored
+    await storage.put("test1", tc1)
+    await storage.put("test2", tc2)
+    # When: Find nearest with extra filter
+    nearest = list([x async for x in storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])])
+    # Then: Only one is returned
+    assert len(nearest) == 1
+    assert nearest[0] == tc1
+
 @pytest.mark.asyncio
 async def test_query(storage: BaseAsyncQueryStorage):
     # Given: Stored two elements with the same value and one with other

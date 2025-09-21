@@ -113,6 +113,26 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     # And: The second is the second
     assert nearest[1] == tc2
 
+"""
+This test requires vector index to be created.
+
+gcloud firestore indexes composite create --project=development-428212 --collection-group=tests-ampf-gcp --query-scope=COLLECTION --field-config=order=ASCENDING,field-path=name --field-config=vector-config='{"dimension":"3","flat": "{}"}',field-path=embedding
+"""
+@pytest.mark.asyncio()
+async def test_async_where_embedding(async_storage: GcpAsyncStorage[TC]):
+    # Given: Data with embedding
+    tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
+    tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
+    # When: Save them
+    await async_storage.put("1", tc1)
+    await async_storage.put("2", tc2)
+    # And: Find nearest
+    nearest = list([x async for x in async_storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])])
+    # Then: All two are returned
+    assert len(nearest) == 1
+    # And: The nearest is the first one
+    assert nearest[0] == tc1
+
 
 def test_uuid_saving(job_storage: GcpStorage[Job]):
     # Given: A job with a task

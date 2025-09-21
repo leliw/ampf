@@ -8,6 +8,7 @@ from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Typ
 
 from pydantic import BaseModel
 
+from .base_query import OP, BaseQuery
 from .exceptions import KeyExistsException
 
 
@@ -44,7 +45,6 @@ class BaseStorage[T: BaseModel](ABC):
             return "uid"
         else:
             return field_names[0]
-    
 
     @abstractmethod
     def put(self, key: Any, value: T) -> None:
@@ -151,3 +151,7 @@ class BaseStorage[T: BaseModel](ABC):
         except ImportError:
             self._log.error("The package `sentence_transformers` is not installed ")
             self._log.error("Try: pip install ampf[huggingface]")
+
+    @abstractmethod
+    def where(self, field: str, op: OP, value: Any) -> BaseQuery[T]:
+        pass

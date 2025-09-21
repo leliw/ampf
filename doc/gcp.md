@@ -37,13 +37,20 @@ Create field named `embedding` of type `List[float]` and add special index in
 firestore database. Then you can use `find_nearest()` method which uses vector
 serach over `embedding` field.
 
-Creating index:
+Creating indexes:
 
 ```bash
 gcloud firestore indexes composite create \
     --project=development-428212 \
     --collection-group=tests-ampf-gcp \
     --query-scope=COLLECTION \
+    --field-config=vector-config='{"dimension":"3","flat": "{}"}',field-path=embedding
+
+gcloud firestore indexes composite create \
+    --project=development-428212 \
+    --collection-group=tests-ampf-gcp \
+    --query-scope=COLLECTION \
+    --field-config=order=ASCENDING,field-path=name \
     --field-config=vector-config='{"dimension":"3","flat": "{}"}',field-path=embedding
 ```
 

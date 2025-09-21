@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Optional, Tuple, Type
+from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Literal, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
+from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_storage import BaseStorage
 
 from .exceptions import KeyExistsException
@@ -124,3 +125,6 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         except ImportError:
             self._log.error("The package `sentence_transformers` is not installed ")
             self._log.error("Try: pip install ampf[huggingface]")
+
+    def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
+        raise NotImplementedError
