@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
