@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from typing import Any, Callable, Iterator, List, Optional, Tuple, Type
+from typing import Any, Callable, Iterator, List, Optional, Tuple
 
 from pydantic import BaseModel
 from typing_extensions import Literal
