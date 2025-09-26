@@ -26,7 +26,13 @@ class GcpTopic[T: BaseModel]:
         self.publisher = pubsub_v1.PublisherClient()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
 
-    def publish(self, data: T | str | bytes, attrs: Optional[Dict[str, str]] = None) -> str:
+    def publish(
+        self,
+        data: T | str | bytes,
+        attrs: Optional[Dict[str, str]] = None,
+        response_topic: Optional[str] = None,
+        sender_id: Optional[str] = None,
+    ) -> str:
         """Publishes a message to the topic.
 
         Args:
@@ -35,6 +41,12 @@ class GcpTopic[T: BaseModel]:
         Returns:
             The message ID.
         """
+        if response_topic:
+            attrs = attrs or {}
+            attrs["response_topic"] = response_topic
+        if sender_id:
+            attrs = attrs or {}
+            attrs["sender_id"] = sender_id
         if isinstance(data, str):
             bdata = data.encode("utf-8")
         elif isinstance(data, bytes):
