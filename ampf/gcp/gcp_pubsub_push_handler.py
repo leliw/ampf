@@ -1,4 +1,4 @@
-from typing import AsyncIterator, Coroutine, Iterator
+from typing import AsyncIterator, Coroutine, Iterator, List
 
 
 try:
@@ -56,19 +56,16 @@ try:
                         # Remove the original request from args before passing to the endpoint
                         new_args = args[1:] if len(args) > 0 else args
                         ret = func(*new_args, **kwargs)
+                    if isinstance(ret, Coroutine):
+                        ret = await ret
                     if isinstance(ret, AsyncIterator):
                         async for result in ret:
                             request.publish_response(result)
-                    elif isinstance(ret, Iterator):
+                    elif isinstance(ret, Iterator) or isinstance(ret, List):
                         for result in ret:
                             request.publish_response(result)
-                    else:
-                        if isinstance(ret, Coroutine):
-                            result = await ret
-                        else:
-                            result = ret
-                        if result:
-                            request.publish_response(result)
+                    elif ret:
+                            request.publish_response(ret)
                     return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
                 except ValidationError as e:
                     _log.error("Error processing message ID: %s: %s", request.message.messageId, e)

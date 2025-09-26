@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Annotated, AsyncIterator, Iterator
+from typing import Annotated, AsyncIterator, Iterator, List
 from uuid import uuid4
 import uuid
 
@@ -116,6 +116,10 @@ def app(topic: GcpTopic, topic2: GcpTopic):
     async def handle_push_step_2(payload: D) -> D:
         return D(name=f"Step 2 processed: {payload.name}")
 
+    @router.post("/list")
+    @gcp_pubsub_push_handler()
+    async def handle_push_list(payload: D) -> List[D]:
+        return [payload, payload]
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -311,3 +315,27 @@ def test_multistep(topic: GcpTopic, subscription: GcpSubscription, subscription2
     assert received_message.attributes["sender_id"] == sender_id
     # And: Message is processed
     assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Step 2 processed: Step 1 processed: {d.name}"
+
+
+def test_pubsub_push_returns_list(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/list", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    i = 0
+    for message in subscription.receive_messages():
+        if message.attributes["sender_id"] == sender_id:
+            i += 1
+        # And: Message is processed
+        assert D.model_validate_json(message.data.decode("utf-8")).name == d.name
+        if i == 2:
+            break
+    assert i == 2
