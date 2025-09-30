@@ -3,7 +3,7 @@ import os
 from typing import Dict, Optional, Self, Type
 
 from google.api_core.exceptions import AlreadyExists, NotFound
-from google.cloud import pubsub_v1
+from google.cloud.pubsub_v1 import PublisherClient
 from pydantic import BaseModel
 
 from ampf.gcp.gcp_subscription import GcpSubscription
@@ -11,8 +11,15 @@ from ampf.gcp.gcp_subscription import GcpSubscription
 
 class GcpTopic[T: BaseModel]:
     _log = logging.getLogger(__name__)
+    _default_publisher: Optional[PublisherClient] = None
 
-    def __init__(self, topic_id: str, project_id: Optional[str] = None):
+    @classmethod
+    def get_default_publisher(cls) -> PublisherClient:
+        if cls._default_publisher is None:
+            cls._default_publisher = PublisherClient()
+        return cls._default_publisher
+
+    def __init__(self, topic_id: str, project_id: Optional[str] = None, publisher: Optional[PublisherClient] = None):
         """Initializes the topic.
 
         Args:
@@ -23,7 +30,7 @@ class GcpTopic[T: BaseModel]:
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not self.project_id:
             raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")
-        self.publisher = pubsub_v1.PublisherClient()
+        self.publisher = publisher or self.get_default_publisher()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
 
     def publish(
@@ -117,6 +124,5 @@ class GcpTopic[T: BaseModel]:
             processing_timeout=processing_timeout,
             per_message_timeout=per_message_timeout,
         )
-        if not subscription.exists():
-            subscription.create(self.topic_id, exist_ok=exist_ok)
+        subscription.create(self.topic_id, exist_ok=exist_ok)
         return subscription

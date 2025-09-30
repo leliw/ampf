@@ -5,14 +5,6 @@ import pytest
 from ampf.gcp.gcp_topic import AlreadyExists, GcpTopic
 
 
-@pytest.fixture(scope="session")
-def existing_topic():
-    topic = GcpTopic(topic_id="ampf_unit_tests_existing_topic")
-    topic.create(exist_ok=True)
-    yield topic
-    topic.delete()
-
-
 def test_create_not_existing():
     # Given: Not existing topic_id
     topic = GcpTopic(topic_id="ampf_unit_tests_" + uuid4().hex[:6])
@@ -30,6 +22,7 @@ def test_create_existing_error(existing_topic):
     # Then: Exception is raised
     with pytest.raises(AlreadyExists):
         existing_topic.create(exist_ok=False)
+
 
 def test_create_existing_ok(existing_topic):
     # Given: Existing topic
@@ -54,6 +47,7 @@ def test_exists(existing_topic):
     result = existing_topic.exists()
     # Then: Return true
     assert result
+
 
 def test_delete():
     # Given: Created topic

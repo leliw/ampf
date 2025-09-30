@@ -109,7 +109,7 @@ Sends message to Pub/Sub topic.
 * `delete(self) -> None` - Deletes the topic in GCP.
 * `create_subscription(self, subscription_id: str, clazz: Optional[Type[T]] = None, processing_timeout: float = 5.0, per_message_timeout: float = 1.0, exist_ok: bool = False) -> GcpSubscription[T]` - Creates a subscription in GCP for the topic. The `subscription_id` is the ID of the subscription to create. If `clazz` is provided, it will be used to convert received messages to Pydantic objects of type `clazz`. The `processing_timeout` and `per_message_timeout` parameters control how long the subscription will wait for messages and how long it will wait for each message, respectively. If `exist_ok` is set to `True`, it will not raise an error if the subscription already exists.
 * `publish(data: T, attributes: Optional[Dict[str, str]] = None) -> None` - Publishes data to the topic. The data can be any Pydantic model or a simple object that can be serialized to JSON. If `attributes` are provided, they will be sent as additional metadata.
-* exists(self) -> bool - Checks if the topic exists in GCP.
+* `exists(self) -> bool` - Checks if the topic exists in GCP.
 
 #### Usage
 
@@ -146,6 +146,9 @@ topic.publish(data, attributes)
 * `receive_messages(self) -> Generator[Message, None, None]` - Returns a generator that yields messages from the subscription.
 * `__iter__(self) -> Generator[T, None, None]` - Allows the subscription to be used as an iterable. It will yield messages converted to Pydantic objects of type `clazz` if provided. Otherwise, it will raise `TypeError` if `clazz` is not set.
 * `receive_firsreceive_first_message(self, filter: Callable[[Message], bool]) -> Optional[Message]` - Receives the first message that matches the filter function. The filter function should take a `Message` object and return `True` if the message matches the criteria. It is useful for testing.
+* `run_push_emulator(self, client: TestClient, endpoint: str) -> GcpPubsubPushEmulator` - Runs a push emulator that listens for messages from the subscription and forwards them to the specified FastAPI endpoint using the provided `TestClient`. It returns a `GcpPubsubPushEmulator` object that can be used to check the status of the emulator and retrieve received messages and responses.
+* `exists(self) -> bool` - Checks if the subscription exists in GCP.
+* `clear(self)` -> None - Clears all pending messages in the subscription.
 
 #### Usage
 
