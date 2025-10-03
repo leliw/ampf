@@ -1,20 +1,24 @@
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, override
 
 from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
-from ampf.gcp.gcp_async_blob_storage import GcpAsyncBlobStorage
-from ampf.gcp.gcp_async_storage import GcpAsyncStorage
+from .gcp_async_blob_storage import GcpAsyncBlobStorage
+from .gcp_async_storage import GcpAsyncStorage
+from .gcp_base_factory import GcpBaseFactory
 
 
-class GcpAsyncFactory(BaseAsyncFactory):
+class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
-        self.root_storage = root_storage[:-1] if root_storage and root_storage.endswith("/") else root_storage
-        self.bucket_name = bucket_name
+        super().__init__(root_storage, bucket_name)
         self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
 
+    @override
+    def get_project_id(self) -> str:
+        return self._async_db.project
+    
     def create_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T], key: Optional[Callable[[T], str]] = None
     ) -> BaseAsyncStorage[T]:

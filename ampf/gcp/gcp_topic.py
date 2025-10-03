@@ -6,7 +6,7 @@ from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.pubsub_v1 import PublisherClient
 from pydantic import BaseModel
 
-from ampf.gcp.gcp_subscription import GcpSubscription
+from .gcp_subscription import GcpSubscription
 
 
 class GcpTopic[T: BaseModel]:
@@ -15,9 +15,9 @@ class GcpTopic[T: BaseModel]:
 
     @classmethod
     def get_default_publisher(cls) -> PublisherClient:
-        if cls._default_publisher is None:
-            cls._default_publisher = PublisherClient()
-        return cls._default_publisher
+        from .gcp_base_factory import GcpBaseFactory
+
+        return GcpBaseFactory.get_publisher_client()
 
     def __init__(self, topic_id: str, project_id: Optional[str] = None, publisher: Optional[PublisherClient] = None):
         """Initializes the topic.
@@ -25,6 +25,7 @@ class GcpTopic[T: BaseModel]:
         Args:
             topic_id: The name of the topic.
             project_id: The project ID.
+            publisher: The GCP publisher client.
         """
         self.topic_id = topic_id
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")

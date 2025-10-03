@@ -53,3 +53,12 @@ def test_create_collections_wr(gcp_factory_with_root: GcpFactory, collection_nam
     assert ret["name"] == "YYY"
     # Clean up
     collection_wr.drop()
+
+
+def test_create_topic(gcp_factory: GcpFactory):
+    # Given: A topic_id
+    topic_id = "test_topic"
+    # When: Create topic
+    topic = gcp_factory.create_topic(topic_id)
+    # Then: Topic is created
+    assert topic.topic_id == topic_id

@@ -1,25 +1,28 @@
 import logging
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, override
 
 from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ..base import BaseAsyncStorage, BaseBlobStorage, BaseFactory, BaseStorage
 from .gcp_async_storage import GcpAsyncStorage
+from .gcp_base_factory import GcpBaseFactory
 from .gcp_blob_storage import GcpBlobStorage
 from .gcp_storage import GcpStorage
 
 
-class GcpFactory(BaseFactory):
+class GcpFactory(GcpBaseFactory, BaseFactory):
     _log = logging.getLogger(__name__)
 
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
-        self.root_storage = root_storage[:-1] if root_storage and root_storage.endswith("/") else root_storage
-        self.bucket_name = bucket_name
-        self._log.debug("Using GcpFactory with root_storage=%s and bucket_name=%s", self.root_storage, self.bucket_name)
+        super().__init__(root_storage, bucket_name)
         self._db = firestore.Client()
         self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
+
+    @override
+    def get_project_id(self) -> str:
+        return self._db.project
 
     def create_storage[T: BaseModel](
         self,
@@ -69,6 +72,5 @@ class GcpFactory(BaseFactory):
             f"{self.root_storage}/{collection_name}" if self.root_storage else collection_name,
             clazz,
             db=self._async_db,
-            key_name=key_name,
-            key=key,
+            key=key or key_name,
         )

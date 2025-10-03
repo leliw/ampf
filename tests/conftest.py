@@ -5,6 +5,7 @@ import docker
 import pytest
 
 from ampf.base.base_email_sender import BaseEmailSender
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 from ampf.gcp.gcp_factory import GcpFactory
 from ampf.in_memory.in_memory_factory import InMemoryFactory
 
@@ -15,6 +16,11 @@ def gcp_factory():
     # Scope == session speeds up tests
     return GcpFactory(bucket_name='unit-tests-001')
 
+@pytest.fixture(scope="session")
+def gcp_async_factory():
+    # Creating firestore client is very slow.
+    # Scope == session speeds up tests
+    return GcpAsyncFactory(bucket_name='unit-tests-001')
 
 @pytest.fixture(scope="session")
 def collection_name():
