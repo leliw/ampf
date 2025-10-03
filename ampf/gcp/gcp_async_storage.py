@@ -11,6 +11,7 @@ from ampf.base import BaseAsyncQueryStorage, KeyNotExistsException
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
+from ampf.base.exceptions import KeyExistsException
 
 from .gcp_storage import convert_uuids
 
@@ -115,7 +116,11 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         """Get a document from the collection."""
         doc = await self._coll_ref.document(str(key)).get()
         data = doc.to_dict()
-        return self.clazz.model_validate(data)
+        if data:
+            return self.clazz.model_validate(data)
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz,key)
+
 
     async def keys(self) -> AsyncIterator[str]:
         """Return a list of keys in the collection."""
@@ -147,6 +152,22 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
                     coll_ref = coll_ref.order_by(o)
         async for doc in coll_ref.stream():
             yield self.clazz.model_validate(doc.to_dict())
+
+    async def create(self, value: T) -> None:
+        """Adds to collection a new element but only if such key doesn't already exists"""
+        key = self.get_key(value)
+
+        @firestore.async_transactional
+        async def create_in_transaction(transaction):
+            doc = await self._coll_ref.document(str(key)).get(transaction=transaction)
+            if doc.exists:
+                raise KeyExistsException
+            data_dict = value.model_dump(by_alias=True, exclude_none=True)
+            data_dict = self.on_before_save(data_dict)  # Preprocess data
+            transaction.set(doc.reference, data_dict)
+
+        async with self._db.transaction() as transaction:
+            await create_in_transaction(transaction)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
         """Finds the nearest knowledge base items to the given vector."
