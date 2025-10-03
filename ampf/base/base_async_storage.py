@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_storage import BaseStorage
 
-from .exceptions import KeyExistsException
+from .exceptions import KeyExistsException, KeyNotExistsException
 
 
 class BaseAsyncStorage[T: BaseModel](ABC):
@@ -34,7 +34,6 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         self.key = key
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit
-
 
     @abstractmethod
     async def put(self, key: Any, value: T) -> None:
@@ -83,12 +82,12 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         async for key in self.keys():
             yield await self.get(key)
 
-    async def key_exists(self, needle: Any) -> bool:
-        needle = str(needle)
-        async for key in self.keys():
-            if needle == key:
-                return True
-        return False
+    async def key_exists(self, key: Any) -> bool:
+        try:
+            await self.get(key)
+            return True
+        except KeyNotExistsException:
+            return False
 
     async def is_empty(self) -> bool:
         """Is storage empty?"""
