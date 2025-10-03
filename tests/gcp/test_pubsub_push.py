@@ -1,8 +1,8 @@
 import logging
 import time
+import uuid
 from typing import Annotated, AsyncIterator, Iterator, List
 from uuid import uuid4
-import uuid
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI, status
@@ -10,11 +10,13 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from ampf.gcp import GcpSubscription, GcpTopic, gcp_pubsub_push_handler
+from ampf.gcp.gcp_factory import GcpFactory
 from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 
 
 class D(BaseModel):
     name: str
+
 
 @pytest.fixture(scope="module")
 def topic2():
@@ -22,6 +24,7 @@ def topic2():
     topic = GcpTopic(topic_id).create(exist_ok=True)
     yield topic
     topic.delete()
+
 
 @pytest.fixture(scope="module")
 def subscription2(topic2: GcpTopic):
@@ -44,6 +47,13 @@ def get_config() -> dict:
 ConfigDep = Annotated[dict, Depends(get_config)]
 
 
+def get_factory() -> GcpFactory:
+    return GcpFactory()
+
+
+FactoryDep = Annotated[GcpFactory, Depends(get_factory)]
+
+
 @pytest.fixture(scope="module")
 def app(topic: GcpTopic, topic2: GcpTopic):
     _log = logging.getLogger(__name__)
@@ -52,12 +62,12 @@ def app(topic: GcpTopic, topic2: GcpTopic):
 
     @router.post("/one_param")
     @gcp_pubsub_push_handler()
-    async def handle_push_d1(payload: D) -> D:
+    async def handle_push_d1(payload: D, f: FactoryDep) -> D:
         payload.name = f"Processed: {payload.name}"
         return payload
 
     @router.post("/payload_first")
-    @gcp_pubsub_push_handler()
+    @gcp_pubsub_push_handler(factory_dep=FactoryDep)
     async def handle_push_d2(payload: D, p: ConfigDep) -> D:
         payload.name = f"{p['msg']} {payload.name}"
         return payload
@@ -120,6 +130,11 @@ def app(topic: GcpTopic, topic2: GcpTopic):
     @gcp_pubsub_push_handler()
     async def handle_push_list(payload: D) -> List[D]:
         return [payload, payload]
+
+    @router.post("/value-exception")
+    @gcp_pubsub_push_handler()
+    async def handle_value_exception(payload: D, f: FactoryDep) -> D:
+        raise ValueError("Value exception", payload)
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -270,6 +285,7 @@ def test_different_function_types(topic: GcpTopic, subscription: GcpSubscription
     # And: Message is processed
     assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed: {d.name}"
 
+
 def test_multi_return(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
     # Given: Message payload
     d = D(name="test")
@@ -290,7 +306,6 @@ def test_multi_return(topic: GcpTopic, subscription: GcpSubscription, client: Te
             assert D.model_validate_json(message.data.decode("utf-8")).name.startswith(f"Processed: {d.name}")
         if cnt == 3:
             break
-
 
 
 def test_multistep(topic: GcpTopic, subscription: GcpSubscription, subscription2: GcpSubscription, client: TestClient):
@@ -314,7 +329,10 @@ def test_multistep(topic: GcpTopic, subscription: GcpSubscription, subscription2
     assert received_message
     assert received_message.attributes["sender_id"] == sender_id
     # And: Message is processed
-    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Step 2 processed: Step 1 processed: {d.name}"
+    assert (
+        D.model_validate_json(received_message.data.decode("utf-8")).name
+        == f"Step 2 processed: Step 1 processed: {d.name}"
+    )
 
 
 def test_pubsub_push_returns_list(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
@@ -339,3 +357,31 @@ def test_pubsub_push_returns_list(topic: GcpTopic, subscription: GcpSubscription
         if i == 2:
             break
     assert i == 2
+
+
+class D2(BaseModel):
+    wrong_field: str = "wrong"
+
+
+def test_pubsub_push_validation_exception(topic: GcpTopic, client: TestClient):
+    # Given: Message payload
+    d = D2()
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, response_topic=topic.topic_id, sender_id=uuid4().hex)
+    # When: The request is posted
+    response = client.post("/pub-sub/one_param", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Wrong message format" in response.text
+
+
+def test_pubsub_push_value_exception(topic: GcpTopic, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, response_topic=topic.topic_id)
+    # When: The request is posted
+    response = client.post("/pub-sub/value-exception", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert "Error processing message" in response.text

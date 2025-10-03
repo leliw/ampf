@@ -11,6 +11,7 @@ Set of helper classes:
   * StaticFileResponse - return static files or index.html (Angular files)
   * JsonStreamingResponse - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
+  * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
 
 ## Build and publish
 
