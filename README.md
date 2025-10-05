@@ -1,5 +1,7 @@
 # AMPF - Angular + Material + Python + FastAPI
 
+![Python](https://img.shields.io/badge/python-3.12-blue)
+
 Set of helper classes:
 
 * [Base] - package with base classes (mostly abstract)
@@ -8,8 +10,8 @@ Set of helper classes:
   * [BaseQueryStorage](doc/base__query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
   * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.
 * FastAPI - helper classes for FatAPI framework
-  * StaticFileResponse - return static files or index.html (Angular files)
-  * JsonStreamingResponse - streams Pydantic objects to client as JSON.
+  * [StaticFileResponse](doc/fastapi/static_file_response.md) - return static files or index.html (Angular files)
+  * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
   * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
 
