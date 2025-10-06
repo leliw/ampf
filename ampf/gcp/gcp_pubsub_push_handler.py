@@ -91,6 +91,13 @@ try:
                         extra={"attributes": request.message.attributes},
                     )
                     raise HTTPException(status_code=400, detail=f"Wrong message format: {e}")
+                except ValueError as e:
+                    _log.exception(
+                        "Error processing message ID: %s",
+                        request.message.messageId,
+                        extra={"attributes": request.message.attributes},
+                    )
+                    raise HTTPException(status_code=400, detail=f"Value error: {e}")
                 except Exception as e:
                     _log.exception(
                         "Error processing message ID %s",
