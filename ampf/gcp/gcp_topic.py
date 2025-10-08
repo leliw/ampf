@@ -1,9 +1,11 @@
+import asyncio
 import logging
 import os
 from typing import Dict, Optional, Self, Type
 
 from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.pubsub_v1 import PublisherClient
+from google.cloud.pubsub_v1.publisher.futures import Future
 from pydantic import BaseModel
 
 from .gcp_subscription import GcpSubscription
@@ -49,6 +51,42 @@ class GcpTopic[T: BaseModel]:
         Returns:
             The message ID.
         """
+        future = self._publish(data, attrs, response_topic, sender_id)
+        return future.result()
+
+    async def publish_async(
+        self,
+        data: T | str | bytes,
+        attrs: Optional[Dict[str, str]] = None,
+        response_topic: Optional[str] = None,
+        sender_id: Optional[str] = None,
+    ) -> str:
+        """Publishes a message to the topic.
+
+        Args:
+            data: The message to publish.
+            attrs: The attributes of the message.
+        Returns:
+            The message ID.
+        """
+        future = self._publish(data, attrs, response_topic, sender_id)
+        return await asyncio.wrap_future(future)
+
+    def _publish(
+        self,
+        data: T | str | bytes,
+        attrs: Optional[Dict[str, str]] = None,
+        response_topic: Optional[str] = None,
+        sender_id: Optional[str] = None,
+    ) -> Future:
+        """Publishes a message to the topic.
+
+        Args:
+            data: The message to publish.
+            attrs: The attributes of the message.
+        Returns:
+            The future for the publish operation.
+        """
         if response_topic:
             attrs = attrs or {}
             attrs["response_topic"] = response_topic
@@ -70,7 +108,7 @@ class GcpTopic[T: BaseModel]:
         else:
             self._log.debug("Publishing message in topic %s", self.topic_id)
             future = self.publisher.publish(self.topic_path, bdata)
-        return future.result()
+        return future
 
     def exists(self) -> bool:
         try:
