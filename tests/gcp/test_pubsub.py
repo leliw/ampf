@@ -1,6 +1,7 @@
 import time
 
 from pydantic import BaseModel
+import pytest
 
 from ampf.gcp import GcpSubscription, GcpTopic
 
@@ -42,3 +43,14 @@ def test_pubsub_with_response_topic(topic: GcpTopic, subscription: GcpSubscripti
     assert received_message
     assert received_message.data.decode("utf-8") == data.model_dump_json()
     assert received_message.attributes.get("response_topic") == "xxx"
+
+@pytest.mark.asyncio
+async def test_publish_async(topic: GcpTopic, subscription: GcpSubscription):
+    # Given: A topic and a typed subscription
+    typed_subscription = GcpSubscription(subscription.subscription_id, subscription.project_id, D)
+    # When: Message is published
+    data = D(name=f"Test message {time.time()}")
+    await topic.publish_async(data)
+    # Then: Message is received
+    received_data = typed_subscription.receive_first_payload(lambda msg_data: msg_data == data)
+    assert received_data
