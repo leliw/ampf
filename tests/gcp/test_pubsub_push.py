@@ -383,5 +383,5 @@ def test_pubsub_push_value_exception(topic: GcpTopic, client: TestClient):
     # When: The request is posted
     response = client.post("/pub-sub/value-exception", json=req.model_dump())
     # Then: Response is OK
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "Error processing message" in response.text
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Value exception" in response.text
