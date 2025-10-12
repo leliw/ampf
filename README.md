@@ -14,6 +14,8 @@ Set of helper classes:
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
   * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
+* Testing - helper classes for testing
+  * [ApiTestClient](doc/testing/api_test_client.md) - helper for testing FastAPI endpoints
 
 ## Build and publish
 
@@ -33,8 +35,10 @@ Optionall dependecies:
 pip install ampf[fastapi]
 pip install ampf[gcp]
 pip install ampf[huggingface]
+pip install ampf[testing]
 ```
 
 * [fastapi] - for FastAPI framework
 * [gcp] - for Google Cloud Platform
 * [huggingface] - for Hugging Face classes (local embedding search)
+* [testing] - for pytest and pytest-mock
