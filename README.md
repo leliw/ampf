@@ -19,6 +19,7 @@ Set of helper classes:
   * [mock_gcp_publish](doc/testing/mock_gcp_publish.md) - helper for mocking GCP Pub/Sub publish method
   * [subscription_factory](doc/testing/subscription_factory.md) - helper for creating GCP Pub/Sub subscription
   * [cloud_run_proxy_factory](doc/testing/cloud_run_proxy_factory.md) - helper for running proxy to GCP Cloud Run service.
+  * [container_factory](doc/testing/api_test_client.md) - helper for running docker container.
   
 ## Build and publish
 
