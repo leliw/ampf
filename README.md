@@ -17,7 +17,8 @@ Set of helper classes:
 * Testing - helper classes for testing
   * [ApiTestClient](doc/testing/api_test_client.md) - helper for testing FastAPI endpoints
   * [mock_gcp_publish](doc/testing/mock_gcp_publish.md) - helper for mocking GCP Pub/Sub publish method
-
+  * [subscription_factory](doc/testing/subscription_factory.md) - helper for creating GCP Pub/Sub subscription
+  
 ## Build and publish
 
 ```bash
