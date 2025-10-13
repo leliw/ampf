@@ -16,6 +16,7 @@ Set of helper classes:
   * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
 * Testing - helper classes for testing
   * [ApiTestClient](doc/testing/api_test_client.md) - helper for testing FastAPI endpoints
+  * [mock_gcp_publish](doc/testing/mock_gcp_publish.md) - helper for mocking GCP Pub/Sub publish method
 
 ## Build and publish
 
