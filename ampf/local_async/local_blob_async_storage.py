@@ -13,7 +13,7 @@ from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
 
-class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
+class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
@@ -119,7 +119,6 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
-
     @override
     def exists(self, key: str) -> bool:
         data_path = self._find_data_path(key)
@@ -160,3 +159,7 @@ class LocalBlobAsyncStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
             return self.metadata_type.model_validate(meta_raw["metadata"])
         except FileNotFoundError:
             raise KeyNotExistsException
+
+
+class LocalBlobAsyncStorage[T: BaseModel](LocalAsyncBlobStorage[T]):
+    pass
