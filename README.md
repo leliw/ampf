@@ -13,6 +13,9 @@ Set of helper classes:
   * [StaticFileResponse](doc/fastapi/static_file_response.md) - return static files or index.html (Angular files)
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
+  * [GcpTopic](doc/gcp/gcp_topic.md) - helper class for Pub/Sub topic.
+  * [GcpSubscription](doc/gcp/gcp_subscription.md) - helper class for Pub/Sub subscription.
+  * [GcpPubsubPush](doc/gcp/gcp_pubsub_push.md) - helper class for handling Pub/Sub push messages.
   * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
 * Testing - helper classes for testing
   * [ApiTestClient](doc/testing/api_test_client.md) - helper for testing FastAPI endpoints
