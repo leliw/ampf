@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 import tempfile
 
@@ -219,3 +220,52 @@ def test_move_blob(storage: BaseBlobStorage):
     assert dest_key in list(storage.keys())
     assert source_key not in list(storage.keys())
     assert data == storage.download_blob(dest_key)
+
+
+@pytest.mark.asyncio
+async def test_update_transactional_one_thread(storage: BaseAsyncBlobStorage):
+    blob = Blob(name="test_blob", data=b"initial_data")
+    await storage.upload_async(blob)
+
+    async def update_func(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
+        return Blob(name=b.name, data=b.data.read() + b"_updated", content_type=b.content_type)
+
+    await storage.update_transactional("test_blob", update_func)
+
+    updated_blob = await storage.download_async("test_blob")
+    assert updated_blob.data.read() == b"initial_data_updated"
+
+
+@pytest.mark.asyncio
+async def test_update_transactional_two_threads(storage: BaseAsyncBlobStorage):
+    blob = Blob(name="test_blob", data=b"initial_data")
+    await storage.upload_async(blob)
+
+    async def update_func1(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
+        print("Update func1 started")
+        await asyncio.sleep(0.1)  # Simulate some processing delay
+        print("Update func1 completed")
+        return Blob(name=b.name, data=b.data.read() + b"_updated1")
+
+    async def update_func2(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
+        print("Update func2 completed")
+        return Blob(name=b.name, data=b.data.read() + b"_updated2")
+
+    await asyncio.gather(
+        storage.update_transactional("test_blob", update_func1),
+        storage.update_transactional("test_blob", update_func2),
+    )
+    updated_blob = await storage.download_async("test_blob")
+    assert (
+        updated_blob.data.read() == b"initial_data_updated2_updated1"
+        or updated_blob.data.read() == b"initial_data_updated1_updated2"
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_transactional_non_existent_blob(storage: BaseAsyncBlobStorage):
+    async def update_func(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
+        return Blob(name=b.name, data=b.data.read() + b"_updated")
+
+    with pytest.raises(KeyNotExistsException):
+        await storage.update_transactional("non_existent_blob", update_func)

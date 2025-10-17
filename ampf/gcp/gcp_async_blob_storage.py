@@ -1,17 +1,19 @@
+import asyncio
 import logging
-from typing import Optional, Type, override
+from typing import Awaitable, Callable, Optional, Type, override
 
 import aiohttp
 import google.auth.exceptions
 import google.auth.transport.requests
+from google.api_core import exceptions
 from google.cloud import storage
 from pydantic import BaseModel
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob
+from ampf.base.exceptions import KeyNotExistsException
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
-
 
 
 class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
@@ -42,7 +44,7 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
         """
         try:
             creds, _ = google.auth.default()
-            creds.refresh(google.auth.transport.requests.Request())
+            creds.refresh(google.auth.transport.requests.Request()) # type: ignore
         except google.auth.exceptions.RefreshError:
             creds = None
 
@@ -53,7 +55,7 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
             method=method,
             content_type=content_type,
             service_account_email=creds.service_account_email if creds else None,  # type: ignore
-            access_token=creds.token if creds else None,
+            access_token=creds.token if creds else None, # type: ignore
         )
         return signed_url
 
@@ -95,3 +97,37 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
                 data = await response.read()
 
         return Blob(name=name, data=data, content_type=response.content_type, metadata=metadata)
+
+    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+        storage_blob = self._get_blob(name)
+        if not storage_blob.exists():
+            raise KeyNotExistsException(self.collection_name, self.clazz, name)
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                storage_blob = self._get_blob(name)
+                data = storage_blob.download_as_bytes()
+                curr_generation = storage_blob.generation
+                if curr_generation is None:
+                    raise exceptions.PreconditionFailed("Blob generation is None")
+                content_type = storage_blob.content_type
+                metadata = self.get_metadata(name)
+                blob = Blob(name=name, data=data, content_type=content_type, metadata=metadata)
+                updated_blob = await update_func(blob)
+                storage_blob.upload_from_string(
+                    updated_blob.data.read(),
+                    content_type=updated_blob.content_type or self.content_type,
+                    if_generation_match=curr_generation,
+                )
+                return
+            except exceptions.PreconditionFailed as e:
+                if attempt == max_retries - 1:
+                    raise e
+                await asyncio.sleep(0.5 * (attempt + 1))
+
+            except exceptions.NotFound:
+                raise KeyNotExistsException(self.collection_name, self.clazz, name)
+
+            except Exception as e:
+                self._log.error(f"Error during transactional update of blob '{name}': {e}")
+                raise e
