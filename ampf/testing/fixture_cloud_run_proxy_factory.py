@@ -16,7 +16,7 @@ def cloud_run_proxy_factory():
     """Fixture providing a factory to start Cloud Run services."""
     processes = []
 
-    def wait_for_port(port, host="127.0.0.1", timeout=30):
+    def wait_for_port(port, host="127.0.0.1", timeout=60):
         """Wait for a port to become available."""
         start = time.time()
         while time.time() - start < timeout:

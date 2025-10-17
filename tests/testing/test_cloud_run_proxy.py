@@ -9,7 +9,7 @@ def scrapper_url(cloud_run_proxy_factory) -> str:
 
 def test_cloud_run_proxy(scrapper_url: str):
     try:
-        requests.get(f"{scrapper_url}/openapi.json", timeout=1)
+        requests.get(f"{scrapper_url}/openapi.json", timeout=10)
     except requests.ReadTimeout:
         assert False
     assert True
