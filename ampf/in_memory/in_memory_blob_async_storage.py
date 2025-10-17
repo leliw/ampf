@@ -1,4 +1,5 @@
-from typing import List, Optional, Type, override
+import asyncio
+from typing import Awaitable, Callable, List, Optional, Type, override
 
 from pydantic import BaseModel
 
@@ -16,6 +17,7 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
         self.content_type = content_type
         if self.collection_name not in self.buckets:
             self.buckets[self.collection_name] = {}
+        self.transaction_lock = asyncio.Lock()
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
@@ -45,6 +47,13 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
                 blobs.append(BlobHeader(name=name, content_type=blob.content_type, metadata=blob.metadata))
         return blobs
 
+    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+        async with self.transaction_lock:
+            blob = await self.download_async(name)
+            updated_blob = await update_func(blob)
+            await self.upload_async(updated_blob)
 
-class InMemoryBlobAsyncStorage(InMemoryAsyncBlobStorage):
+
+# deprecated
+class InMemoryBlobAsyncStorage[T: BaseModel](InMemoryAsyncBlobStorage[T]):
     pass

@@ -3,7 +3,7 @@ import json
 import mimetypes
 import os
 from pathlib import Path
-from typing import List, Optional, Type, override
+from typing import Awaitable, Callable, List, Optional, Type, override
 
 from pydantic import BaseModel
 
@@ -27,6 +27,7 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         self.metadata_type = metadata_type
         self.content_type = content_type
         self.base_path.mkdir(parents=True, exist_ok=True)
+        self.transaction_lock = asyncio.Lock()
 
     def _get_meta_path(self, key: str) -> Path:
         path = self.base_path / f"{key}.json"
@@ -160,6 +161,11 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         except FileNotFoundError:
             raise KeyNotExistsException
 
+    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+        async with self.transaction_lock:
+            blob = await self.download_async(name)
+            updated_blob = await update_func(blob)
+            await self.upload_async(updated_blob)
 
 class LocalBlobAsyncStorage[T: BaseModel](LocalAsyncBlobStorage[T]):
     pass

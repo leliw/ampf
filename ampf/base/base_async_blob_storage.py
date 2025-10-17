@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional, Type
+from typing import Awaitable, Callable, Iterable, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -87,3 +87,9 @@ class BaseAsyncBlobStorage[T: BaseModel](ABC):
     def delete_folder(self, folder_name: str) -> None:
         for name in self.names(folder_name):
             self.delete(name)
+
+    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+        # blob = await self.download_async(name)
+        # updated_blob = await update_func(blob)
+        # await self.upload_async(updated_blob)
+        raise NotImplementedError("This method should be overridden if needed.")
