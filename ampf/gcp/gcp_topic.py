@@ -52,7 +52,9 @@ class GcpTopic[T: BaseModel]:
             The message ID.
         """
         future = self._publish(data, attrs, response_topic, sender_id)
-        return future.result()
+        message_id = future.result()
+        self._log.debug("Published message ID: %s", message_id)
+        return message_id
 
     async def publish_async(
         self,
@@ -70,7 +72,9 @@ class GcpTopic[T: BaseModel]:
             The message ID.
         """
         future = self._publish(data, attrs, response_topic, sender_id)
-        return await asyncio.wrap_future(future)
+        message_id = await asyncio.wrap_future(future)
+        self._log.debug("Published message ID: %s", message_id)
+        return message_id
 
     def _publish(
         self,
