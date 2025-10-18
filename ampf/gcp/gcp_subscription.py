@@ -1,20 +1,21 @@
 import logging
-import os
 import queue
 import time
 from concurrent.futures import TimeoutError
 from contextlib import contextmanager
-from typing import Callable, Generator, Iterator, Optional, Self, Type
+from typing import Callable, Generator, Iterator, Optional, Type
 
-from google.api_core.exceptions import AlreadyExists, DeadlineExceeded, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
 from pydantic import BaseModel
 
+from ampf.gcp.gcp_base_subscription import GcpBaseSubscription
 from ampf.gcp.gcp_pubsub_push_emulator import GcpPubsubPushEmulator
 
-
-class GcpSubscription[T: BaseModel]:
+# deprecated
+class GcpSubscription[T: BaseModel](GcpBaseSubscription):
+    """A subscription for GCP Pub/Sub. Messages are returned
+    by generator."""
     _log = logging.getLogger(__name__)
 
     def __init__(
@@ -35,16 +36,9 @@ class GcpSubscription[T: BaseModel]:
             processing_timeout: The maximum time in seconds to process messages.
             per_message_timeout: The maximum time in seconds to wait for a single message.
         """
-        self.subscription_id = subscription_id
-        self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-        if not self.project_id:
-            raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")
-        self.clazz = clazz
+        super().__init__(subscription_id, project_id, clazz, subscriber)
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
-        self.subscriber = subscriber or SubscriberClient()
-
-        self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
 
     def receive_messages(self) -> Generator[Message, None, None]:
         """Receives messages from the subscription.
@@ -56,6 +50,7 @@ class GcpSubscription[T: BaseModel]:
 
         def callback(message: Message) -> None:
             _messages_queue.put(message)
+            self._log.debug("Received message %s", message.message_id)
             message.ack()
 
         streaming_pull_future = self.subscriber.subscribe(self.subscription_path, callback=callback)
@@ -63,6 +58,7 @@ class GcpSubscription[T: BaseModel]:
         end_time = time.time() + self.processing_timeout
         try:
             while time.time() < end_time:
+                self._log.debug("Waiting for messages... %s < %s", time.time(), end_time)
                 try:
                     remaining_time_for_cycle = end_time - time.time()
                     if remaining_time_for_cycle <= 0:
@@ -74,6 +70,7 @@ class GcpSubscription[T: BaseModel]:
                     if not streaming_pull_future.running():
                         break
                     continue
+            self._log.debug("Waiting for messages -> timeout")
         finally:
             if streaming_pull_future.running():
                 streaming_pull_future.cancel()
@@ -97,36 +94,6 @@ class GcpSubscription[T: BaseModel]:
                 raise TypeError(
                     "clazz is not set, so cannot deserialize message. Set clazz in the constructor to deserialize messages."
                 )
-
-    def exists(self) -> bool:
-        try:
-            self.subscriber.get_subscription(subscription=self.subscription_path)
-            return True
-        except NotFound:
-            return False
-
-    def create(self, topic_id: str, exist_ok: bool = False) -> Self:
-        """Creates the subscription in GCP if it does not exist.
-
-        Args:
-            topic_id: The ID of the topic to subscribe to.
-            exist_ok: If True, no exception is raised if the subscription already exists.
-        Returns:
-            The subscription itself.
-        """
-        try:
-            self.subscriber.create_subscription(
-                name=self.subscription_path,
-                topic=self.subscriber.topic_path(self.project_id, topic_id),
-            )
-        except AlreadyExists as e:
-            if not exist_ok:
-                raise e
-        return self
-
-    def delete(self) -> None:
-        """Deletes the subscription in GCP."""
-        self.subscriber.delete_subscription(subscription=self.subscription_path)
 
     def receive_first_message(self, filter: Callable[[Message], bool]) -> Optional[Message]:
         """Receives the first message that satisfies the filter.
@@ -163,29 +130,3 @@ class GcpSubscription[T: BaseModel]:
 
     except ImportError:
         pass
-
-    def is_empty(self) -> bool:
-        """Checks if the subscription is empty.
-
-        Returns:
-            True if the subscription is empty, False otherwise.
-        """
-        try:
-            response = self.subscriber.pull(
-                subscription=self.subscription_path, max_messages=1, return_immediately=True
-            )
-            return not response.received_messages
-        except Exception:
-            return True
-
-    def clear(self):
-        while True:
-            try:
-                response = self.subscriber.pull(subscription=self.subscription_path, max_messages=1000, timeout=1.0)
-            except DeadlineExceeded:
-                break
-            if not response.received_messages:
-                break
-            ack_ids = [m.ack_id for m in response.received_messages]
-            if ack_ids:
-                self.subscriber.acknowledge(subscription=self.subscription_path, ack_ids=ack_ids)
