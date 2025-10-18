@@ -14,7 +14,8 @@ Set of helper classes:
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
   * [GcpTopic](doc/gcp/gcp_topic.md) - helper class for Pub/Sub topic.
-  * [GcpSubscription](doc/gcp/gcp_subscription.md) - helper class for Pub/Sub subscription.
+  * [GcpSubscription](doc/gcp/gcp_subscription.md) - helper class for Pub/Sub subscription in Push mode.
+  * [GcpSubscriptionPull](doc/gcp/gcp_subscription_pull.md) - helper class for Pub/Sub subscription in Pull mode.
   * [GcpPubsubPush](doc/gcp/gcp_pubsub_push.md) - helper class for handling Pub/Sub push messages.
   * [gcp_pubsub_push_handler](doc/gcp_pub_sub_handler.md) - decorator for handling Pub/Sub push messages in FastAPI endpoints
 * Testing - helper classes for testing
