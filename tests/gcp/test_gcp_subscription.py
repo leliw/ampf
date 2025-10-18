@@ -1,9 +1,9 @@
-
-
 from uuid import uuid4
 
 import pytest
-from ampf.gcp.gcp_subscription import GcpSubscription, AlreadyExists
+from google.api_core.exceptions import AlreadyExists
+
+from ampf.gcp.gcp_subscription import GcpSubscription
 
 
 def test_create_not_existing(existing_topic):
@@ -16,6 +16,7 @@ def test_create_not_existing(existing_topic):
     # Clean up
     subscr.delete()
 
+
 def test_create_existing_error(existing_topic, existing_subscription):
     # Given: Existing subscription
     # When: Create subscription
@@ -23,12 +24,14 @@ def test_create_existing_error(existing_topic, existing_subscription):
     with pytest.raises(AlreadyExists):
         existing_subscription.create(existing_topic.topic_id, exist_ok=False)
 
+
 def test_create_existing_OK(existing_topic, existing_subscription):
     # Given: Existing subscription
     # When: Create subscription with exists_ok = True
     existing_subscription.create(existing_topic.topic_id, exist_ok=True)
     # Then: Exception is NOT raised
     assert True
+
 
 def test_not_exists():
     # Given: Existing topic and subscription object
@@ -63,6 +66,7 @@ def test_is_empty(existing_subscription):
     # When: Check if is_empty
     # Then: Return true
     assert existing_subscription.is_empty()
+
 
 def test_clear(existing_topic, existing_subscription):
     # Given: Existing topic & subscription
