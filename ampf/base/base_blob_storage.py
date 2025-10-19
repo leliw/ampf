@@ -19,7 +19,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
         """Initializes the storage
 
         Args:
-            bucket_name: The name of the bucket
+            collection_name: The name of the collection (root folder)
             clazz: The class of the metadata
             content_type: The content type of the blob
         """

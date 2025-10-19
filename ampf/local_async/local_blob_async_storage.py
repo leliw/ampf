@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, List, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base.exceptions import KeyNotExistsException
+from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
@@ -161,11 +161,27 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         except FileNotFoundError:
             raise KeyNotExistsException
 
-    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+    @override
+    async def _upsert_transactional(
+        self,
+        name: str,
+        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
+        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+    ) -> None:
         async with self.transaction_lock:
-            blob = await self.download_async(name)
-            updated_blob = await update_func(blob)
-            await self.upload_async(updated_blob)
+            try:
+                blob = await self.download_async(name)
+                if update_func:
+                    updated_blob = await update_func(blob)
+                    await self.upload_async(updated_blob)
+                else:
+                    raise KeyExistsException(self.collection_name, self.clazz, name)
+            except KeyNotExistsException as e:
+                if not create_func:
+                    raise e
+                created_blob = await create_func(name)
+                await self.upload_async(created_blob)
+
 
 class LocalBlobAsyncStorage[T: BaseModel](LocalAsyncBlobStorage[T]):
     pass

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob
-from ampf.base.exceptions import KeyNotExistsException
+from ampf.base.exceptions import KeyNotExistsException, KeyExistsException
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
 
@@ -29,6 +29,8 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
+        self.max_retries_per_tansaction = 5
+
 
     def _get_signed_url(
         self, name: str, method: str, content_type: Optional[str] = None, expiration: int = 3600
@@ -44,7 +46,7 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
         """
         try:
             creds, _ = google.auth.default()
-            creds.refresh(google.auth.transport.requests.Request()) # type: ignore
+            creds.refresh(google.auth.transport.requests.Request())  # type: ignore
         except google.auth.exceptions.RefreshError:
             creds = None
 
@@ -55,7 +57,7 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
             method=method,
             content_type=content_type,
             service_account_email=creds.service_account_email if creds else None,  # type: ignore
-            access_token=creds.token if creds else None, # type: ignore
+            access_token=creds.token if creds else None,  # type: ignore
         )
         return signed_url
 
@@ -98,36 +100,50 @@ class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage
 
         return Blob(name=name, data=data, content_type=response.content_type, metadata=metadata)
 
-    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
-        storage_blob = self._get_blob(name)
-        if not storage_blob.exists():
-            raise KeyNotExistsException(self.collection_name, self.clazz, name)
-        max_retries = 5
-        for attempt in range(max_retries):
+    async def _upsert_transactional(
+        self,
+        name: str,
+        create_func: Callable[[str], Awaitable[Blob[T]]],
+        update_func: Callable[[Blob[T]], Awaitable[Blob[T]]],
+    ) -> None:
+
+        for attempt in range(self.max_retries_per_tansaction):
             try:
+                # Try to get the blob to see if it exists and get its generation
                 storage_blob = self._get_blob(name)
-                data = storage_blob.download_as_bytes()
-                curr_generation = storage_blob.generation
-                if curr_generation is None:
-                    raise exceptions.PreconditionFailed("Blob generation is None")
-                content_type = storage_blob.content_type
-                metadata = self.get_metadata(name)
-                blob = Blob(name=name, data=data, content_type=content_type, metadata=metadata)
-                updated_blob = await update_func(blob)
+                try:
+                    storage_blob.reload()  # Get the latest metadata, including generation
+                    data = storage_blob.download_as_bytes()
+                    generation_to_match = storage_blob.generation
+                    content_type = storage_blob.content_type
+                    metadata = self.get_metadata(name)
+                    blob = Blob(name=name, data=data, content_type=content_type, metadata=metadata)
+                    if update_func:
+                        # Apply the user-defined update/creation logic
+                        new_blob = await update_func(blob)
+                    else:
+                        raise KeyExistsException(self.collection_name, self.clazz, name)
+                except exceptions.NotFound:
+                    if not create_func:
+                        raise KeyNotExistsException(self.collection_name, self.clazz, name)
+                    # Blob does not exist, prepare to create it
+                    generation_to_match = 0
+                    new_blob = await create_func(name)
+
+                # Perform the conditional upload
                 storage_blob.upload_from_string(
-                    updated_blob.data.read(),
-                    content_type=updated_blob.content_type or self.content_type,
-                    if_generation_match=curr_generation,
+                    new_blob.data.read(),
+                    content_type=new_blob.content_type or self.content_type,
+                    if_generation_match=generation_to_match,
                 )
-                return
+
+                if new_blob.metadata:
+                    self.put_metadata(name, new_blob.metadata)
+
+                return  # Success
+
             except exceptions.PreconditionFailed as e:
-                if attempt == max_retries - 1:
-                    raise e
-                await asyncio.sleep(0.5 * (attempt + 1))
-
-            except exceptions.NotFound:
-                raise KeyNotExistsException(self.collection_name, self.clazz, name)
-
-            except Exception as e:
-                self._log.error(f"Error during transactional update of blob '{name}': {e}")
-                raise e
+                self._log.warning(f"Precondition failed on attempt {attempt + 1} for blob '{name}'. Retrying...")
+                if attempt == self.max_retries_per_tansaction - 1:
+                    raise e  # Re-raise after the last attempt
+                await asyncio.sleep(0.1 * (2**attempt))  # Exponential backoff

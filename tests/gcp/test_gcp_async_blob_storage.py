@@ -17,9 +17,9 @@ class SampleMetadata(BaseModel):
 
 
 @pytest.fixture
-def storage(gcp_async_factory: GcpAsyncFactory) -> BaseAsyncBlobStorage[SampleMetadata]: # type: ignore
+def storage(gcp_async_factory: GcpAsyncFactory) -> BaseAsyncBlobStorage[SampleMetadata]:  # type: ignore
     storage = gcp_async_factory.create_blob_storage("test_collection", SampleMetadata)
-    yield storage # type: ignore
+    yield storage  # type: ignore
     storage.drop()
 
 
@@ -70,3 +70,69 @@ async def test_update_transactional_non_existent_blob(storage: BaseAsyncBlobStor
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)
+
+
+# ----- upsert_transactional
+
+
+async def create_func(name: str) -> Blob[SampleMetadata]:
+    return Blob(name=name, data=b"new_data")
+
+
+async def update_func(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
+    return Blob(name=b.name, data=b.data.read() + b"_updated")
+
+
+@pytest.mark.asyncio
+async def test_upsert_transactional_creates_new_blob(storage: BaseAsyncBlobStorage):
+    # Given: create & update functions
+    assert create_func
+    assert update_func
+    # When: Create new blob
+    await storage.upsert_transactional("new_blob", create_func, update_func)
+    # Then: Blob is created
+    created_blob = await storage.download_async("new_blob")
+    assert created_blob.data.read() == b"new_data"
+
+
+@pytest.mark.asyncio
+async def test_upsert_transactional_updates_existing_blob(storage: BaseAsyncBlobStorage):
+    # Given: create & update functions
+    assert create_func
+    assert update_func
+    # And: A stored blob
+    blob = Blob(name="existing_blob", data=b"initial_data")
+    await storage.upload_async(blob)
+    # When: Update existing blob
+    await storage.upsert_transactional("existing_blob", create_func, update_func)
+    # Then: Blob is updated
+    updated_blob = await storage.download_async("existing_blob")
+    assert updated_blob.data.read() == b"initial_data_updated"
+
+
+@pytest.mark.asyncio
+async def test_upsert_transactional_concurrent_creation(storage: BaseAsyncBlobStorage):
+    # Two coroutines try to create the same blob. One will create, the other will update.
+
+    async def create_func1(name: str) -> Blob[SampleMetadata]:
+        await asyncio.sleep(0.1)  # Simulate some processing delay
+        return Blob(name=name, data=b"created1")
+
+    async def create_func2(name: str) -> Blob[SampleMetadata]:
+        return Blob(name=name, data=b"created2")
+
+    async def update_func1(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
+        await asyncio.sleep(0.1)  # Simulate some processing delay
+        return Blob(name=b.name, data=b.data.read() + b"_updated1")
+
+    async def update_func2(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
+        return Blob(name=b.name, data=b.data.read() + b"_updated2")
+
+    await asyncio.gather(
+        storage.upsert_transactional("concurrent_blob", create_func1, update_func1),
+        storage.upsert_transactional("concurrent_blob", create_func2, update_func2),
+    )
+
+    final_blob = await storage.download_async("concurrent_blob")
+    # The final result depends on which function executed first on the final successful write
+    assert final_blob.data.read() == b"created2_updated1" or final_blob.data.read() == b"created1_updated2"

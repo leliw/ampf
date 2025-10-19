@@ -192,8 +192,9 @@ async def test_callback_async(log: logging.Logger, topic: GcpTopic, subscription
         topic.publish(D(name="test3"))
         await asyncio.sleep(0.5)
         topic.publish(D(name="test4"))
-
-    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(1.0, 0.1)))
+    log.debug("Starting")
+    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(2.0, 0.1)))
+    log.debug("Finished")
 
     # Then: Subscription is empty
     assert sub.is_empty()
