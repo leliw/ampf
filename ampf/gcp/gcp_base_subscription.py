@@ -6,6 +6,8 @@ from typing import Optional, Self, Type
 from google.api_core.exceptions import AlreadyExists, DeadlineExceeded, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
 from pydantic import BaseModel
+import asyncio
+
 
 
 class GcpBaseSubscription[T: BaseModel](ABC):
@@ -86,6 +88,18 @@ class GcpBaseSubscription[T: BaseModel](ABC):
             return not response.received_messages
         except Exception:
             return True
+
+    async def wait_until_empty(self, timeout: float = 5.0, check_interval: float = 1.0) -> None:
+        """Waits until the subscription is empty or the timeout is reached.
+        Args:
+            time_out: The maximum time to wait in seconds.
+            check_interval: The interval between checks in seconds.
+        """
+        total_waited = 0.0
+        while total_waited < timeout and not self.is_empty():
+            await asyncio.sleep(check_interval)
+            total_waited += check_interval
+        assert self.is_empty(), "Subscription is not empty after waiting"
 
     def clear(self):
         """Clears the subscription of all messages."""

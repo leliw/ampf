@@ -18,6 +18,7 @@
 * `run_push_emulator(self, client: TestClient, endpoint: str) -> GcpPubsubPushEmulator` - Runs a push emulator that listens for messages from the subscription and forwards them to the specified FastAPI endpoint using the provided `TestClient`. It returns a `GcpPubsubPushEmulator` object that can be used to check the status of the emulator and retrieve received messages and responses.
 * `exists(self) -> bool` - Checks if the subscription exists in GCP.
 * `clear(self)` -> None - Clears all pending messages in the subscription.
+* `wait_until_empty(self, timeout: float = 5.0, check_interval: float = 1.0) -> None` - Waits until the subscription is empty or the timeout is reached. It checks the subscription every `check_interval` seconds. Useful for testing.
 
 ## Usage
 
