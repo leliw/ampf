@@ -35,7 +35,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             subscriber: The subscriber client.
         """
         super().__init__(subscription_id, project_id, clazz, subscriber)
-        self.is_runnig = False
+        self.is_running = False
         self.loop = loop
 
     async def run_and_exit(self, processing_timeout: float = 5.0, per_message_timeout: float = 1.0):
@@ -47,7 +47,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         """
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
-        self.is_runnig = True
+        self.is_running = True
         self.end_time = time.time() + self.processing_timeout if self.processing_timeout else None
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         await self._run()
@@ -59,7 +59,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             per_message_timeout: The maximum time in seconds to wait for a single message.
         """
         self.per_message_timeout = per_message_timeout
-        self.is_runnig = True
+        self.is_running = True
         self.end_time = None
         loop = asyncio.get_running_loop()
         loop.create_task(self._run())
@@ -104,6 +104,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         self.future.cancel()
 
     def _callback(self, message: Message):
+        self._log.debug("Received message %s", message.message_id)
         req = GcpPubsubRequest.create_from_message(message, self.subscription_id)
         if self.callback(req):
             message.ack()
@@ -114,12 +115,22 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
 
     async def _run(self):
         """Runs the subscription, listening for messages and invoking the callback."""
+        self._log.info("Starting GCP subscription pull for %s", self.subscription_path)
         self.future = self.subscriber.subscribe(self.subscription_path, callback=self._callback)
         try:
             while not self.end_time or time.time() < self.end_time:
+                if self.future.done():
+                    e = self.future.exception()
+                    if e:
+                        raise e
+                self._log.debug("Waiting for messages...")
                 await asyncio.sleep(self.per_message_timeout)
-                if not self.is_runnig:
+                if not self.is_running:
                     break
+            self._log.debug("Stopping subscription pull for %s", self.subscription_path)
+        except Exception as e:
+            self._log.exception(e)
+            raise e
         finally:
             if self.future.running():
                 self.future.cancel()

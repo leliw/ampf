@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, List, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base import KeyNotExistsException
+from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import Blob, BlobHeader
 
@@ -31,9 +31,18 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
             raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
 
     @override
+    def get_metadata(self, key: str) -> Optional[T]:
+        try:
+            return self.buckets[self.collection_name][key].metadata
+        except KeyError:
+            raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
+    
+    @override
     def delete(self, key: str) -> None:
         if key in self.buckets[self.collection_name]:
             del self.buckets[self.collection_name][key]
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     @override
     def exists(self, key: str) -> bool:
@@ -47,11 +56,26 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
                 blobs.append(BlobHeader(name=name, content_type=blob.content_type, metadata=blob.metadata))
         return blobs
 
-    async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
+    @override
+    async def _upsert_transactional(
+        self,
+        name: str,
+        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
+        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+    ) -> None:
         async with self.transaction_lock:
-            blob = await self.download_async(name)
-            updated_blob = await update_func(blob)
-            await self.upload_async(updated_blob)
+            try:
+                blob = await self.download_async(name)
+                if update_func:
+                    updated_blob = await update_func(blob)
+                    await self.upload_async(updated_blob)
+                else:
+                    raise KeyExistsException(self.collection_name, self.clazz, name)
+            except KeyNotExistsException as e:
+                if not create_func:
+                    raise e
+                created_blob = await create_func(name)
+                await self.upload_async(created_blob)
 
 
 # deprecated

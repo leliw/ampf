@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import signal
+from uuid import uuid4
 
 import pytest
+from google.api_core.exceptions import InvalidArgument
 from pydantic import BaseModel
 
 from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
@@ -32,6 +34,17 @@ async def test_run_and_exit_empty(topic: GcpTopic, subscription: GcpSubscription
     await sub.run_and_exit(1)
     # Then: Subscription is empty
     assert sub.is_empty()
+
+
+@pytest.mark.asyncio
+async def test_not_existing():
+    # Given: An empty Pub/Sub subcription
+    sub = GcpSubscriptionPull(uuid4().hex)
+    # When: Run pull subscription
+    # Then: Exception is raised
+    with pytest.raises(InvalidArgument) as e:
+        await sub.run_and_exit(3)
+    assert "Invalid resource name" in str(e)
 
 
 @pytest.mark.asyncio
@@ -193,7 +206,9 @@ async def test_callback_async(log: logging.Logger, topic: GcpTopic, subscription
         await asyncio.sleep(0.5)
         topic.publish(D(name="test4"))
 
-    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(1.0, 0.1)))
+    log.debug("Starting")
+    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(2.0, 0.1)))
+    log.debug("Finished")
 
     # Then: Subscription is empty
     assert sub.is_empty()

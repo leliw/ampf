@@ -3,6 +3,8 @@ from typing import Awaitable, Callable, Iterable, List, Optional, Type
 
 from pydantic import BaseModel
 
+from ampf.base.exceptions import KeyExistsException, KeyNotExistsException  # noqa: F401
+
 from .blob_model import Blob, BlobHeader
 
 
@@ -88,8 +90,36 @@ class BaseAsyncBlobStorage[T: BaseModel](ABC):
         for name in self.names(folder_name):
             self.delete(name)
 
+    async def insert_transactional(self, name: str, create_func: Callable[[str], Awaitable[Blob[T]]]) -> None:
+        await self._upsert_transactional(name, create_func, None)
+
     async def update_transactional(self, name: str, update_func: Callable[[Blob[T]], Awaitable[Blob[T]]]) -> None:
-        # blob = await self.download_async(name)
-        # updated_blob = await update_func(blob)
-        # await self.upload_async(updated_blob)
+        await self._upsert_transactional(name, None, update_func)
+
+    async def upsert_transactional(
+        self,
+        name: str,
+        create_func: Callable[[str], Awaitable[Blob[T]]],
+        update_func: Callable[[Blob[T]], Awaitable[Blob[T]]],
+    ) -> None:
+        await self._upsert_transactional(name, create_func, update_func)
+
+    async def _upsert_transactional(
+        self,
+        name: str,
+        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
+        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+    ) -> None:
+        # try:
+        #     blob = await self.download_async(name)
+        #     if update_func:
+        #         updated_blob = await update_func(blob)
+        #         await self.upload_async(updated_blob)
+        #     else:
+        #         raise KeyExistsException(self.collection_name, self.clazz, name)
+        # except KeyNotExistsException as e:
+        #     if not create_func:
+        #         raise e
+        #     created_blob = await create_func(name)
+        #     await self.upload_async(created_blob)
         raise NotImplementedError("This method should be overridden if needed.")
