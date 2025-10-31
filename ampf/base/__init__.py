@@ -12,7 +12,7 @@ from .base_factory import BaseFactory
 from .base_query import BaseQuery
 from .base_query_storage import BaseQueryStorage
 from .base_storage import BaseStorage
-from .blob_model import Blob, BlobHeader, BlobCreate
+from .blob_model import Blob, BlobHeader, BlobCreate, BlobData
 from .collection_def import CollectionDef
 from .email_template import EmailTemplate
 from .exceptions import KeyExistsException, KeyNotExistsException
@@ -44,4 +44,5 @@ __all__ = [
     "Blob",
     "BlobHeader",
     "BlobCreate",
+    "BlobData",
 ]

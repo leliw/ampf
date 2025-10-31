@@ -1,8 +1,10 @@
-from io import BytesIO, StringIO
+from io import BytesIO
 from tempfile import SpooledTemporaryFile
 from typing import BinaryIO, Optional
 
 from pydantic import BaseModel, ConfigDict
+
+type BlobData = BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile
 
 
 class BlobCreate[T: BaseModel](BaseModel):
@@ -11,7 +13,7 @@ class BlobCreate[T: BaseModel](BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: Optional[str] = None
-    data: BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile
+    data: BlobData
     content_type: Optional[str] = None
     metadata: Optional[T] = None
 
@@ -33,7 +35,7 @@ class Blob[T: BaseModel](BlobHeader[T]):
     def __init__(
         self,
         name: str,
-        data: BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile,
+        data: BlobData,
         content_type: Optional[str] = None,
         metadata: Optional[T] = None,
     ):
@@ -50,7 +52,7 @@ class Blob[T: BaseModel](BlobHeader[T]):
         elif isinstance(self._data, str):
             return BytesIO(self._data.encode())
         else:
-            return BytesIO(self._data) # type: ignore
+            return BytesIO(self._data)  # type: ignore
 
     @data.setter
     def data(self, value: BinaryIO | BytesIO | bytes | str):
