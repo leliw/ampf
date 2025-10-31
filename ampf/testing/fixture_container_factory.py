@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 import pytest
 import requests
@@ -12,9 +13,35 @@ try:
     def docker_client():
         return docker.from_env()
 
+    @pytest.fixture(scope="session")
+    def container_network_factory(docker_client: docker.DockerClient):
+        """Fixture providing a factory to start Docker networks."""
+
+        created_networks = []
+
+        def _start_network(name: str):
+            """Start a Docker network and return its ID.
+
+            Args:
+                name (str): Network name.
+            Returns:
+                str: ID of the started network.
+            """
+            try:
+                network = docker_client.networks.get(name)
+            except docker.errors.NotFound:
+                network = docker_client.networks.create(name)
+                created_networks.append(network)
+            return network.id
+
+        yield _start_network
+
+        # Cleanup all started networks
+        for network in created_networks:
+            network.remove()
 
     @pytest.fixture(scope="session")
-    def container_factory(docker_client: docker.DockerClient): # type: ignore
+    def container_factory(docker_client: docker.DockerClient):  # type: ignore
         """Fixture providing a factory to start Docker containers."""
 
         containers = []
@@ -26,6 +53,8 @@ try:
             wait_for_http: str | None = None,
             timeout: int = 60,
             gpus: bool = False,
+            environment: Optional[dict[str, str]] = None,
+            network: Optional[str] = None,
         ) -> str:
             """Start a Docker container and return exposed host port.
 
@@ -59,6 +88,8 @@ try:
                 ]
                 if gpus
                 else None,
+                environment=environment,
+                network=network,
             )
             containers.append(container)
 
@@ -89,5 +120,11 @@ try:
             except Exception:
                 pass
 except ImportError:
+
+    @pytest.fixture(scope="session")
     def container_factory(docker_client):
+        raise RuntimeError("Docker SDK is not installed")
+
+    @pytest.fixture(scope="session")
+    def container_network_factory(docker_client):
         raise RuntimeError("Docker SDK is not installed")
