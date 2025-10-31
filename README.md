@@ -25,6 +25,7 @@ Set of helper classes:
   * [subscription_factory](doc/testing/subscription_factory.md) - helper for creating GCP Pub/Sub subscription
   * [cloud_run_proxy_factory](doc/testing/cloud_run_proxy_factory.md) - helper for running proxy to GCP Cloud Run service.
   * [container_factory](doc/testing/container_factory.md) - helper for running docker container.
+  * [pubsub_manager](doc/testing/pubsub_manager.md) - helper for managing GCP Pub/Sub topics and subscriptions during testing.
   
 ## Build and publish
 
