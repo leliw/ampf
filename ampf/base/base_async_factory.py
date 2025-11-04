@@ -53,7 +53,7 @@ class BaseAsyncFactory(ABC):
 
     @abstractmethod
     def create_blob_storage[T: BaseModel](
-        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
+        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None, bucket_name: Optional[str] = None
     ) -> BaseAsyncBlobStorage[T]:
         """Creates blob storage for items of given class.
 
@@ -61,6 +61,7 @@ class BaseAsyncFactory(ABC):
             collection_name: name of the collection where blobs are stored
             clazz: class of metadata
             content_type: content type of blobs
+            bucket_name: name of the bucket where blobs are stored
         Returns:
             Blob storage object.
         """

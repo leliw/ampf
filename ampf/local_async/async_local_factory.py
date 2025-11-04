@@ -10,7 +10,7 @@ from .json_one_file_async_storage import JsonOneFileAsyncStorage
 from .local_blob_async_storage import LocalBlobAsyncStorage
 
 
-class AsyncLocalFactory(BaseAsyncFactory):
+class LocalAsyncFactory(BaseAsyncFactory):
     def __init__(self, root_path: StrPath):
         self._root_path = Path(root_path)
 
@@ -41,6 +41,12 @@ class AsyncLocalFactory(BaseAsyncFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
+        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain", bucket_name: Optional[str] = None
     ) -> BaseAsyncBlobStorage[T]:
+        if bucket_name:
+            raise NotImplementedError("Bucket support is not implemented in LocalBlobAsyncStorage")
         return LocalBlobAsyncStorage(collection_name, clazz, content_type, root_path=self._root_path / "blobs")
+
+# deprecated
+class AsyncLocalFactory(LocalAsyncFactory):
+    pass
