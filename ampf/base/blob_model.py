@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict
 type BlobData = BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile
 
 
+class BlobLocation(BaseModel):
+    """Blob location, containing bucket and name."""
+
+    bucket: Optional[str] = None
+    name: str
+
+
 class BlobCreate[T: BaseModel](BaseModel):
     """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
 
@@ -42,7 +49,7 @@ class Blob[T: BaseModel](BlobHeader[T]):
     ):
         super().__init__(name=name, content_type=content_type, metadata=metadata)
         if data:
-            self.data = data # type: ignore # setter
+            self.data = data  # type: ignore # setter
         elif content:
             self.data = content
         else:
@@ -58,7 +65,7 @@ class Blob[T: BaseModel](BlobHeader[T]):
         elif isinstance(self._data, str):
             return BytesIO(self._data.encode())
         else:
-            return BytesIO(self._data) # type: ignore
+            return BytesIO(self._data)  # type: ignore
 
     @data.setter
     def data(self, value: BinaryIO | BytesIO | bytes | str):

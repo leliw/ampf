@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Type
+from typing import Callable, Dict, Optional, Type
 
 from pydantic import BaseModel
 
@@ -9,7 +9,7 @@ from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections = {}
+    collections: Dict[str,InMemoryStorage] = {}
 
     def create_storage[T: BaseModel](
         self,
@@ -25,9 +25,13 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
                 key_name=key_name,
                 key=key,
             )
-        return self.collections.get(collection_name)
+        return self.collections.get(collection_name) # type: ignore
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], content_type: Optional[str] = None
+        self,
+        collection_name: str,
+        clazz: Optional[Type[T]] = None,
+        content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)

@@ -12,7 +12,7 @@ from .base_factory import BaseFactory
 from .base_query import BaseQuery
 from .base_query_storage import BaseQueryStorage
 from .base_storage import BaseStorage
-from .blob_model import Blob, BlobHeader, BlobCreate, BlobData
+from .blob_model import Blob, BlobCreate, BlobData, BlobHeader, BlobLocation
 from .collection_def import CollectionDef
 from .email_template import EmailTemplate
 from .exceptions import KeyExistsException, KeyNotExistsException
@@ -25,12 +25,10 @@ __all__ = [
     "BaseStorage",
     "BaseAsyncStorage",
     "BaseAsyncCollectionStorage",
-
     "BaseQuery",
     "BaseQueryStorage",
     "BaseAsyncQuery",
     "BaseAsyncQueryStorage",
-
     "KeyExistsException",
     "KeyNotExistsException",
     "BaseBlobStorage",
@@ -45,4 +43,5 @@ __all__ = [
     "BlobHeader",
     "BlobCreate",
     "BlobData",
+    "BlobLocation",
 ]

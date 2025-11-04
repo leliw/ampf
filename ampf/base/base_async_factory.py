@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, Type
 
@@ -6,7 +7,11 @@ from pydantic import BaseModel
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
 from .base_async_query_storage import BaseAsyncQueryStorage
+from .blob_model import Blob, BlobLocation
 from .collection_def import CollectionDef
+from .exceptions import KeyNotExistsException
+
+_log = logging.getLogger(__name__)
 
 
 class BaseAsyncFactory(ABC):
@@ -53,7 +58,11 @@ class BaseAsyncFactory(ABC):
 
     @abstractmethod
     def create_blob_storage[T: BaseModel](
-        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None, bucket_name: Optional[str] = None
+        self,
+        collection_name: Optional[str] = None,
+        clazz: Optional[Type[T]] = None,
+        content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:
         """Creates blob storage for items of given class.
 
@@ -87,3 +96,29 @@ class BaseAsyncFactory(ABC):
             Collection object.
         """
         return self.create_collection(root)
+
+    async def download_blob(self, blob_location: BlobLocation) -> Blob:
+        """Downloads a blob from the specified file location.
+
+        Args:
+            file_location (FileLocation): The location of the file to load.
+
+        Returns:
+            Blob: The loaded blob.
+        """
+        try:
+            bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+            return await bs.download_async(blob_location.name)
+        except KeyNotExistsException as e:
+            _log.warning("Error translating file: %s", blob_location.name)
+            raise e
+
+    async def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
+        """Uploads a blob to the specified file location.
+
+        Args:
+            file_location (FileLocation): The location to save the blob.
+            blob (Blob): The blob to save.
+        """
+        bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+        await bs.upload_async(blob)

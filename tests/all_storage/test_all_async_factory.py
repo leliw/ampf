@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
+from ampf.base.blob_model import Blob, BlobLocation
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local_async import AsyncLocalFactory
@@ -36,3 +37,16 @@ def test_create_blob_storage(factory):
     storage = factory.create_blob_storage("test", T, )
 
     assert storage is not None
+
+
+@pytest.mark.asyncio
+async def test_upload_and_download_blob(factory):
+    # Given: A blob and a blob location
+    blob_location = BlobLocation(name="blob_test.txt")
+    blob = Blob(name="blob_test.txt", data=b"test data")
+    # When: A blob is uploaded
+    await factory.upload_blob(blob_location, blob)
+    # Then: It can be downloaded
+    blob = await factory.download_blob(blob_location)
+    assert blob.content == b"test data"
+

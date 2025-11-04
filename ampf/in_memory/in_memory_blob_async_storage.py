@@ -11,7 +11,7 @@ from ampf.base.blob_model import Blob, BlobHeader
 class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
     buckets = {}
 
-    def __init__(self, collection_name: str, clazz: Type[T], content_type: Optional[str] = None):
+    def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
         self.collection_name = collection_name
         self.clazz = clazz
         self.content_type = content_type
