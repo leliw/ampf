@@ -55,18 +55,18 @@ async def async_job_storage(gcp_factory: GcpFactory, collection_name: str):
 
 
 def test_storage(storage: GcpStorage[TC]):
-    storage.put("1", TC(name="test"))
+    storage.put("test", TC(name="test"))
 
-    assert storage.get("1") == TC(name="test")
-    assert list(storage.keys()) == ["1"]
+    assert storage.get("test") == TC(name="test")
+    assert list(storage.keys()) == ["test"]
     assert list(storage.get_all()) == [TC(name="test")]
 
-    storage.delete("1")
+    storage.delete("test")
 
     assert list(storage.keys()) == []
 
-    storage.put("2", TC(name="test2"))
-    storage.put("3", TC(name="test3"))
+    storage.put("test2", TC(name="test2"))
+    storage.put("test3", TC(name="test3"))
     storage.drop()
 
     assert list(storage.keys()) == []
@@ -102,8 +102,8 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
     tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
     # When: Save them
-    await async_storage.put("1", tc1)
-    await async_storage.put("2", tc2)
+    await async_storage.put("test1", tc1)
+    await async_storage.put("test2", tc2)
     # And: Find nearest
     nearest = list([x async for x in async_storage.find_nearest(tc1.embedding or [])])
     # Then: All two are returned
@@ -124,8 +124,8 @@ async def test_async_where_embedding(async_storage: GcpAsyncStorage[TC]):
     tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
     tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
     # When: Save them
-    await async_storage.put("1", tc1)
-    await async_storage.put("2", tc2)
+    await async_storage.put("test1", tc1)
+    await async_storage.put("test2", tc2)
     # And: Find nearest
     nearest = list([x async for x in async_storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])])
     # Then: All two are returned

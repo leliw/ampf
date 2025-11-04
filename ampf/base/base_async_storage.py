@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Literal, Optional, Tuple, Type
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Dict, List, Literal, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -58,6 +58,25 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         if await self.key_exists(key):
             raise KeyExistsException
         await self.put(key, value)
+
+    async def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+        """Patch the object with new data.
+
+        Args:
+            key: The key of the object to patch.
+            patch_data: The data to patch the object with. Can be a Pydantic model or a dictionary.
+
+        Returns:
+            The patched object.
+        """
+        if isinstance(patch_data, BaseModel):
+            patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
+        else:
+            patch_dict = patch_data
+        data = await self.get(key)
+        data.__dict__.update(patch_dict)
+        await self.put(key, data)
+        return data
 
     async def save(self, value: T) -> None:
         key = self.get_key(value)

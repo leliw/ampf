@@ -35,7 +35,7 @@ def test_simple_key_all(storage):
 
 
 def test_folder_key_all(storage):
-    d = D(name="foo", value="beer")
+    d = D(name="kung/foo", value="beer")
     storage.put("kung/foo", d)
 
     assert ["kung/foo"] == list(storage.keys())

@@ -111,6 +111,57 @@ async def test_create_already_exists(storage: BaseAsyncStorage):
 
 
 @pytest.mark.asyncio
+async def test_patch_not_exists(storage: BaseAsyncStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # When: I patch not existing object
+    with pytest.raises(KeyNotExistsException):
+        await storage.patch("foo", patch_data)
+
+
+@pytest.mark.asyncio
+async def test_patch_with_dict(storage: BaseAsyncStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # And: A stored object
+    await storage.create(D(name="foo", value="beer"))
+    # When: I patch not existing object
+    await storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == await storage.get("foo")
+
+
+@pytest.mark.asyncio
+async def test_patch_with_pydantic(storage: BaseAsyncStorage):
+    # Given: A patch data
+    class DPatch(BaseModel):
+        name: Optional[str] = None
+        value: Optional[str] = None
+
+    patch_data = DPatch(value="wine")
+    # And: A stored object
+    await storage.create(D(name="foo", value="beer"))
+    # When: I patch existing object
+    await storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == await storage.get("foo")
+
+
+@pytest.mark.asyncio
+async def test_patch_key_value(storage: BaseAsyncStorage):
+    # Given: A stored object
+    await storage.create(D(name="foo", value="beer"))
+    # When: I patch with new key
+    await storage.patch("foo", {"name": "bar"})
+    # Then: An old key doesn't exist
+    with pytest.raises(KeyNotExistsException):
+        await storage.get("foo")
+    # And: A new key exists   
+    assert D(name="bar", value="beer") == await storage.get("bar")
+
+
+
+@pytest.mark.asyncio
 async def test_save_not_exists(storage: BaseAsyncStorage):
     # Given: A new element
     d = D(name="foo", value="beer")
@@ -260,3 +311,34 @@ async def test_query_uuid(storage_uuid: BaseAsyncQueryStorage):
     ret = [item async for item in storage_uuid.where("uuid", "==", d.uuid).get_all()]
     # Then: The element is returned
     assert len(ret) == 1
+
+
+@pytest.mark.asyncio
+async def test_put_not_exists(storage: BaseAsyncStorage):
+    # When: I put a new object
+    await storage.put("foo", D(name="foo", value="wine"))
+    # Then: It is changed
+    assert (await storage.get("foo")).value == "wine"
+
+
+@pytest.mark.asyncio
+async def test_put_exists(storage: BaseAsyncStorage):
+    # Given: A new saved element
+    await storage.create(D(name="foo", value="beer"))
+    # When: I put a new value
+    await storage.put("foo", D(name="foo", value="wine"))
+    # Then: It is changed
+    assert (await storage.get("foo")).value == "wine"
+
+@pytest.mark.asyncio
+async def test_put_new_key(storage: BaseAsyncStorage):
+    # Given: A new saved element
+    await storage.create(D(name="foo", value="beer"))
+    # When: I put a new key
+    await storage.put("foo", D(name="foo2", value="beer"))
+    # Then: Oryginal object does'n exist
+    with pytest.raises(KeyNotExistsException):
+        await storage.get("foo")
+    # And: New object exists
+    assert (await storage.get("foo2")).value == "beer"
+

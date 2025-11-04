@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterable, Iterator, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -69,6 +69,25 @@ class BaseStorage[T: BaseModel](ABC):
             raise KeyExistsException
         self.put(key, value)
 
+    def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+        """Patch the object with new data.
+
+        Args:
+            key: The key of the object to patch.
+            patch_data: The data to patch the object with. Can be a Pydantic model or a dictionary.
+
+        Returns:
+            The patched object.
+        """
+        if isinstance(patch_data, BaseModel):
+            patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
+        else:
+            patch_dict = patch_data
+        data = self.get(key)
+        data.__dict__.update(patch_dict)
+        self.put(key, data)
+        return data
+    
     def save(self, value: T) -> None:
         """Save the value in the storage. The key is calculated based on the value.
         If the key already exists, it will be overwritten.

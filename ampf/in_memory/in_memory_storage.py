@@ -20,7 +20,12 @@ class InMemoryStorage[T: BaseModel](BaseQueryStorage[T]):
         self.items: Dict[str, T] = {}
 
     def put(self, key: Any, value: T) -> None:
-        self.items[str(key)] = value.model_copy(deep=True)
+        new_key = self.get_key(value)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key and str(key) in self.items:
+            self.items.pop(str(key))
+        # Store the value with the new key
+        self.items[str(new_key)] = value.model_copy(deep=True)
 
     def get(self, key: Any) -> T:
         ret = self.items.get(str(key))

@@ -110,7 +110,45 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         """Put a document in the collection."""
         data_dict = data.model_dump(by_alias=True, exclude_none=True)
         data_dict = self.on_before_save(data_dict)  # Preprocess data
-        await self._coll_ref.document(str(key)).set(data_dict)
+        new_key = self.get_key(data)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key:
+
+            @firestore.async_transactional
+            async def run_in_transaction(transaction):
+                await self.delete(key)
+                await self._coll_ref.document(new_key).set(data_dict)
+
+            async with self._db.transaction() as transaction:
+                await run_in_transaction(transaction)
+        else:
+            await self._coll_ref.document(new_key).set(data_dict)
+
+    async def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+        """Patch the object with new data.
+
+        Args:
+            key: The key of the object to patch.
+            patch_data: The data to patch the object with. Can be a Pydantic model or a dictionary.
+
+        Returns:
+            The patched object.
+        """
+        if isinstance(patch_data, BaseModel):
+            patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
+        else:
+            patch_dict = patch_data
+        doc_ref = self._coll_ref.document(str(key))
+        if (await doc_ref.get()).exists:
+            await doc_ref.update(patch_dict)
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        data = (await doc_ref.get()).to_dict()
+        new_value = self.clazz.model_validate(data)
+        if self.get_key(new_value) != key:
+            await doc_ref.delete()
+            await self.create(new_value)
+        return new_value
 
     async def get(self, key: Any) -> T:
         """Get a document from the collection."""
@@ -119,8 +157,7 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         if data:
             return self.clazz.model_validate(data)
         else:
-            raise KeyNotExistsException(self.collection_name, self.clazz,key)
-
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     async def keys(self) -> AsyncIterator[str]:
         """Return a list of keys in the collection."""

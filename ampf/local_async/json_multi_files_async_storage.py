@@ -40,6 +40,13 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
 
     async def put(self, key: Any, value: T) -> None:
         key = str(key)
+        new_key = self.get_key(value)
+        # If the key of the value has changed, remove the old key
+        if key != new_key:
+            await self.delete(key)
+            # Store the value with the new key
+            key = new_key
+
         full_path = self._key_to_full_path(key)
         json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         await self._async_write_to_file(full_path, json_str)

@@ -1,8 +1,10 @@
 from typing import List, Optional
-from pydantic import BaseModel
+
 import pytest
+from pydantic import BaseModel
 
 from ampf.base import BaseStorage, KeyExistsException
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory import InMemoryStorage
 
 
@@ -34,6 +36,52 @@ def test_create_already_exists(storage: BaseStorage):
     # I try to create it again
     with pytest.raises(KeyExistsException):
         storage.create(d)
+
+
+def test_patch_not_exists(storage: BaseStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # When: I patch not existing object
+    with pytest.raises(KeyNotExistsException):
+        storage.patch("foo", patch_data)
+
+
+def test_patch_with_dict(storage: BaseStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # And: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch not existing object
+    storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == storage.get("foo")
+
+
+def test_patch_with_pydantic(storage: BaseStorage):
+    # Given: A patch data
+    class DPatch(BaseModel):
+        name: Optional[str] = None
+        value: Optional[str] = None
+
+    patch_data = DPatch(value="wine")
+    # And: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch existing object
+    storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == storage.get("foo")
+
+
+def test_patch_key_value(storage: BaseStorage):
+    # Given: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch with new key
+    storage.patch("foo", {"name": "bar"})
+    # Then: An old key doesn't exist
+    with pytest.raises(KeyNotExistsException):
+        storage.get("foo")
+    # And: A new key exists
+    assert D(name="bar", value="beer") == storage.get("bar")
 
 
 def test_save_not_exists(storage: BaseStorage):
@@ -96,6 +144,7 @@ def test_is_empty(storage: BaseStorage):
     storage.save(d)
     # Then: Is not empty
     assert not storage.is_empty()
+
 
 def test_count(storage: BaseStorage):
     # Given: A storage with an element

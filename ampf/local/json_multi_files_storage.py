@@ -34,6 +34,13 @@ class JsonMultiFilesStorage[T: BaseModel](BaseQueryStorage[T], FileStorage):
         self._log = logging.getLogger(__name__)
 
     def put(self, key: Any, value: T) -> None:
+        new_key = self.get_key(value)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key:
+            self.delete(key)
+            # Store the value with the new key
+            key = new_key
+
         full_path = self._key_to_full_path(str(key))
         self._log.debug("put: %s (%s)", key, full_path)
         json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)

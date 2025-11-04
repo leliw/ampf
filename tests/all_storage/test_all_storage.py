@@ -1,19 +1,21 @@
 from typing import List, Optional
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+
 import pytest
+from pydantic import BaseModel, Field
 
 from ampf.base import BaseStorage, KeyExistsException, KeyNotExistsException
 from ampf.base.base_query_storage import BaseQueryStorage
 from ampf.gcp import GcpStorage
 from ampf.in_memory import InMemoryStorage
-from ampf.local import JsonOneFileStorage, JsonMultiFilesStorage
+from ampf.local import JsonMultiFilesStorage, JsonOneFileStorage
 
 
 class D(BaseModel):
     name: str
     value: str
     embedding: Optional[List[float]] = None
+
 
 class Duuid(BaseModel):
     uuid: UUID = Field(default_factory=uuid4)
@@ -82,6 +84,52 @@ def test_create_already_exists(storage: BaseStorage):
     # I try to create it again
     with pytest.raises(KeyExistsException):
         storage.create(d)
+
+
+def test_patch_not_exists(storage: BaseStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # When: I patch not existing object
+    with pytest.raises(KeyNotExistsException):
+        storage.patch("foo", patch_data)
+
+
+def test_patch_with_dict(storage: BaseStorage):
+    # Given: A patch data
+    patch_data = {"value": "wine"}
+    # And: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch not existing object
+    storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == storage.get("foo")
+
+
+def test_patch_with_pydantic(storage: BaseStorage):
+    # Given: A patch data
+    class DPatch(BaseModel):
+        name: Optional[str] = None
+        value: Optional[str] = None
+
+    patch_data = DPatch(value="wine")
+    # And: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch existing object
+    storage.patch("foo", patch_data)
+    # Then: Is patched
+    assert D(name="foo", value="wine") == storage.get("foo")
+
+
+def test_patch_key_value(storage: BaseStorage):
+    # Given: A stored object
+    storage.create(D(name="foo", value="beer"))
+    # When: I patch with new key
+    storage.patch("foo", {"name": "bar"})
+    # Then: An old key doesn't exist
+    with pytest.raises(KeyNotExistsException):
+        storage.get("foo")
+    # And: A new key exists   
+    assert D(name="bar", value="beer") == storage.get("bar")
 
 
 def test_save_not_exists(storage: BaseStorage):
@@ -179,6 +227,7 @@ def test_uuid(storage_uuid: BaseStorage):
     storage_uuid.delete(d.uuid)
     assert not storage_uuid.key_exists(d.uuid)
 
+
 def test_embedding(storage: BaseStorage[D]):
     # Given: Data with embedding
     tc1 = D(name="test1", value="1", embedding=[1.0, 2.0, 3.0])
@@ -194,6 +243,7 @@ def test_embedding(storage: BaseStorage[D]):
     assert nearest[0] == tc1
     # And: The second is the second
     assert nearest[1] == tc2
+
 
 def test_where_embedding(storage: BaseStorage[D]):
     # Given: Data with embedding
@@ -226,6 +276,7 @@ def test_query(storage: BaseQueryStorage):
     assert len(ret) == 1
     assert ret[0].name == "baz"
 
+
 def test_query_uuid(storage_uuid: BaseQueryStorage):
     # Given: A stred element with UUID filed
     d = Duuid(name="foo", value="beer")
@@ -234,3 +285,31 @@ def test_query_uuid(storage_uuid: BaseQueryStorage):
     ret = [item for item in storage_uuid.where("uuid", "==", d.uuid).get_all()]
     # Then: The element is returned
     assert len(ret) == 1
+
+
+def test_put_not_exists(storage: BaseStorage):
+    # When: I put a new object
+    storage.put("foo", D(name="foo", value="wine"))
+    # Then: It is changed
+    assert storage.get("foo").value == "wine"
+
+
+def test_put_exists(storage: BaseStorage):
+    # Given: A new saved element
+    storage.create(D(name="foo", value="beer"))
+    # When: I put a new value
+    storage.put("foo", D(name="foo", value="wine"))
+    # Then: It is changed
+    assert storage.get("foo").value == "wine"
+
+def test_put_new_key(storage: BaseStorage):
+    # Given: A new saved element
+    storage.create(D(name="foo", value="beer"))
+    # When: I put a new key
+    storage.put("foo", D(name="foo2", value="beer"))
+    # Then: Oryginal object does'n exist
+    with pytest.raises(KeyNotExistsException):
+        storage.get("foo").value
+    # And: New object exists
+    assert storage.get("foo2").value == "beer"
+

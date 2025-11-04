@@ -139,7 +139,47 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         """Put a document in the collection."""
         data_dict = data.model_dump(by_alias=True, exclude_none=True)
         data_dict = self.on_before_save(data_dict)  # Preprocess data
-        self._coll_ref.document(str(key)).set(data_dict)
+
+        new_key = self.get_key(data)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key:
+
+            @firestore.transactional
+            def run_in_transaction(transaction):
+                self.delete(key)
+                self._coll_ref.document(new_key).set(data_dict)
+
+            with self._db.transaction() as transaction:
+                run_in_transaction(transaction)
+        else:
+            self._coll_ref.document(new_key).set(data_dict)
+
+    def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+        """Patch the object with new data.
+
+        Args:
+            key: The key of the object to patch.
+            patch_data: The data to patch the object with. Can be a Pydantic model or a dictionary.
+
+        Returns:
+            The patched object.
+        """
+        if isinstance(patch_data, BaseModel):
+            patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
+        else:
+            patch_dict = patch_data
+        doc_ref = self._coll_ref.document(str(key))
+        if doc_ref.get().exists:
+            doc_ref.update(patch_dict)
+        else:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        data = doc_ref.get().to_dict()
+        new_value = self.clazz.model_validate(data)
+        if self.get_key(new_value) != key:
+            doc_ref.delete()
+            self.create(new_value)
+        return new_value
+
 
     def get(self, key: Any) -> T:
         """Get a document from the collection."""

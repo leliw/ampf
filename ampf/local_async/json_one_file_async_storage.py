@@ -57,7 +57,12 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncS
         if isinstance(self.key, str):
             dv.pop(self.key, None)
         data = await self._load_data()
-        data[key] = dv
+        new_key = self.get_key(value)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key and str(key) in data:
+            data.pop(str(key))
+        # Store the value with the new key
+        data[str(new_key)] = dv
         await self._save_data(data)
 
     async def get(self, key: Any) -> T:

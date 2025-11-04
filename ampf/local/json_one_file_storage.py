@@ -58,7 +58,12 @@ class JsonOneFileStorage[T: BaseModel](BaseQueryStorage[T], FileStorage):
         if isinstance(self.key, str):
             dv.pop(self.key)
         data = self._load_data()
-        data[str(key)] = dv
+        new_key = self.get_key(value)
+        # If the key of the value has changed, remove the old key
+        if str(key) != new_key and str(key) in data:
+            data.pop(str(key))
+        # Store the value with the new key
+        data[str(new_key)] = dv
         self._save_data(data)
 
     def get(self, key: Any) -> T:
