@@ -35,12 +35,18 @@ class Blob[T: BaseModel](BlobHeader[T]):
     def __init__(
         self,
         name: str,
-        data: BlobData,
+        data: Optional[BlobData] = None,
+        content: Optional[bytes] = None,
         content_type: Optional[str] = None,
         metadata: Optional[T] = None,
     ):
         super().__init__(name=name, content_type=content_type, metadata=metadata)
-        self.data = data  # type: ignore # setter
+        if data:
+            self.data = data # type: ignore # setter
+        elif content:
+            self.data = content
+        else:
+            raise ValueError("Either data or content must be provided")
 
     @property
     def data(self) -> BinaryIO:
@@ -52,10 +58,18 @@ class Blob[T: BaseModel](BlobHeader[T]):
         elif isinstance(self._data, str):
             return BytesIO(self._data.encode())
         else:
-            return BytesIO(self._data)  # type: ignore
+            return BytesIO(self._data) # type: ignore
 
     @data.setter
     def data(self, value: BinaryIO | BytesIO | bytes | str):
         self._data = value
         if isinstance(value, str) and not self.content_type:
             self.content_type = "text/plain"
+
+    @property
+    def content(self) -> bytes:
+        return self.data.read()
+
+    @content.setter
+    def content(self, value: bytes):
+        self._data = value
