@@ -11,7 +11,7 @@ class WeaviateDB:
 
     def __init__(self, host: str = "localhost", port: int = 8082, grpc_port: int = 50051):
         self.host = host
-        self.port = port
+        self.port = int(port)
         self.grpc_port = grpc_port
         self.db : Optional[weaviate.WeaviateClient] = None
 
