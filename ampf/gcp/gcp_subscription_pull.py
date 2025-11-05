@@ -7,6 +7,7 @@ from typing import Optional, Type
 
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
+from google.api_core.exceptions import NotFound, InvalidArgument
 from pydantic import BaseModel
 
 from ampf.gcp.gcp_base_subscription import GcpBaseSubscription
@@ -37,6 +38,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         super().__init__(subscription_id, project_id, clazz, subscriber)
         self.is_running = False
         self.loop = loop
+        self._previous_sigterm_handler: signal._HANDLER = None
 
     async def run_and_exit(self, processing_timeout: float = 5.0, per_message_timeout: float = 1.0):
         """The subscription asynchronously, processing messages until a timeout or SIGTERM.
@@ -58,13 +60,14 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         Args:
             per_message_timeout: The maximum time in seconds to wait for a single message.
         """
+        self.processing_timeout = None
         self.per_message_timeout = per_message_timeout
         self.is_running = True
         self.end_time = None
-        loop = asyncio.get_running_loop()
+        loop = self.loop or asyncio.get_running_loop()
         loop.create_task(self._run())
         if threading.current_thread() is threading.main_thread():
-            signal.signal(signal.SIGTERM, self._handle_sigterm)
+            self._previous_sigterm_handler = signal.signal(signal.SIGTERM, self._handle_sigterm)
 
     def callback(self, request: GcpPubsubRequest) -> bool:
         """Synchronous callback to process a message. By default, it runs the async version.
@@ -95,13 +98,19 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
     async def callback_async(self, request: GcpPubsubRequest) -> bool:
         raise NotImplementedError()
 
-    def _handle_sigterm(self, *_):
+    def _handle_sigterm(self, signum, frame):
         self.stop()
+        if callable(self._previous_sigterm_handler):
+            self._previous_sigterm_handler(signum, frame)
+
+    
 
     def stop(self):
         """Stops the subscription."""
-        self.running = False
-        self.future.cancel()
+        self.end_time = time.time() 
+        self.is_running = False
+        if self.future.running():        
+            self.future.cancel()
 
     def _callback(self, message: Message):
         self._log.debug("Received message %s", message.message_id)
@@ -128,6 +137,8 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
                 if not self.is_running:
                     break
             self._log.debug("Stopping subscription pull for %s", self.subscription_path)
+        except NotFound as e:
+            raise InvalidArgument("Invalid resource name: %s", self.subscription_path)
         except Exception as e:
             self._log.exception(e)
             raise e

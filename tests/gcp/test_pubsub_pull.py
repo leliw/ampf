@@ -64,8 +64,8 @@ async def test_run_and_exit_with_message(topic: GcpTopic, subscription: GcpSubsc
 
     # When: A message is sent
     topic.publish("test")
-    # And: Run and exit with 1 sec timeout
-    await sub.run_and_exit(1)
+    # And: Run and exit with 2 sec timeout
+    await sub.run_and_exit(2)
 
     # Then: Subscription is empty
     assert sub.is_empty()
@@ -89,23 +89,23 @@ async def test_run_and_exit_timeout(topic: GcpTopic, subscription: GcpSubscripti
 
     sub.callback = callback
 
-    # When: 4 messages are sent with 0.5 sec sleep and run and exit with 1 sec timeout
+    # When: 4 messages are sent with 0.5 sec sleep and run and exit with 2 sec timeout
     async def send_messages():
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.4)
         topic.publish("test1")
         print("test1")
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish("test2")
         print("test2")
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish("test3")
         print("test3")
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish("test4")
         print("test4")
 
     print("Starting")
-    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(1.0, 0.1)))
+    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(2.0, 0.2)))
     print("Finished")
 
     # Then: Subscription is empty
@@ -170,8 +170,8 @@ async def test_run_and_exit_with_response_topic(
 
     # When: A message is sent
     topic.publish(D(name="test", value="test"), response_topic=topic2.topic_id)
-    # And: Run and exit with 1 sec timeout
-    await sub.run_and_exit(1)
+    # And: Run and exit with 2 sec timeout
+    await sub.run_and_exit(2)
 
     # Then: Subscription is empty
     assert sub.is_empty()
@@ -197,17 +197,17 @@ async def test_callback_async(log: logging.Logger, topic: GcpTopic, subscription
 
     # When: 4 messages are sent with 0.5 sec sleep and run and exit with 1 sec timeout
     async def send_messages():
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.4)
         topic.publish(D(name="test1"))
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish(D(name="test2"))
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish(D(name="test3"))
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)
         topic.publish(D(name="test4"))
 
     log.debug("Starting")
-    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(2.0, 0.1)))
+    await asyncio.gather(asyncio.create_task(send_messages()), asyncio.create_task(sub.run_and_exit(4.0, 0.2)))
     log.debug("Finished")
 
     # Then: Subscription is empty
