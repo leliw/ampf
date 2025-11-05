@@ -50,6 +50,7 @@ try:
             image: str,
             name: str,
             ports: list[str] | None = None,
+            command: Optional[str] = None,
             wait_for_http: str | None = None,
             timeout: int = 60,
             gpus: bool = False,
@@ -62,6 +63,7 @@ try:
                 image (str): Docker image.
                 name (str): Container name.
                 ports (list[str]): Container ports to expose.
+                command (Optional[str]): Command to run in the container.
                 wait_for_http (str): Optional path to check service readiness, e.g. '/docs'.
                 timeout (int): How long to wait for container readiness.
                 gpus (bool): Whether to use GPUs.
@@ -78,6 +80,7 @@ try:
                 image,
                 name=name,
                 ports={port: None for port in (ports or [])},
+                command=command,
                 detach=True,
                 remove=True,
                 device_requests=[
