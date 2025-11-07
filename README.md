@@ -6,6 +6,7 @@ Set of helper classes:
 
 * [Base] - package with base classes (mostly abstract)
   * [BaseFactory](doc/base_factory.md) - base class for factory implementations which create other objects.
+  * [BaseAsyncFactory](doc/base_async_factory.md) - base class for factory implementations which create other **asynchrous** objects.
   * [BaseStorage](doc/base_storage.md) - base class for storage implementations which store Pydantic objects.
   * [BaseBlobStorage](doc/base_blob_storage.md) - base class for storage implementations which store binary objects (blobs).
   * [BaseQueryStorage](doc/base__query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
@@ -22,6 +23,7 @@ Set of helper classes:
 * Testing - helper classes for testing
   * [ApiTestClient](doc/testing/api_test_client.md) - helper for testing FastAPI endpoints
   * [mock_gcp_publish](doc/testing/mock_gcp_publish.md) - helper for mocking GCP Pub/Sub publish method
+  * [mock_method](doc/testing/mock_method.md) - helper for mocking methods and functions
   * [subscription_factory](doc/testing/subscription_factory.md) - helper for creating GCP Pub/Sub subscription
   * [cloud_run_proxy_factory](doc/testing/cloud_run_proxy_factory.md) - helper for running proxy to GCP Cloud Run service.
   * [container_factory](doc/testing/container_factory.md) - helper for running docker container.
