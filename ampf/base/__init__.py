@@ -12,6 +12,7 @@ from .base_factory import BaseFactory
 from .base_query import BaseQuery
 from .base_query_storage import BaseQueryStorage
 from .base_storage import BaseStorage
+from .base_topic import BaseTopic
 from .blob_model import Blob, BlobCreate, BlobData, BlobHeader, BlobLocation
 from .collection_def import CollectionDef
 from .email_template import EmailTemplate
@@ -44,4 +45,5 @@ __all__ = [
     "BlobCreate",
     "BlobData",
     "BlobLocation",
+    "BaseTopic",
 ]

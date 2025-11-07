@@ -1,17 +1,19 @@
 import asyncio
 import logging
 import os
-from typing import Dict, Optional, Self, Type
+from typing import Dict, Optional, Self, Type, override
 
 from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.publisher.futures import Future
 from pydantic import BaseModel
 
+from ampf.base.base_topic import BaseTopic
+
 from .gcp_subscription import GcpSubscription
 
 
-class GcpTopic[T: BaseModel]:
+class GcpTopic[T: BaseModel](BaseTopic[T]):
     _log = logging.getLogger(__name__)
     _default_publisher: Optional[PublisherClient] = None
 
@@ -36,6 +38,7 @@ class GcpTopic[T: BaseModel]:
         self.publisher = publisher or self.get_default_publisher()
         self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
 
+    @override
     def publish(
         self,
         data: T | str | bytes,
@@ -56,6 +59,7 @@ class GcpTopic[T: BaseModel]:
         self._log.debug("Published message ID: %s", message_id)
         return message_id
 
+    @override
     async def publish_async(
         self,
         data: T | str | bytes,

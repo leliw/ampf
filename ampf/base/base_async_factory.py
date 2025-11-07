@@ -1,12 +1,13 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Type
+from typing import Callable, Dict, Optional, Type
 
 from pydantic import BaseModel
 
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
 from .base_async_query_storage import BaseAsyncQueryStorage
+from .base_topic import BaseTopic
 from .blob_model import Blob, BlobLocation
 from .collection_def import CollectionDef
 from .exceptions import KeyNotExistsException
@@ -74,7 +75,8 @@ class BaseAsyncFactory(ABC):
         Returns:
             Blob storage object.
         """
-
+        
+    # deprecated
     def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseAsyncCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
@@ -122,3 +124,44 @@ class BaseAsyncFactory(ABC):
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
         await bs.upload_async(blob)
+
+    def create_topic(self, topic_id: str) -> BaseTopic[BaseModel]:
+        """Creates a topic (object sender to publish messages to it).
+
+        Args:
+            topic_id: The ID of the topic.
+        Returns:
+            The created BaseTopic object.
+        """
+        raise NotImplementedError(f"create_topic() method is not implemented in {self.__class__.__name__}")
+
+    async def publish_message(
+        self,
+        topic_id: str,
+        data: BaseModel | str | bytes,
+        response_topic: Optional[str] = None,
+        sender_id: Optional[str] = None,
+    ) -> str:
+        """Publishes a message to the specified topic.
+
+        Args:
+            topic_id: The ID of the topic.
+            data: The message to publish.
+            response_topic: The ID of the response topic.
+            sender_id: The ID of the sender.
+        Returns:
+            The message ID.
+        """
+        topic = self.create_topic(topic_id)
+        return await topic.publish_async(data, response_topic=response_topic, sender_id=sender_id)
+
+    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+        """Creates a BlobLocation object.
+
+        Args:
+            name: The name of the blob.
+            bucket: The name of the bucket.
+        Returns:
+            The created BlobLocation object.
+        """
+        return BlobLocation(name=name, bucket=bucket)

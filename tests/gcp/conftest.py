@@ -3,6 +3,7 @@ import uuid
 import pytest
 
 from ampf.gcp.gcp_topic import GcpTopic
+from ampf.testing import mock_method  # noqa: F401
 
 
 @pytest.fixture(scope="session")

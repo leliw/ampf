@@ -4,6 +4,8 @@ from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
+from ampf.base.blob_model import BlobLocation
+
 from .gcp_async_blob_storage import GcpAsyncBlobStorage
 from .gcp_async_storage import GcpAsyncStorage
 from .gcp_base_factory import GcpBaseFactory
@@ -18,7 +20,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     @override
     def get_project_id(self) -> str:
         return self._async_db.project
-    
+
     def create_storage[T: BaseModel](
         self, collection_name: str, clazz: Type[T], key: Optional[Callable[[T], str]] = None
     ) -> BaseAsyncStorage[T]:
@@ -49,3 +51,14 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
             content_type=content_type,
             storage_client=self._storage_client,
         )
+
+    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+        """Creates a BlobLocation object.
+
+        Args:
+            name: The name of the blob.
+            bucket: The name of the bucket.
+        Returns:
+            The created BlobLocation object.
+        """
+        return BlobLocation(name=name, bucket=bucket or self.bucket_name)
