@@ -125,6 +125,10 @@ try:
 except ImportError:
 
     @pytest.fixture(scope="session")
+    def docker_client():
+        raise RuntimeError("Docker SDK is not installed")
+
+    @pytest.fixture(scope="session")
     def container_factory(docker_client):
         raise RuntimeError("Docker SDK is not installed")
 
