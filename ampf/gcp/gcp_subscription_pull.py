@@ -3,7 +3,7 @@ import logging
 import signal
 import threading
 import time
-from typing import Optional, Type
+from typing import Optional
 
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
@@ -23,7 +23,6 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         self,
         subscription_id: str,
         project_id: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
         subscriber: Optional[SubscriberClient] = None,
     ):
@@ -35,7 +34,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             clazz: The class to which the message data should be deserialized.
             subscriber: The subscriber client.
         """
-        super().__init__(subscription_id, project_id, clazz, subscriber)
+        super().__init__(subscription_id, project_id, subscriber)
         self.is_running = False
         self.loop = loop
         self._previous_sigterm_handler: signal._HANDLER = None

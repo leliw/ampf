@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC
-from typing import Optional, Self, Type
+from typing import Optional, Self
 
 from google.api_core.exceptions import AlreadyExists, DeadlineExceeded, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
@@ -19,7 +19,6 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         self,
         subscription_id: str,
         project_id: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
         subscriber: Optional[SubscriberClient] = None,
     ):
         """Initializes the subscription.
@@ -34,7 +33,6 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
         if not self.project_id:
             raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")
-        self.clazz = clazz
         self.subscriber = subscriber or SubscriberClient()
 
         self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
