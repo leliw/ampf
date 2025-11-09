@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_topic import BaseTopic
+
 from .gcp_topic import GcpTopic
 
 _log = logging.getLogger("ampf.gcp.gcp_pubsub")
@@ -190,6 +191,29 @@ class GcpPubsubRequest(BaseModel):
             return gcp_factory.create_topic(topic_name)
         else:
             return GcpTopic(topic_name)
+
+    async def publish_response_async(
+        self,
+        async_factory: BaseAsyncFactory,
+        response: BaseModel,
+        default_topic_name: Optional[str] = None,
+    ) -> None:
+        """Publishes a response to a specified topic. Topic can be specified in the message attributes or defaults to a provided topic name.
+        If `sender_id` is provided in the message attributes, it will be published with the response.
+
+        Args:
+            response: The response to publish.
+            async_factory: Optional AsyncFactory to create the topic and publish the message.
+            default_topic_name: The name of the default topic to publish the response to.
+        """
+        attributes = self.message.attributes or {}
+        topic_name = attributes.get("forward_to__topic", attributes.get("response_topic", default_topic_name))
+        sender_id = attributes.get("sender_id")
+
+        if topic_name:
+            _log.debug("Publishing response to topic: %s", topic_name)
+            messageId = await async_factory.publish_message(topic_name, response, sender_id=sender_id)
+            _log.debug("Response sent to topic: %s, messageId: %s", topic_name, messageId)
 
 
 class GcpPubsubResponse(BaseModel):
