@@ -7,7 +7,8 @@ from uuid import uuid4
 from google.cloud.pubsub_v1.subscriber.message import Message
 from pydantic import BaseModel
 
-from .gcp_base_factory import GcpBaseFactory
+from ampf.base.base_async_factory import BaseAsyncFactory
+from ampf.base.base_topic import BaseTopic
 from .gcp_topic import GcpTopic
 
 _log = logging.getLogger("ampf.gcp.gcp_pubsub")
@@ -149,7 +150,7 @@ class GcpPubsubRequest(BaseModel):
         self,
         response: BaseModel,
         default_topic_name: Optional[str] = None,
-        gcp_factory: Optional[GcpBaseFactory] = None,
+        async_factory: Optional[BaseAsyncFactory] = None,
     ) -> None:
         """Publishes a response to a specified topic. Topic can be specified in the message attributes or defaults to a provided topic name.
         If `sender_id` is provided in the message attributes, it will be published with the response.
@@ -174,17 +175,17 @@ class GcpPubsubRequest(BaseModel):
                 attributes["sender_id"] = sender_id
             if response_topic_name:
                 attributes["response_topic"] = response_topic_name
-            topic = self.create_topic(forward_topic_name, gcp_factory)
+            topic = self.create_topic(forward_topic_name, async_factory)
             topic.publish(response, attributes)
             _log.debug("Response sent to topic: %s", response_topic_name, extra={"attributes": attributes})
         elif response_topic_name:
             _log.debug("Publishing response to topic: %s", response_topic_name)
             attributes = {"sender_id": sender_id} if sender_id else None
-            topic = self.create_topic(response_topic_name, gcp_factory)
+            topic = self.create_topic(response_topic_name, async_factory)
             topic.publish(response, attributes)
             _log.debug("Response sent to topic: %s", response_topic_name, extra={"attributes": attributes})
 
-    def create_topic(self, topic_name: str, gcp_factory: Optional[GcpBaseFactory] = None) -> GcpTopic:
+    def create_topic(self, topic_name: str, gcp_factory: Optional[BaseAsyncFactory] = None) -> BaseTopic:
         if gcp_factory:
             return gcp_factory.create_topic(topic_name)
         else:
