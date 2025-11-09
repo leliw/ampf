@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
+from ampf.testing.mock_method import MockMethod
 
 
 class D(BaseModel):
@@ -10,7 +11,7 @@ class D(BaseModel):
 
 
 @pytest.mark.asyncio
-async def test_request_publish_response_async(async_factory: BaseAsyncFactory, mock_method):
+async def test_request_publish_response_async(async_factory: BaseAsyncFactory, mock_method: MockMethod):
     mocker_publish = mock_method(BaseAsyncFactory.publish_message)
     # Given: A request
     req = GcpPubsubRequest.create(data=D(name="test"), response_topic="response_topic")
