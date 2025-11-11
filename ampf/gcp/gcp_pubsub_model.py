@@ -207,12 +207,15 @@ class GcpPubsubRequest(BaseModel):
             default_topic_name: The name of the default topic to publish the response to.
         """
         attributes = self.message.attributes or {}
-        topic_name = attributes.get("forward_to__topic", attributes.get("response_topic", default_topic_name))
+        response_topic = attributes.get("response_topic", default_topic_name) 
+        topic_name = attributes.get("forward_to__topic", response_topic)
+        if "forward_to__topic" not in attributes.keys():
+            response_topic = None
         sender_id = attributes.get("sender_id")
 
         if topic_name:
             _log.debug("Publishing response to topic: %s", topic_name)
-            messageId = await async_factory.publish_message(topic_name, response, sender_id=sender_id)
+            messageId = await async_factory.publish_message(topic_name, response, response_topic=response_topic, sender_id=sender_id)
             _log.debug("Response sent to topic: %s, messageId: %s", topic_name, messageId)
 
 
