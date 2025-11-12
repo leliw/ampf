@@ -151,6 +151,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
                 if self.future.done():
                     e = self.future.exception()
                     if e:
+                        _log.error("Subscription %s pull failed.", self.subscription_path, exc_info=e)
                         raise e
                 _log.debug("Waiting for messages...")
                 await asyncio.sleep(self.per_message_timeout)
@@ -158,7 +159,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
                     break
             _log.debug("Stopping subscription pull for %s", self.subscription_path)
         except NotFound as e:
-            raise InvalidArgument("Invalid resource name: %s", self.subscription_path)
+            raise InvalidArgument(f"Invalid resource name: {self.subscription_path}")
         except Exception as e:
             _log.exception(e)
             raise e
