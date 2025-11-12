@@ -7,10 +7,13 @@ import pytest
 from google.api_core.exceptions import InvalidArgument
 from pydantic import BaseModel
 
+from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
 from ampf.gcp.gcp_subscription import GcpSubscription
 from ampf.gcp.gcp_subscription_pull import GcpSubscriptionPull
 from ampf.gcp.gcp_topic import GcpTopic
+from ampf.gcp.subscription_processor import SubscriptionProcessor
+from ampf.testing.mock_method import MockMethod
 
 
 @pytest.fixture(scope="session")
@@ -28,7 +31,7 @@ def log() -> logging.Logger:
 @pytest.mark.asyncio
 async def test_run_and_exit_empty(topic: GcpTopic, subscription: GcpSubscription):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # When: Run and exit with 1 sec timeout
     await sub.run_and_exit(1)
@@ -50,7 +53,7 @@ async def test_not_existing():
 @pytest.mark.asyncio
 async def test_run_and_exit_with_message(topic: GcpTopic, subscription: GcpSubscription):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # And: Defined callback
     called = False
@@ -76,7 +79,7 @@ async def test_run_and_exit_with_message(topic: GcpTopic, subscription: GcpSubsc
 @pytest.mark.asyncio
 async def test_run_and_exit_timeout(topic: GcpTopic, subscription: GcpSubscription):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # And: Defined callback
     called = 0
@@ -117,7 +120,7 @@ async def test_run_and_exit_timeout(topic: GcpTopic, subscription: GcpSubscripti
 @pytest.mark.asyncio
 async def test_run_and_sigterm_with_message(topic: GcpTopic, subscription: GcpSubscription):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # And: Defined callback
     called = False
@@ -153,7 +156,7 @@ async def test_run_and_exit_with_response_topic(
     topic: GcpTopic, subscription: GcpSubscription, topic2: GcpTopic, subscription2: GcpSubscription
 ):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # And: Defined callback
     called = False
@@ -182,7 +185,7 @@ async def test_run_and_exit_with_response_topic(
 @pytest.mark.asyncio
 async def test_callback_async(log: logging.Logger, topic: GcpTopic, subscription: GcpSubscription):
     # Given: An empty Pub/Sub subcription
-    sub = GcpSubscriptionPull(subscription.subscription_id, subscription.project_id)
+    sub = GcpSubscriptionPull(subscription.subscription_id, project_id=subscription.project_id)
     assert sub.is_empty()
     # And: Defined callback
     called = 0
@@ -214,3 +217,36 @@ async def test_callback_async(log: logging.Logger, topic: GcpTopic, subscription
     assert sub.is_empty()
     # And: The messages were processed
     assert called == 4
+
+
+class Out(BaseModel):
+    name: str
+
+
+class DProcessor(SubscriptionProcessor[D]):
+    async def process_payload(self, payload: D) -> Out:
+        return Out(name=payload.name)
+
+
+@pytest.mark.asyncio
+async def test_run_and_exit_with_processor(
+    async_factory: BaseAsyncFactory,
+    topic: GcpTopic,
+    subscription: GcpSubscription,
+    mock_method: MockMethod,
+):
+    mocker_publish = mock_method(BaseAsyncFactory.publish_message)
+    # Given: A processor
+    processor = DProcessor(async_factory, D)
+    # And: An empty Pub/Sub subcription
+    sub = GcpSubscriptionPull(subscription.subscription_id, processor=processor, project_id=subscription.project_id)
+    assert sub.is_empty()
+    # When: A message is sent
+    topic.publish(D(name="test", value="test"), response_topic="response_topic")
+    # And: Run and exit with 2 sec timeout
+    await sub.run_and_exit(2)
+
+    # Then: Subscription is empty
+    assert sub.is_empty()
+    # And: The message was processed by the processor
+    mocker_publish.assert_called_once_with("response_topic", Out(name="test"), response_topic=None, sender_id=None)

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 

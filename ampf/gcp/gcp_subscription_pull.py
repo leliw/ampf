@@ -3,41 +3,44 @@ import logging
 import signal
 import threading
 import time
-from typing import Optional, Type
+from typing import Optional
 
+from google.api_core.exceptions import InvalidArgument, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
-from google.api_core.exceptions import NotFound, InvalidArgument
 from pydantic import BaseModel
 
-from ampf.gcp.gcp_base_subscription import GcpBaseSubscription
-from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
+from .gcp_base_subscription import GcpBaseSubscription
+from .gcp_pubsub_model import GcpPubsubRequest
+from .subscription_processor import SubscriptionProcessor
+
+_log = logging.getLogger(__name__)
 
 
 class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
-    """A pull subscription for GCP Pub/Sub that allows processing messages with a callback."""
-
-    _log = logging.getLogger(__name__)
+    """A pull subscription for GCP Pub/Sub that allows processing messages with a callback or a processor."""
 
     def __init__(
         self,
         subscription_id: str,
-        project_id: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
+        processor: Optional[SubscriptionProcessor[T]] = None,
         loop: Optional[asyncio.AbstractEventLoop] = None,
+        project_id: Optional[str] = None,
         subscriber: Optional[SubscriberClient] = None,
     ):
         """Initializes the subscription.
 
         Args:
             subscription_id: The name of the subscription.
+            processor: The processor to use for processing messages.
+            loop: The event loop to use for processing messages.
             project_id: The project ID.
-            clazz: The class to which the message data should be deserialized.
             subscriber: The subscriber client.
         """
-        super().__init__(subscription_id, project_id, clazz, subscriber)
-        self.is_running = False
+        super().__init__(subscription_id, project_id, subscriber)
+        self.processor = processor
         self.loop = loop
+        self.is_running = False
         self._previous_sigterm_handler: signal._HANDLER = None
 
     async def run_and_exit(self, processing_timeout: float = 5.0, per_message_timeout: float = 1.0):
@@ -96,24 +99,41 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             return True
 
     async def callback_async(self, request: GcpPubsubRequest) -> bool:
-        raise NotImplementedError()
+        """Asynchronous callback to process a message.
+
+        If processor is set, it calls the processor's `process_request` method.
+        Otherwise, it raises a `NotImplementedError`.
+
+        Args:
+            request: The Pub/Sub request containing the message.
+        Returns:
+            True if the message was processed successfully, False otherwise.
+        """
+        if self.processor:
+            await self.processor.process_request(request)
+            return True
+        else:
+            raise NotImplementedError()
 
     def _handle_sigterm(self, signum, frame):
         self.stop()
         if callable(self._previous_sigterm_handler):
             self._previous_sigterm_handler(signum, frame)
 
-    
-
     def stop(self):
         """Stops the subscription."""
-        self.end_time = time.time() 
+        self.end_time = time.time()
         self.is_running = False
-        if self.future.running():        
+        if self.future.running():
             self.future.cancel()
 
     def _callback(self, message: Message):
-        self._log.debug("Received message %s", message.message_id)
+        """Callback to process a message.
+
+        Args:
+            message: The message to process.
+        """
+        _log.debug("Received message %s", message.message_id)
         req = GcpPubsubRequest.create_from_message(message, self.subscription_id)
         if self.callback(req):
             message.ack()
@@ -124,23 +144,24 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
 
     async def _run(self):
         """Runs the subscription, listening for messages and invoking the callback."""
-        self._log.info("Starting GCP subscription pull for %s", self.subscription_path)
+        _log.info("Starting GCP subscription pull for %s", self.subscription_path)
         self.future = self.subscriber.subscribe(self.subscription_path, callback=self._callback)
         try:
             while not self.end_time or time.time() < self.end_time:
                 if self.future.done():
                     e = self.future.exception()
                     if e:
+                        _log.error("Subscription %s pull failed.", self.subscription_path, exc_info=e)
                         raise e
-                self._log.debug("Waiting for messages...")
+                _log.debug("Waiting for messages...")
                 await asyncio.sleep(self.per_message_timeout)
                 if not self.is_running:
                     break
-            self._log.debug("Stopping subscription pull for %s", self.subscription_path)
+            _log.debug("Stopping subscription pull for %s", self.subscription_path)
         except NotFound as e:
-            raise InvalidArgument("Invalid resource name: %s", self.subscription_path)
+            raise InvalidArgument(f"Invalid resource name: {self.subscription_path}")
         except Exception as e:
-            self._log.exception(e)
+            _log.exception(e)
             raise e
         finally:
             if self.future.running():

@@ -36,7 +36,8 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
             processing_timeout: The maximum time in seconds to process messages.
             per_message_timeout: The maximum time in seconds to wait for a single message.
         """
-        super().__init__(subscription_id, project_id, clazz, subscriber)
+        super().__init__(subscription_id, project_id, subscriber)
+        self.clazz = clazz
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
 

@@ -77,12 +77,12 @@ try:
                         ret = await ret
                     if isinstance(ret, AsyncIterator):
                         async for result in ret:
-                            request.publish_response(result, gcp_factory=gcp_factory)
+                            request.publish_response(result, async_factory=gcp_factory)
                     elif isinstance(ret, Iterator) or isinstance(ret, List):
                         for result in ret:
-                            request.publish_response(result, gcp_factory=gcp_factory)
+                            request.publish_response(result, async_factory=gcp_factory)
                     elif ret:
-                        request.publish_response(ret, gcp_factory=gcp_factory)
+                        request.publish_response(ret, async_factory=gcp_factory)
                     return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
                 except ValidationError as e:
                     _log.exception(

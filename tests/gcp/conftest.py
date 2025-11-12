@@ -2,8 +2,13 @@ import uuid
 
 import pytest
 
-from ampf.gcp.gcp_topic import GcpTopic
+from ampf.gcp import GcpAsyncFactory, GcpTopic
 from ampf.testing import mock_method  # noqa: F401
+
+
+@pytest.fixture(scope="session")
+def async_factory():
+    return GcpAsyncFactory()
 
 
 @pytest.fixture(scope="session")

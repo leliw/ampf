@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from ampf.testing.mock_method import MockMethod
+
 
 class D(BaseModel):
     name: str
@@ -9,7 +11,7 @@ class D(BaseModel):
         return name
 
 
-def test_skip_call(mock_method):
+def test_skip_call(mock_method: MockMethod):
     # Given: An object with method
     obj = D(name="test")
     # When: I mock the methon
@@ -19,7 +21,7 @@ def test_skip_call(mock_method):
     # Then: The method is not called
     assert obj.name == "test"
 
-def test_return_value(mock_method):
+def test_return_value(mock_method: MockMethod):
     # Given: An object with method
     obj = D(name="test")
     # When: I mock the methon
@@ -31,7 +33,7 @@ def test_return_value(mock_method):
     # And: Return value is different
     assert ret == "test2"
 
-def test_side_effect(mock_method):
+def test_side_effect(mock_method: MockMethod):
     # Given: An object with method
     obj = D(name="test")
     # When: I mock the methon
