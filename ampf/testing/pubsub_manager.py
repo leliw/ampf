@@ -15,9 +15,9 @@ try:
 except ImportError:
     pass  # GCP dependencies are not installed, GcpSubscription and GcpTopic will not be available.
 if GCP_INSTALLED:
+
     class PubSubManager:
         """A manager for GCP Pub/Sub topics and subscriptions."""
-
 
         def __init__(self):
             self.topics: Dict[str, GcpTopic] = {}
@@ -41,7 +41,9 @@ if GCP_INSTALLED:
                 _log.info("Created topic: %s", topic.topic_path)
             return topic
 
-        def prepare_topic_subscription[T: BaseModel](self, topic_id: str, clazz: Optional[Type[T]] = None) -> GcpSubscription[T]:
+        def prepare_topic_subscription[T: BaseModel](
+            self, topic_id: str, clazz: Optional[Type[T]] = None
+        ) -> GcpSubscription[T]:
             return self.prepare_subscription(topic_id + "-sub", clazz, topic_id)
 
         def prepare_subscription[T: BaseModel](
@@ -57,7 +59,12 @@ if GCP_INSTALLED:
                 GcpSubscription[T]: The prepared GCP Pub/Sub subscription.
             """
             if subcription_id in self.subscriptions:
-                return self.subscriptions[subcription_id]
+                ret = self.subscriptions[subcription_id]
+                if not ret.clazz:
+                    ret.clazz = clazz
+                if clazz and ret.clazz != clazz:
+                    raise ValueError(f"Subscription {subcription_id} already exists with different class")
+                return ret
             if topic_id is None and subcription_id.endswith("-sub"):
                 topic_id = subcription_id[: -len("-sub")]
             elif topic_id is None:
@@ -78,7 +85,7 @@ if GCP_INSTALLED:
                 subscription.clear()
             return subscription
 
-        def prepare_resources(self, config: BaseModel):
+        def prepare_resources(self, config: BaseModel, prepare_topic_subscriptions: bool = False):
             """Prepares all topics and subscriptions defined in the given config.
 
             Topics and subscriptions are identified by field names ending with
@@ -91,13 +98,21 @@ if GCP_INSTALLED:
                 if field_name.endswith("_topic"):
                     topic_id = getattr(config, field_name)
                     self.prepare_topic(topic_id)
+                    if prepare_topic_subscriptions:
+                        self.prepare_topic_subscription(topic_id)
                 elif field_name.endswith("_subscription"):
                     subscription_id = getattr(config, field_name)
                     topic_field_name = field_name[: -len("_subscription")] + "_topic"
                     topic_id = getattr(config, topic_field_name, None)
                     self.prepare_subscription(subscription_id, topic_id=topic_id)
 
-        def publish(self, topic_id: str, data: BaseModel) -> None:
+        def publish(
+            self,
+            topic_id: str,
+            data: BaseModel,
+            response_topic: Optional[str] = None,
+            sender_id: Optional[str] = None,
+        ) -> None:
             """Publishes a message to the specified topic.
 
             Args:
@@ -105,7 +120,7 @@ if GCP_INSTALLED:
                 data: The message to publish.
             """
             topic = self.prepare_topic(topic_id, type(data))
-            topic.publish(data)
+            topic.publish(data, response_topic=response_topic, sender_id=sender_id)
 
         async def wait_until_empty(self, subscription_id: str, timeout: float = 10.0) -> None:
             """Waits until the specified subscription is empty or the timeout is reached.
@@ -128,13 +143,13 @@ if GCP_INSTALLED:
                 topic.delete()
                 _log.info("Deleted topic: %s", topic.topic_path)
 
-
     @pytest.fixture(scope="session")
     def pubsub_manager() -> PubSubManager:  # type: ignore
         factory = PubSubManager()
         yield factory  # type: ignore
         factory.cleanup()
 else:
+
     @pytest.fixture(scope="session")
     def pubsub_manager():
         raise RuntimeError("ampf[gcp] is not installed")
