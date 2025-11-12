@@ -4,6 +4,7 @@ from typing import Dict, Optional, Type
 import pytest
 from pydantic import BaseModel
 
+_log = logging.getLogger(__name__)
 
 # Flag to check if GCP dependencies are installed.
 GCP_INSTALLED = False
@@ -17,7 +18,6 @@ if GCP_INSTALLED:
     class PubSubManager:
         """A manager for GCP Pub/Sub topics and subscriptions."""
 
-        _log = logging.getLogger(__name__)
 
         def __init__(self):
             self.topics: Dict[str, GcpTopic] = {}
@@ -38,8 +38,11 @@ if GCP_INSTALLED:
             if not topic.exists():
                 topic.create()
                 self.topics[topic_id] = topic
-                self._log.info("Created topic: %s", topic.topic_path)
+                _log.info("Created topic: %s", topic.topic_path)
             return topic
+
+        def prepare_topic_subscription[T: BaseModel](self, topic_id: str, clazz: Optional[Type[T]] = None) -> GcpSubscription[T]:
+            return self.prepare_subscription(topic_id + "-sub", clazz, topic_id)
 
         def prepare_subscription[T: BaseModel](
             self, subcription_id: str, clazz: Optional[Type[T]] = None, topic_id: Optional[str] = None
@@ -70,7 +73,7 @@ if GCP_INSTALLED:
                     exist_ok=True,
                 )
                 self.subscriptions[subcription_id] = subscription
-                self._log.info("Created subscription: %s", subscription.subscription_id)
+                _log.info("Created subscription: %s", subscription.subscription_path)
             else:
                 subscription.clear()
             return subscription
@@ -120,10 +123,10 @@ if GCP_INSTALLED:
             """
             for subscription in self.subscriptions.values():
                 subscription.delete()
-                self._log.info("Deleted subscription: %s", subscription.subscription_id)
+                _log.info("Deleted subscription: %s", subscription.subscription_id)
             for topic in self.topics.values():
                 topic.delete()
-                self._log.info("Deleted topic: %s", topic.topic_path)
+                _log.info("Deleted topic: %s", topic.topic_path)
 
 
     @pytest.fixture(scope="session")
