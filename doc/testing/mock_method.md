@@ -26,7 +26,7 @@ class D(BaseModel):
 Just skip calling method without any changes:
 
 ```python
-def test_skip_call(mock_method):
+def test_skip_call(mock_method: MockMethod):
     obj = D(name="test")
     mock_method(obj.set_name)
     obj.set_name("test2")
@@ -36,7 +36,7 @@ def test_skip_call(mock_method):
 Specify `return_value` to return a defined value:
 
 ```python
-def test_return_value(mock_method):
+def test_return_value(mock_method: MockMethod):
     obj = D(name="test")
     mock_method(obj.set_name, return_value="test2")
     ret = obj.set_name("test2")
@@ -47,7 +47,7 @@ def test_return_value(mock_method):
 Specify `side_effect` to call an another function:
 
 ```python
-def test_side_effect(mock_method):
+def test_side_effect(mock_method: MockMethod):
     obj = D(name="test")
     mock_method(obj.set_name, side_effect=lambda name: name + "!")
     ret = obj.set_name("test2")
