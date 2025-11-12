@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, FastAPI, status
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from ampf.gcp import GcpSubscription, GcpTopic, gcp_pubsub_push_handler
+from ampf.gcp import GcpSubscription, GcpTopic, gcp_pubsub_process_push, gcp_pubsub_push_handler
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 from ampf.gcp.gcp_factory import GcpFactory
-from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest
+from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse
+from ampf.gcp.subscription_processor import SubscriptionProcessor
 
 
 class D(BaseModel):
@@ -52,6 +54,13 @@ def get_factory() -> GcpFactory:
 
 
 FactoryDep = Annotated[GcpFactory, Depends(get_factory)]
+
+
+def get_async_factory() -> GcpAsyncFactory:
+    return GcpAsyncFactory()
+
+
+AsyncFactoryDep = Annotated[GcpAsyncFactory, Depends(get_async_factory)]
 
 
 @pytest.fixture(scope="module")
@@ -135,6 +144,20 @@ def app(topic: GcpTopic, topic2: GcpTopic):
     @gcp_pubsub_push_handler()
     async def handle_value_exception(payload: D, f: FactoryDep) -> D:
         raise ValueError("Value exception", payload)
+
+    class DProcessor(SubscriptionProcessor[D]):
+        async def process_payload(self, payload: D) -> D:
+            self.called = True
+            return D(name=f"Processed by processor: {payload.name}")
+
+    def get_d_processor(async_factory: AsyncFactoryDep) -> DProcessor:
+        return DProcessor(async_factory, D)
+
+    DProcessorDep = Annotated[DProcessor, Depends(get_d_processor)]
+
+    @router.post("/processor")
+    async def handle_processor(processor: DProcessorDep, request: GcpPubsubRequest) -> GcpPubsubResponse: # type: ignore
+        return await gcp_pubsub_process_push(processor, request)
 
     app.include_router(router, prefix="/pub-sub")
     return app
@@ -385,3 +408,22 @@ def test_pubsub_push_value_exception(topic: GcpTopic, client: TestClient):
     # Then: Response is OK
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Value exception" in response.text
+
+
+def test_pubsub_push_processor(topic: GcpTopic, subscription: GcpSubscription, client: TestClient):
+    # Given: Message payload
+    d = D(name="test")
+    # And: Message attributes with response_topic and sender_id
+    sender_id = uuid4().hex
+    attributes = {"response_topic": topic.topic_id, "sender_id": sender_id}
+    # And: A fake request pushed from a subscription
+    req = GcpPubsubRequest.create(d, attributes=attributes)
+    # When: The request is posted
+    response = client.post("/pub-sub/processor", json=req.model_dump())
+    # Then: Response is OK
+    assert response.status_code == status.HTTP_200_OK
+    # And: Message is received
+    received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
+    assert received_message
+    # And: Message is processed
+    assert D.model_validate_json(received_message.data.decode("utf-8")).name == f"Processed by processor: {d.name}"

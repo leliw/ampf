@@ -249,4 +249,4 @@ async def test_run_and_exit_with_processor(
     # Then: Subscription is empty
     assert sub.is_empty()
     # And: The message was processed by the processor
-    mocker_publish.assert_called_once_with("response_topic", Out(name="test"), sender_id=None)
+    mocker_publish.assert_called_once_with("response_topic", Out(name="test"), response_topic=None, sender_id=None)

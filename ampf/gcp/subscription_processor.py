@@ -37,19 +37,10 @@ class SubscriptionProcessor[T: BaseModel](ABC):
         """
         req = request.decoded_data(self.clazz)
         try:
-            ret = self.process_payload(req)
-            if isinstance(ret, Coroutine):
-                ret = await ret
-            if isinstance(ret, AsyncIterator):
-                async for result in ret:
-                    await self.publish_response(request, result)
-            elif isinstance(ret, Iterator) or isinstance(ret, List):
-                for result in ret:
-                    await self.publish_response(request, result)
-            elif ret:
-                await self.publish_response(request, ret)
+            resp = self.process_payload(req)
+            await self.process_response(request, resp)
         except Exception as e:
-            _log.warning("Failed to process pages for request %s", request.message.messageId)
+            _log.warning("Failed to process message ID:%s", request.message.messageId)
             _log.exception(e)
             raise e
 
@@ -67,6 +58,26 @@ class SubscriptionProcessor[T: BaseModel](ABC):
             The response to publish, or None if no response is needed.
         """
         raise NotImplementedError()
+
+    async def process_response(self, request: GcpPubsubRequest, response: Any) -> None:
+        """Processes & publishes the response to the topic specified in the request.
+
+        Args:
+            request: The original Pub/Sub request.
+            response: The response to publish.
+        """
+        if isinstance(response, Coroutine):
+            response = await response
+        if isinstance(response, AsyncIterator):
+            async for result in response:
+                await self.publish_response(request, result)
+        elif isinstance(response, Iterator) or isinstance(response, List):
+            for result in response:
+                await self.publish_response(request, result)
+        elif response:
+            await self.publish_response(request, response)
+        else:
+            _log.debug("No response to publish")
 
     async def publish_response(self, request: GcpPubsubRequest, response: Any) -> None:
         """Publishes the response to the topic specified in the request.

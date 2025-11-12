@@ -3,6 +3,8 @@
 This is a decorator for handling GCP Pub/Sub push messages. It can be used to wrap FastAPI endpoints that receive push messages from Pub/Sub.
 Below code is coresponding to the above endpoint, but using the decorator.
 
+**Deprecated**: Use [gcp_pubsub_process_push](gcp_pubsub_process_push.md).
+
 ## Parameters
 
 * factory_dep: Optional[Type[T] | Any] = None - A dependency that will be used to create `GcpTopic` instances. It allows to use different factories for different project_ids.
