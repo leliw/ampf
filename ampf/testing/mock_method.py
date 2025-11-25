@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Protocol, Union
+from typing import Any, Callable, List, Optional, Protocol, Union
 from unittest.mock import AsyncMock, MagicMock, NonCallableMagicMock
 
 import pytest
@@ -9,6 +9,7 @@ class MockMethod(Protocol):
         self,
         method: Callable[..., Any],
         return_value: Optional[Any] = None,
+        return_values: Optional[List[Any]] = None,
         side_effect: Optional[Callable[..., Any]] = None,
         **kwargs: Any,  # Obejmuje *args i **kwargs przekazywane do mocker.patch
     ) -> Union[MagicMock, AsyncMock, NonCallableMagicMock]:
@@ -23,6 +24,7 @@ try:
         def _mock(
             method: Callable,
             return_value: Optional[Any] = None,
+            return_values: Optional[List[Any]] = None,
             side_effect: Optional[Callable] = None,
             *args,
             **kwargs,
@@ -31,7 +33,7 @@ try:
                 f"{method.__module__}.{method.__qualname__}",
                 *args,
                 return_value=return_value,
-                side_effect=side_effect,
+                side_effect=side_effect or ((lambda *_, **__: return_values.pop(0)) if return_values else None),
                 **kwargs,
             )
 

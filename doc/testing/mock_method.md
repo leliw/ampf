@@ -6,6 +6,7 @@ It is a simmple fixutre using `MockerFixture` for mocking methods and functions.
 
 * `method: Callable` - Method to mock.
 * `return_value: Optional[Any]` - Return value for the mocked method.
+* `return_values: Optional[List[Any]]` - List of return values.
 * `side_effect: Optional[Callable]` - Side effect for the mocked method.
 * `*args`
 * `**kwargs`
@@ -42,6 +43,20 @@ def test_return_value(mock_method: MockMethod):
     ret = obj.set_name("test2")
     assert obj.name == "test"
     assert ret == "test2"
+```
+
+Specify `return_values` to return a defined values:
+
+```python
+def test_return_value(mock_method: MockMethod):
+    obj = D(name="test")
+    mock_method(obj.set_name, return_values=["test2", "test3"])
+    ret = obj.set_name("test2x")
+    assert obj.name == "test"
+    assert ret == "test2"
+    ret = obj.set_name("test3x")
+    assert obj.name == "test"
+    assert ret == "test3"
 ```
 
 Specify `side_effect` to call an another function:
