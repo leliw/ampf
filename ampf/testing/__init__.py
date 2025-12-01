@@ -8,9 +8,10 @@ except ImportError:
     pass
 
 try:
-    from .fixture_cloud_run_proxy_factory import cloud_run_proxy_factory
+    from .cloud_run_proxy_factory import cloud_run_proxy_factory, CloudRunProxyFactory
 
     __all__.append("cloud_run_proxy_factory")
+    __all__.append("CloudRunProxyFactory")
 except ImportError:
     pass
 

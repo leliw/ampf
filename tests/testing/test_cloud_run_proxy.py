@@ -1,10 +1,11 @@
 import pytest
 import requests
+from ampf.testing import CloudRunProxyFactory
 
 
 @pytest.fixture(scope="session")
-def scrapper_url(cloud_run_proxy_factory) -> str:
-    url = cloud_run_proxy_factory("scrapper", "europe-west3")
+def scrapper_url(cloud_run_proxy_factory: CloudRunProxyFactory) -> str:
+    url = cloud_run_proxy_factory("scrapper", "europe-west3", timeout=90)
     return url
 
 def test_cloud_run_proxy(scrapper_url: str):

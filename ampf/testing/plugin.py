@@ -7,11 +7,15 @@ except ImportError:
 
 try:
     from .container_factory import container_factory, container_network_factory, docker_client  # noqa: F401
-    from .pubsub_manager import pubsub_manager, PubSubManager  # noqa: F401
 except ImportError:
     pass
 
 try:
     from .pubsub_manager import pubsub_manager, PubSubManager  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from .cloud_run_proxy_factory import CloudRunProxyFactory, cloud_run_proxy_factory  # noqa: F401
 except ImportError:
     pass
