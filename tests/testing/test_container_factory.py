@@ -1,12 +1,13 @@
 import pytest
 import requests
 
+from ampf.testing import ContainerFactory
 
 @pytest.fixture(scope="session")
-def chunker_url(container_factory):
+def chunker_url(container_factory: ContainerFactory) ->str:
     """Fixture using the factory to start Chunker service."""
     return container_factory(
-        image="europe-west3-docker.pkg.dev/development-428212/docker-eu/chunker:cpu-0.2.21",
+        image="europe-west3-docker.pkg.dev/development-428212/docker-eu/pdf2markdown:latest",
         name="unittest_chunker_service",
         ports=["8080/tcp"],
         wait_for_http="/docs",
@@ -14,7 +15,7 @@ def chunker_url(container_factory):
     )
 
 
-def test_container_factory(chunker_url):
+def test_container_factory(chunker_url: str):
     try:
         requests.get(f"{chunker_url}/openapi.json", timeout=1)
     except requests.ReadTimeout:

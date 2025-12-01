@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Dict, List, Optional
 
 import pytest
 import requests
@@ -8,18 +8,14 @@ try:
     import docker
     import docker.errors
     import docker.types
+    from docker import DockerClient
 
-    @pytest.fixture(scope="session")
-    def docker_client():
-        return docker.from_env()
+    class ContainerNetworkFactory:
+        def __init__(self, docker_client: Optional[DockerClient] = None):
+            self.docker_client = docker_client or docker.from_env()
+            self.created_networks = []
 
-    @pytest.fixture(scope="session")
-    def container_network_factory(docker_client: docker.DockerClient):
-        """Fixture providing a factory to start Docker networks."""
-
-        created_networks = []
-
-        def _start_network(name: str):
+        def __call__(self, name: str):
             """Start a Docker network and return its ID.
 
             Args:
@@ -28,25 +24,24 @@ try:
                 str: ID of the started network.
             """
             try:
-                network = docker_client.networks.get(name)
+                network = self.docker_client.networks.get(name)
             except docker.errors.NotFound:
-                network = docker_client.networks.create(name)
-                created_networks.append(network)
+                network = self.docker_client.networks.create(name)
+                self.created_networks.append(network)
             return network.id
 
-        yield _start_network
+        def cleanup(self):
+            # Cleanup all started networks
+            for network in self.created_networks:
+                network.remove()
 
-        # Cleanup all started networks
-        for network in created_networks:
-            network.remove()
+    class ContainerFactory:
+        def __init__(self, docker_client: Optional[DockerClient] = None):
+            self.docker_client = docker_client or docker.from_env()
+            self.containers = []
 
-    @pytest.fixture(scope="session")
-    def container_factory(docker_client: docker.DockerClient):  # type: ignore
-        """Fixture providing a factory to start Docker containers."""
-
-        containers = []
-
-        def _start_container(
+        def __call__(
+            self,
             image: str,
             name: str,
             ports: list[str] | None = None,
@@ -54,8 +49,9 @@ try:
             wait_for_http: str | None = None,
             timeout: int = 60,
             gpus: bool = False,
-            environment: Optional[dict[str, str]] = None,
+            environment: Optional[Dict[str, str]] = None,
             network: Optional[str] = None,
+            volumes: Optional[Dict[str, Dict[str, str]] | List[str]] = None,
         ) -> str:
             """Start a Docker container and return exposed host port.
 
@@ -67,16 +63,19 @@ try:
                 wait_for_http (str): Optional path to check service readiness, e.g. '/docs'.
                 timeout (int): How long to wait for container readiness.
                 gpus (bool): Whether to use GPUs.
+                environment (Optional[Dict[str, str]]): Environment varaibles
+                network (Optional[str]): Network name
+                valumes (Optional[Dict[str, Dict[str, str]] | List[str]]): Volumes to mount
             Returns:
                 str: URL of the started container.
             """
             try:
-                existing = docker_client.containers.get(name)
+                existing = self.docker_client.containers.get(name)
                 existing.remove(force=True)
             except docker.errors.NotFound:
                 pass
 
-            container = docker_client.containers.run(
+            container = self.docker_client.containers.run(
                 image,
                 name=name,
                 ports={port: None for port in (ports or [])},
@@ -93,8 +92,9 @@ try:
                 else None,
                 environment=environment,
                 network=network,
+                volumes=volumes,
             )
-            containers.append(container)
+            self.containers.append(container)
 
             # wait for container
             start = time.time()
@@ -114,24 +114,31 @@ try:
             container.stop()
             pytest.fail(f"Container {name} failed to start")
 
-        yield _start_container
-
-        # Cleanup all started containers
-        for c in containers:
-            try:
-                c.stop()
-            except Exception:
-                pass
-except ImportError:
+        def cleanup(self):
+            # Cleanup all started containers
+            for c in self.containers:
+                try:
+                    c.stop()
+                except Exception:
+                    pass
 
     @pytest.fixture(scope="session")
     def docker_client():
-        raise RuntimeError("Docker SDK is not installed")
+        return docker.from_env()
 
     @pytest.fixture(scope="session")
-    def container_factory(docker_client):
-        raise RuntimeError("Docker SDK is not installed")
+    def container_network_factory(docker_client: docker.DockerClient) -> ContainerNetworkFactory:  # type: ignore
+        """Fixture providing a factory to start Docker networks."""
+        factory = ContainerNetworkFactory(docker_client)
+        yield factory  # type: ignore
+        factory.cleanup()
 
     @pytest.fixture(scope="session")
-    def container_network_factory(docker_client):
-        raise RuntimeError("Docker SDK is not installed")
+    def container_factory(docker_client: docker.DockerClient) -> ContainerFactory:  # type: ignore
+        """Fixture providing a factory to start Docker containers."""
+        factory = ContainerFactory(docker_client)
+        yield factory  # type: ignore
+        factory.cleanup()
+
+except ImportError:
+    pass

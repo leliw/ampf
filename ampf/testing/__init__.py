@@ -17,9 +17,9 @@ except ImportError:
 
 
 try:
-    from .container_factory import container_factory, container_network_factory, docker_client
+    from .container_factory import container_factory, container_network_factory, docker_client, ContainerFactory, ContainerNetworkFactory
 
-    __all__.extend(["container_factory", "container_network_factory", "docker_client"])
+    __all__.extend(["container_factory", "container_network_factory", "docker_client", "ContainerFactory", "ContainerNetworkFactory"])
 except ImportError:
     pass
 
