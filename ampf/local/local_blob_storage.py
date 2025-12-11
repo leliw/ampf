@@ -6,7 +6,7 @@ from typing import Iterator, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseBlobStorage
+from ampf.base import BaseBlobStorage, Blob
 from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
@@ -76,6 +76,18 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         # If metadata is provided, save it as a separate JSON file
         if metadata:
             self.put_metadata(key=key, metadata=metadata)
+
+    def download(self, key: str) -> Blob[T]:
+        """Downloads a blob from the storage
+
+        Args:
+            name: The name of the blob
+        """
+        data = self.download_blob(key)
+        file_path = self._create_file_path(key)
+        content_type = get_content_type(str(file_path))
+        metadata = self.get_metadata(key) if self.clazz else None
+        return Blob(name=key, data=data, content_type=content_type, metadata=metadata)
 
     @override
     def download_blob(self, key: str) -> bytes:

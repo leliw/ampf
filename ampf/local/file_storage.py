@@ -50,7 +50,7 @@ class FileStorage(ABC):
     def _create_file_path(self, file_name: str, ext: Optional[str] = None) -> Path:
         ext = ext or self.default_ext
         file_ext = self._get_ext(file_name)
-        if file_ext != ext:
+        if ext and file_ext != ext:
             file_name = f"{file_name}.{ext}"
         path = self.folder_path.joinpath(*self._split_to_folders(file_name))
         os.makedirs(path.parent, exist_ok=True)

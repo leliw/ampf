@@ -4,7 +4,7 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ..base import BaseBlobStorage, BaseFactory, BaseStorage
+from ..base import BaseFactory, BaseStorage
 from .file_storage import StrPath
 from .json_multi_files_storage import JsonMultiFilesStorage
 from .json_one_file_storage import JsonOneFileStorage
@@ -46,7 +46,11 @@ class LocalFactory(BaseFactory):
         )
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
-    ) -> BaseBlobStorage[T]:
+        self,
+        collection_name: str,
+        clazz: Optional[Type[T]] = None,
+        content_type: str = "text/plain",
+    ) -> LocalBlobStorage[T]:
         return LocalBlobStorage(
-            collection_name, clazz, content_type, root_path=self._root_path / "blobs")
+            collection_name, clazz, content_type, root_path=self._root_path / "blobs"
+        )

@@ -19,7 +19,9 @@ class MyMetadata(BaseModel):
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
 def storage(gcp_factory, request, tmp_path):
     if request.param == LocalBlobStorage:
-        storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)
+        storage = request.param(
+            "unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path
+        )
     else:
         if request.param == GcpBlobStorage:
             bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
@@ -171,7 +173,13 @@ def test_move_blob(storage: BaseBlobStorage):
     assert data == storage.download_blob(dest_key)
 
 
-blob = Blob(name="test/file", data=b"test data", metadata=MyMetadata(name="test", age=10))
+blob = Blob(
+    name="test/file",
+    data=b"test data",
+    content_type="text/plain",
+    metadata=MyMetadata(name="test", age=10),
+)
+
 
 def test_upload(storage: BaseBlobStorage):
     # Given: A blob
@@ -188,4 +196,7 @@ def test_download(storage: BaseBlobStorage):
     # When: I download it
     downloaded_blob = storage.download(blob.name)
     # Then: A downloaded blob is the same as the original
-    assert downloaded_blob == blob
+    assert downloaded_blob.name == blob.name
+    assert downloaded_blob.content == blob.content
+    assert downloaded_blob.content_type == blob.content_type
+    assert downloaded_blob.metadata == blob.metadata
