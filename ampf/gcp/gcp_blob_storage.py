@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
+from ampf.base.blob_model import Blob
 
 
 class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
@@ -26,7 +27,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         self,
         collection_name: str,
         clazz: Optional[Type[T]] = None,
-        content_type: str =  "text/plain",
+        content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
         storage_client: Optional[storage.Client] = None,
     ):
@@ -40,7 +41,9 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         elif self._default_bucket:
             self._bucket = self._default_bucket
         else:
-            raise ValueError(f"No bucket specified or found for collection '{collection_name}'. Please provide a valid bucket_name.")
+            raise ValueError(
+                f"No bucket specified or found for collection '{collection_name}'. Please provide a valid bucket_name."
+            )
 
     def _get_blob(self, key: str) -> storage.Blob:
         return self._bucket.blob(f"{self.collection_name}/{key}" if self.collection_name else key)
@@ -51,11 +54,31 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
             prefix += folder_name if folder_name[-1] == "/" else folder_name + "/"
         return prefix
 
-    def upload_blob(self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None) -> None:
+    def upload(self, blob: Blob[T]) -> None:
+        g_blob = self._get_blob(blob.name)
+        if blob.metadata:
+            g_blob.metadata = blob.metadata.model_dump()
+
+        g_blob.upload_from_string(blob.content, content_type=blob.content_type or self.content_type)
+
+    def upload_blob(
+        self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
+    ) -> None:
         blob = self._get_blob(key)
         if metadata:
             blob.metadata = metadata.model_dump()
         blob.upload_from_string(data, content_type=content_type or self.content_type)
+
+    def download(self, key: str) -> Blob[T]:
+        g_blob = self._get_blob(key)
+        if not g_blob.exists():
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        return Blob(
+            name=key,
+            data=g_blob.download_as_string(),
+            content_type=g_blob.content_type,
+            metadata=self.get_metadata(key),
+        )
 
     def download_blob(self, key: str) -> bytes:
         blob = self._get_blob(key)
@@ -109,7 +132,6 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
             blob.metadata = metadata.model_dump()
             blob.patch()
 
-
     def download_file(self, key: str, dest_path: Path):
         blob = self._get_blob(key)
         blob.download_to_filename(dest_path)
@@ -144,7 +166,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         new_blob = self._bucket.rename_blob(source_blob, self._get_prefix() + dest_key)
         return new_blob
 
-    def upload_blob_from_file(self, file_name: str, upload_file): # type: ignore
+    def upload_blob_from_file(self, file_name: str, upload_file):  # type: ignore
         """Upload a file from an UploadFile object."""
         from fastapi import UploadFile
 
