@@ -55,9 +55,8 @@ class BaseBlobStorage[T: BaseModel](ABC):
             name: The name of the blob
         """
         data = self.download_blob(name)
-        if self.clazz:
-            metadata = self.get_metadata(name)
-        return Blob(name=name, data=data, metadata=metadata)
+        metadata = self.get_metadata(name) if self.clazz else None
+        return Blob[T](name=name, data=data, metadata=metadata)
 
     @abstractmethod
     def download_blob(self, key: str) -> bytes:
