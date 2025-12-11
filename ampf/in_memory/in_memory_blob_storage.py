@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
+from ampf.base.blob_model import Blob
 
 
 class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
@@ -17,6 +18,9 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
         if self.bucket_name not in self.buckets:
             self.buckets[self.bucket_name] = {}
 
+    def upload(self, blob: Blob[T]) -> None:
+        self.buckets[self.bucket_name][blob.name] = blob
+    
     def upload_blob(
         self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
     ) -> None:
@@ -29,6 +33,12 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
             )
         if content_type:
             self.buckets[self.bucket_name][key]["content_type"] = content_type
+
+    def download(self, key: str) -> Blob[T]:
+        try:
+            return self.buckets[self.bucket_name][key]
+        except KeyError:
+            raise KeyNotExistsException(collection_name=self.bucket_name, key=key, clazz=self.clazz)
 
     def download_blob(self, key: str) -> bytes:
         if key not in self.buckets[self.bucket_name]:
