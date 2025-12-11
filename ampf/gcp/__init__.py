@@ -12,6 +12,8 @@ from .gcp_subscription import GcpSubscription
 from .gcp_subscription_pull import GcpSubscriptionPull
 from .gcp_topic import GcpTopic
 from .subscription_processor import SubscriptionProcessor
+from .google_id_token_manager import GoogleIDTokenManager
+
 
 __all__ = [
     "GcpFactory",
@@ -30,4 +32,6 @@ __all__ = [
     "gcp_pubsub_process_push",
     "SubscriptionProcessor",
     "GcpSubscriptionPull",
+
+    "GoogleIDTokenManager",
 ]
