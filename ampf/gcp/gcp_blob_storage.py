@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Iterator, Optional, Type
 
 from google.cloud import storage
@@ -99,12 +100,18 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
 
     # Additional not tested methods
 
-    def upload(self, file_path: str, file_name: str):
-        blob = self._bucket.blob(file_name)
+    def upload_file(self, file_path: Path, metadata: Optional[T] = None, key: Optional[str] = None):
+        if not key:
+            key = file_path.stem
+        blob = self._get_blob(key)
         blob.upload_from_filename(file_path)
+        if metadata:
+            blob.metadata = metadata.model_dump()
+            blob.patch()
 
-    def download(self, file_name: str, dest_path: str):
-        blob = self._bucket.blob(file_name)
+
+    def download_file(self, key: str, dest_path: Path):
+        blob = self._get_blob(key)
         blob.download_to_filename(dest_path)
 
     def get_blob(self, file_name: str):

@@ -4,12 +4,12 @@ from typing import Iterator, Optional, Type
 
 from pydantic import BaseModel
 
+from .blob_model import Blob
+
 
 class FileNameMimeType(BaseModel):
     name: str
     mime_type: Optional[str] = None
-
-
 
 
 class BaseBlobStorage[T: BaseModel](ABC):
@@ -27,6 +27,14 @@ class BaseBlobStorage[T: BaseModel](ABC):
         self.clazz = clazz
         self.content_type = content_type
 
+    def upload(self, blob: Blob[T]) -> None:
+        """Uploads a blob to the storage
+
+        Args:
+            blob: The blob to upload
+        """
+        self.upload_blob(blob.name, blob.data.read(), blob.metadata, blob.content_type)
+
     @abstractmethod
     def upload_blob(
         self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
@@ -39,6 +47,17 @@ class BaseBlobStorage[T: BaseModel](ABC):
             metadata: The metadata of the blob
             content_type: The content type of the blob
         """
+
+    def download(self, name: str) -> Blob[T]:
+        """Downloads a blob from the storage
+
+        Args:
+            name: The name of the blob
+        """
+        data = self.download_blob(name)
+        if self.clazz:
+            metadata = self.get_metadata(name)
+        return Blob(name=name, data=data, metadata=metadata)
 
     @abstractmethod
     def download_blob(self, key: str) -> bytes:

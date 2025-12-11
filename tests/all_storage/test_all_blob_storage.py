@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
+
 import pytest
 from pydantic import BaseModel, Field
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
+from ampf.base.blob_model import Blob
 from ampf.gcp import GcpBlobStorage
 from ampf.in_memory import InMemoryBlobStorage
 from ampf.local import LocalBlobStorage
@@ -56,7 +58,7 @@ def test_upload_file_with_metadata(storage: BaseBlobStorage, tmp_path: Path):
         f.write(b"test data")
     metadata = MyMetadata(name="test", age=10)
     # When: Upload blob with metadata
-    storage.upload_file(file_path, metadata)
+    storage.upload_file(file_path, metadata=metadata)
     # Then: Metadata is saved
     assert metadata == storage.get_metadata("test")
 
@@ -126,12 +128,14 @@ def test_delete(storage: BaseBlobStorage):
     # Then: The file is deleted
     assert file_name not in list(storage.keys())
 
+
 def test_delete_not_existing(storage: BaseBlobStorage):
     # When: I delete the file
     with pytest.raises(KeyNotExistsException) as e:
         storage.delete("not_existing")
     # Then: The file is deleted
     assert e.value.key == "not_existing"
+
 
 def test_list_blobs(storage: BaseBlobStorage):
     # Give: An uploaded file
@@ -165,3 +169,23 @@ def test_move_blob(storage: BaseBlobStorage):
     assert dest_key in list(storage.keys())
     assert source_key not in list(storage.keys())
     assert data == storage.download_blob(dest_key)
+
+
+blob = Blob(name="test/file", data=b"test data", metadata=MyMetadata(name="test", age=10))
+
+def test_upload(storage: BaseBlobStorage):
+    # Given: A blob
+    assert blob
+    # When: I upload it
+    storage.upload(blob)
+    # Then: It is uploaded
+    assert blob.name in list(storage.keys())
+
+
+def test_download(storage: BaseBlobStorage):
+    # Given: An uploaded blob
+    storage.upload(blob)
+    # When: I download it
+    downloaded_blob = storage.download(blob.name)
+    # Then: A downloaded blob is the same as the original
+    assert downloaded_blob == blob
