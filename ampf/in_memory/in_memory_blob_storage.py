@@ -11,7 +11,7 @@ class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
 
     buckets = {}
 
-    def __init__(self, bucket_name: str, clazz: Type[T], content_type: Optional[str] = None):
+    def __init__(self, bucket_name: str, clazz: Optional[Type[T]], content_type: Optional[str] = None):
         self.bucket_name = bucket_name
         self.clazz = clazz
         self.content_type = content_type

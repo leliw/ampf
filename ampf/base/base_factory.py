@@ -6,10 +6,12 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
+from ampf.base.exceptions import KeyNotExistsException
+
 from .base_blob_storage import BaseBlobStorage
 from .base_collection_storage import BaseCollectionStorage, CollectionDef
 from .base_query_storage import BaseQueryStorage
-from .blob_model import BlobLocation
+from .blob_model import Blob, BlobLocation
 
 _log = logging.getLogger(__name__)
 
@@ -64,6 +66,7 @@ class BaseFactory(ABC):
         collection_name: str,
         clazz: Optional[Type[T]] = None,
         content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None,
     ) -> BaseBlobStorage[T]:
         """Creates blob storage for items of given class.
 
@@ -109,3 +112,30 @@ class BaseFactory(ABC):
             The created BlobLocation object.
         """
         return BlobLocation(name=name, bucket=bucket)
+
+    def download_blob(self, blob_location: BlobLocation) -> Blob:
+        """Downloads a blob from the specified file location.
+
+        Args:
+            file_location (FileLocation): The location of the file to load.
+
+        Returns:
+            Blob: The loaded blob.
+        """
+        try:
+            bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+            return bs.download(blob_location.name)
+        except KeyNotExistsException as e:
+            _log.warning("Error translating file: %s", blob_location.name)
+            raise e
+
+    def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
+        """Uploads a blob to the specified file location.
+
+        Args:
+            file_location (FileLocation): The location to save the blob.
+            blob (Blob): The blob to save.
+        """
+        bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+        bs.upload(blob)
+

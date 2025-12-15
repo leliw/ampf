@@ -29,7 +29,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         self,
         bucket_name: str,
         clazz: Optional[Type[T]] = None,
-        content_type: str = "text/plain",
+        content_type: Optional[str] = None,
         subfolder_characters: Optional[int] = None,
         root_path: Optional[StrPath] = None,
     ):

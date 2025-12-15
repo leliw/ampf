@@ -2,6 +2,7 @@ import pytest
 from pydantic import BaseModel
 
 from ampf.base.base_factory import BaseFactory
+from ampf.base.blob_model import Blob, BlobLocation
 from ampf.gcp import GcpFactory
 from ampf.in_memory import InMemoryFactory
 from ampf.local import LocalFactory
@@ -39,6 +40,15 @@ def test_create_blob_storage(factory):
 
     assert storage is not None
 
+def test_upload_and_download_blob(factory):
+    # Given: A blob and a blob location
+    blob_location = BlobLocation(name="blob_test.txt")
+    blob = Blob(name="blob_test.txt", data=b"test data")
+    # When: A blob is uploaded
+    factory.upload_blob(blob_location, blob)
+    # Then: It can be downloaded
+    blob = factory.download_blob(blob_location)
+    assert blob.content == b"test data"
 
 def test_create_blob_location(factory: BaseFactory):
     location = factory.create_blob_location("test/location")

@@ -15,7 +15,7 @@ class FileNameMimeType(BaseModel):
 class BaseBlobStorage[T: BaseModel](ABC):
     """Base class for blob storage implementations"""
 
-    def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"):
+    def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
         """Initializes the storage
 
         Args:

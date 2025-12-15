@@ -51,10 +51,12 @@ class LocalFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: Optional[Type[T]] = None,
-        content_type: str = "text/plain",
+        content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None,
     ) -> LocalBlobStorage[T]:
+        root_path = Path(bucket_name) if bucket_name else self._root_path
         return LocalBlobStorage(
-            collection_name, clazz, content_type, root_path=self._root_path / "blobs"
+            collection_name, clazz, content_type, root_path=root_path / "blobs"
         )
 
     @override

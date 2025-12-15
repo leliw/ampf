@@ -1,4 +1,4 @@
-from typing import Callable, Type
+from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -16,8 +16,8 @@ class InMemoryFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: str = None,
-        key: Callable[[T], str] = None,
+        key_name: Optional[str] = None,
+        key: Optional[Callable[[T], str]] = None,
     ) -> BaseStorage[T]:
         if collection_name not in self.collections:
             self.collections[collection_name] = InMemoryStorage(
@@ -26,9 +26,10 @@ class InMemoryFactory(BaseFactory):
                 key_name=key_name,
                 key=key,
             )
-        return self.collections.get(collection_name)
+        return self.collections.get(collection_name) # type: ignore
 
     def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T] = None, content_type: str = None
+        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None,
+        bucket_name: Optional[str] = None
     ) -> BaseBlobStorage[T]:
         return InMemoryBlobStorage(collection_name, clazz, content_type)
