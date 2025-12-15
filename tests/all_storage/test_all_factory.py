@@ -1,6 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
+from ampf.base.base_factory import BaseFactory
 from ampf.gcp import GcpFactory
 from ampf.in_memory import InMemoryFactory
 from ampf.local import LocalFactory
@@ -37,3 +38,10 @@ def test_create_blob_storage(factory):
     storage = factory.create_blob_storage("test", T)
 
     assert storage is not None
+
+
+def test_create_blob_location(factory: BaseFactory):
+    location = factory.create_blob_location("test/location")
+
+    assert location is not None
+    assert location.name == "test/location"

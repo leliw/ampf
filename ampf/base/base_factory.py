@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, Type
 
@@ -8,6 +9,9 @@ from pydantic import BaseModel
 from .base_blob_storage import BaseBlobStorage
 from .base_collection_storage import BaseCollectionStorage, CollectionDef
 from .base_query_storage import BaseQueryStorage
+from .blob_model import BlobLocation
+
+_log = logging.getLogger(__name__)
 
 
 class BaseFactory(ABC):
@@ -92,3 +96,16 @@ class BaseFactory(ABC):
             Collection object.
         """
         return self.create_collection(root)
+
+    def create_blob_location(
+        self, name: str, bucket: Optional[str] = None
+    ) -> BlobLocation:
+        """Creates a BlobLocation object.
+
+        Args:
+            name: The name of the blob.
+            bucket: The name of the bucket.
+        Returns:
+            The created BlobLocation object.
+        """
+        return BlobLocation(name=name, bucket=bucket)

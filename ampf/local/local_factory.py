@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, override
 
 from pydantic import BaseModel
+
+from ampf.base.blob_model import BlobLocation
 
 from ..base import BaseFactory, BaseStorage
 from .file_storage import StrPath
@@ -54,3 +56,15 @@ class LocalFactory(BaseFactory):
         return LocalBlobStorage(
             collection_name, clazz, content_type, root_path=self._root_path / "blobs"
         )
+
+    @override
+    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+        """Creates a BlobLocation object.
+
+        Args:
+            name: The name of the blob.
+            bucket: The name of the bucket.
+        Returns:
+            The created BlobLocation object.
+        """
+        return BlobLocation(name=name, bucket=bucket or self._root_path.as_posix())

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
+from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
@@ -50,3 +51,10 @@ async def test_upload_and_download_blob(factory):
     blob = await factory.download_blob(blob_location)
     assert blob.content == b"test data"
 
+
+
+def test_create_blob_location(factory: BaseAsyncFactory):
+    location = factory.create_blob_location("test/location")
+
+    assert location is not None
+    assert location.name == "test/location"
