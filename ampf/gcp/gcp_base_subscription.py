@@ -81,10 +81,14 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         """
         try:
             response = self.subscriber.pull(
-                subscription=self.subscription_path, max_messages=1, return_immediately=True
+                subscription=self.subscription_path, max_messages=1, timeout=0.5
             )
+            self._log.warning("Return %s", not response.received_messages)
             return not response.received_messages
-        except Exception:
+        except DeadlineExceeded:
+            return True
+        except Exception as e:
+            self._log.exception(e)
             return True
 
     async def wait_until_empty(self, timeout: float = 5.0, check_interval: float = 1.0) -> None:
@@ -97,7 +101,7 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         while total_waited < timeout and not self.is_empty():
             await asyncio.sleep(check_interval)
             total_waited += check_interval
-        assert self.is_empty(), "Subscription is not empty after waiting"
+        assert self.is_empty(), f"Subscription {self.subscription_path} is not empty after waiting"
 
     def clear(self):
         """Clears the subscription of all messages."""

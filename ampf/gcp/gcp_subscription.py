@@ -108,7 +108,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
             if filter(message):
                 return message
 
-    def receive_first_payload(self, filter: Callable[[T], bool]) -> Optional[T]:
+    def receive_first_payload(self, filter: Optional[Callable[[T], bool]] = None) -> Optional[T]:
         """Receives the first message **payload** that satisfies the filter.
 
         Args:
@@ -117,7 +117,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
             The first payload that satisfies the filter, or None if no such message is received within the timeout.
         """
         for payload in self:
-            if filter(payload):
+            if not filter or filter(payload):
                 return payload
 
     try:
