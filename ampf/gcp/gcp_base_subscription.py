@@ -81,7 +81,7 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         """
         try:
             response = self.subscriber.pull(
-                subscription=self.subscription_path, max_messages=1, timeout=0.5
+                subscription=self.subscription_path, max_messages=1, return_immediately=True
             )
             self._log.warning("Return %s", not response.received_messages)
             return not response.received_messages
