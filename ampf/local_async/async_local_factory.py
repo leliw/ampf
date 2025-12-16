@@ -43,9 +43,10 @@ class LocalAsyncFactory(BaseAsyncFactory):
     def create_blob_storage[T: BaseModel](
         self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain", bucket_name: Optional[str] = None
     ) -> BaseAsyncBlobStorage[T]:
-        if bucket_name:
-            raise NotImplementedError("Bucket support is not implemented in LocalBlobAsyncStorage")
-        return LocalBlobAsyncStorage(collection_name, clazz, content_type, root_path=self._root_path / "blobs")
+        root_path = Path(bucket_name) if bucket_name else self._root_path
+        return LocalBlobAsyncStorage(
+            collection_name, clazz, content_type, root_path=root_path / "blobs"
+        )
 
 # deprecated
 class AsyncLocalFactory(LocalAsyncFactory):
