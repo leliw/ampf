@@ -112,7 +112,6 @@ class BaseAsyncFactory(ABC):
             bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
             return await bs.download_async(blob_location.name)
         except KeyNotExistsException as e:
-            _log.warning("Error translating file: %s", blob_location.name)
             raise e
 
     async def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:

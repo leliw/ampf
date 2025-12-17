@@ -16,7 +16,7 @@ class BaseAsyncBlobStorage[T: BaseModel](ABC):
     """
 
     def __init__(
-        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: str = "text/plain"
+        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
     ):
         """
         Initializes the storage.

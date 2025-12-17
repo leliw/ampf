@@ -4,7 +4,7 @@ from typing import Callable, Optional, Type
 from pydantic import BaseModel
 
 from ..base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
-from ..local import StrPath
+from ..local.file_storage import StrPath
 from .json_multi_files_async_storage import JsonMultiFilesAsyncStorage
 from .json_one_file_async_storage import JsonOneFileAsyncStorage
 from .local_blob_async_storage import LocalBlobAsyncStorage

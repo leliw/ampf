@@ -12,13 +12,14 @@ from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
+from ampf.mimetypes import get_content_type
 
 class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
         metadata_type: Optional[Type[T]] = None,
-        content_type: str = "text/plain",
+        content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
         self.collection_name = collection_name
@@ -90,22 +91,25 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         meta_path = self._get_meta_path(key)
         data_path = self._find_data_path(key)
 
-        if not data_path or not meta_path.exists():
+        if not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
         with open(data_path, "rb") as f:
             data = f.read()
 
-        with open(meta_path, "r", encoding="utf-8") as f:
-            meta_raw = json.load(f)
-            metadata = (
-                self.metadata_type.model_validate(meta_raw["metadata"])
-                if meta_raw["metadata"] and self.metadata_type
-                else None
-            )
+        if self.clazz:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta_raw = json.load(f)
+                metadata = (
+                    self.metadata_type.model_validate(meta_raw["metadata"])
+                    if meta_raw["metadata"] and self.metadata_type
+                    else None
+                )
 
-        content_type = meta_raw.get("content_type")
-
+            content_type = meta_raw.get("content_type")
+        else:
+            metadata = None
+            content_type = get_content_type(data_path.name)
         return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
 
     @override
