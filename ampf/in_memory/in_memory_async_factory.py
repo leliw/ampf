@@ -34,3 +34,6 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
+
+    def drop(self):
+        self.collections = {}
