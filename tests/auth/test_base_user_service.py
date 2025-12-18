@@ -1,16 +1,12 @@
-
-import logging
 from typing import List
 
-from pydantic import EmailStr
 import pytest
+from pydantic import EmailStr
+
 from ampf.auth import BaseUserService, DefaultUser
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.exceptions import KeyNotExistsException
-from tests.auth.app.features.user.user_model import UserHeader, User, UserInDB
-
-
-_log = logging.getLogger(__name__)
+from tests.auth.app.features.user.user_model import User, UserHeader, UserInDB
 
 
 class UserService(BaseUserService[User]):
@@ -43,7 +39,7 @@ class UserService(BaseUserService[User]):
 
     async def is_empty(self) -> bool:
         return await self.storage.is_empty()
-    
+
 
 @pytest.mark.asyncio
 async def test_initialise_storage(factory: BaseAsyncFactory, test_user: DefaultUser):
@@ -61,3 +57,55 @@ async def test_initialise_storage(factory: BaseAsyncFactory, test_user: DefaultU
     assert user.hashed_password
     # And: Roles are set
     assert user.roles == test_user.roles
+
+
+@pytest.mark.asyncio
+async def test_create_existing_user(factory: BaseAsyncFactory):
+    # Given: An user initialised service
+    user_service = UserService(factory)
+    await user_service.create(User(username="admin@gmail.com", password="admin"))
+    # When: I create an existing user
+    with pytest.raises(Exception):
+        await user_service.create(User(username="admin@gmail.com", password="admin"))
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_email(factory: BaseAsyncFactory):
+    # Given: An user initialised service
+    user_service = UserService(factory)
+    await user_service.initialise_storage(DefaultUser(username="admin@gmail.com", password="admin"))
+    # When: I get user by email
+    user = await user_service.get_user_by_email("admin@gmail.com")
+    # Then: The user is returned
+    assert user.username == "admin@gmail.com"
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_credentials_ok(factory: BaseAsyncFactory):
+    # Given: An user initialised service
+    user_service = UserService(factory)
+    await user_service.initialise_storage(DefaultUser(username="admin@gmail.com", password="admin"))
+    # When: I get user by credentials
+    user = await user_service.get_user_by_credentials("admin@gmail.com", "admin")
+    # Then: The user is returned
+    assert user.username == "admin@gmail.com"
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_credentials_wrong_user(factory: BaseAsyncFactory):
+    # Given: An user initialised service
+    user_service = UserService(factory)
+    await user_service.initialise_storage(DefaultUser(username="admin@gmail.com", password="admin"))
+    # When: I get user by credentials with wrong user
+    with pytest.raises(Exception):
+        await user_service.get_user_by_credentials("admin1@gmail.com", "admin")
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_credentials_wrong_password(factory: BaseAsyncFactory):
+    # Given: An user initialised service
+    user_service = UserService(factory)
+    await user_service.initialise_storage(DefaultUser(username="admin@gmail.com", password="admin"))
+    # When: I get user by credentials with wrong password
+    with pytest.raises(Exception):
+        await user_service.get_user_by_credentials("admin@gmail.com", "admin1")
