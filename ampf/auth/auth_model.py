@@ -1,8 +1,11 @@
-from datetime import datetime
 import hashlib
-from typing import Any, Dict, List, Optional
+import re
 import uuid
-from pydantic import BaseModel, EmailStr, Field, model_serializer
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
 
 
 class Tokens(BaseModel):
@@ -31,11 +34,35 @@ class TokenExp(BaseModel):
     exp: datetime
 
 
-class AuthUser(BaseModel):
+class BaseUser(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+    @field_validator("username", "email", mode="before")
+    @classmethod
+    def normalize_fields(cls, v):
+        if isinstance(v, str):
+            return v.lower().strip() or None
+        return v
+
+    @model_validator(mode="after")
+    def ensure_email_and_username(self) -> "BaseUser":
+        EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+        # Case 1: email provided → copy to username if missing
+        if self.email and not self.username:
+            self.username = self.email
+        # Case 2: username provided (and it's a valid email) → copy to email if missing
+        elif self.username and not self.email and EMAIL_REGEX.match(self.username):
+            self.email = self.username
+        # Case 3: neither provided → error
+        elif not self.username and not self.email:
+            raise ValueError("either 'email' or 'username' (in email format) must be provided")
+        return self
+
+
+class AuthUser(BaseUser):
     """Base user model for authentication"""
 
-    username: str
-    email: str | None = None
     name: str | None = None
     disabled: bool = False
     roles: Optional[List[str]] = Field(default_factory=lambda: [])
@@ -44,21 +71,6 @@ class AuthUser(BaseModel):
     hashed_password: Optional[str] | None = None
     reset_code: Optional[str] = None
     reset_code_exp: Optional[datetime] = None
-
-    def __init__(self, **data):
-        """If username is not provided, set it to email"""
-        if not data.get("username") and data.get("email"):
-            data["username"] = data.get("email")
-        super().__init__(**data)
-
-    @model_serializer
-    def ser_model(self) -> Dict[str, Any]:
-        """Remove sensitive fields before sending to client"""
-        self.password = None
-        self.hashed_password = None
-        self.reset_code = None
-        self.reset_code_exp = None
-        return dict(self)
 
 
 class ChangePasswordData(BaseModel):
