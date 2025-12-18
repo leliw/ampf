@@ -1,11 +1,14 @@
+
 import logging
 from typing import List
+
 from pydantic import EmailStr
+import pytest
+from ampf.auth import BaseUserService, DefaultUser
+from ampf.base.base_async_factory import BaseAsyncFactory
+from ampf.base.exceptions import KeyNotExistsException
+from tests.auth.app.features.user.user_model import UserHeader, User, UserInDB
 
-from ampf.base import BaseAsyncFactory, KeyNotExistsException
-
-from ampf.auth import BaseUserService
-from .user_model import User, UserHeader, UserInDB
 
 _log = logging.getLogger(__name__)
 
@@ -40,3 +43,21 @@ class UserService(BaseUserService[User]):
 
     async def is_empty(self) -> bool:
         return await self.storage.is_empty()
+    
+
+@pytest.mark.asyncio
+async def test_initialise_storage(factory: BaseAsyncFactory, test_user: DefaultUser):
+    # Given: An empty UserService
+    user_service = UserService(factory)
+    assert user_service.is_empty()
+    # When: The storage is initialised
+    await user_service.initialise_storage(test_user)
+    # Then: The storage is not empty
+    assert not await user_service.is_empty()
+    user = await user_service.get(test_user.username)
+    # And: Username is set
+    assert user.username == test_user.username
+    # And: Password (hashed) is set
+    assert user.hashed_password
+    # And: Roles are set
+    assert user.roles == test_user.roles

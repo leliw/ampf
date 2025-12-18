@@ -1,26 +1,25 @@
-from .auth_config import AuthConfig, DefaultUser, SmtpConfig, ResetPasswordMailConfig
-from .auth_model import (
-    Tokens,
-    TokenExp,
-    TokenPayload,
-    AuthUser,
-    ChangePasswordData,
-    ResetPasswordRequest,
-    ResetPassword,
-    APIKeyRequest,
-    APIKey,
-    APIKeyInDB,
-)
+from .auth_config import AuthConfig, DefaultUser, ResetPasswordMailConfig, SmtpConfig
 from .auth_exceptions import (
     BlackListedRefreshTokenException,
-    TokenExpiredException,
-    InvalidTokenException,
-    InvalidRefreshTokenException,
     InsufficientPermissionsError,
+    InvalidRefreshTokenException,
+    InvalidTokenException,
+    TokenExpiredException,
+)
+from .auth_model import (
+    APIKey,
+    APIKeyInDB,
+    APIKeyRequest,
+    AuthUser,
+    ChangePasswordData,
+    ResetPassword,
+    ResetPasswordRequest,
+    TokenExp,
+    TokenPayload,
+    Tokens,
 )
 from .auth_service import AuthService
-from .user_service_base import UserServiceBase
-
+from .base_user_service import BaseUserService
 from .google_oauth import GoogleOAuth
 
 __all__ = [
@@ -44,6 +43,6 @@ __all__ = [
     "InvalidRefreshTokenException",
     "InsufficientPermissionsError",
     "AuthService",
-    "UserServiceBase",
     "GoogleOAuth",
+    "BaseUserService",
 ]

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -6,10 +6,10 @@ from fastapi.security import OAuth2PasswordBearer
 from ampf.auth import AuthService, TokenPayload
 from ampf.auth.auth_exceptions import InsufficientPermissionsError
 from ampf.auth.auth_service import AuthConfig
-from ampf.base import BaseFactory
+from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_email_sender import BaseEmailSender
 from ampf.base.email_template import EmailTemplate
-from ampf.in_memory.in_memory_factory import InMemoryFactory
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 
 from .config import ServerConfig
 from .features.user.user_service import UserService
@@ -24,21 +24,21 @@ def get_server_config() -> ServerConfig:
 ServerConfigDep = Annotated[ServerConfig, Depends(get_server_config)]
 
 
-async def get_factory() -> BaseFactory:
-    return InMemoryFactory()
+async def get_async_factory() -> BaseAsyncFactory:
+    return InMemoryAsyncFactory()
 
 
-FactoryDep = Annotated[BaseFactory, Depends(get_factory)]
+AsyncFactoryDep = Annotated[BaseAsyncFactory, Depends(get_async_factory)]
 
 
-def user_service_dep(factory: FactoryDep) -> UserService:
-    return UserService(storage_factory=factory)
+def user_service_dep(factory: AsyncFactoryDep) -> UserService:
+    return UserService(factory)
 
 
 UserServceDep = Annotated[UserService, Depends(user_service_dep)]
 
 
-async def get_email_sender(conf: ServerConfigDep) -> BaseEmailSender:
+async def get_email_sender(conf: ServerConfigDep) -> Optional[BaseEmailSender]:
     return None
 
 
@@ -46,7 +46,7 @@ EmailSenderServiceDep = Annotated[BaseEmailSender, Depends(get_email_sender)]
 
 
 async def auth_service_dep(
-    factory: FactoryDep,
+    factory: AsyncFactoryDep,
     email_sender_service: EmailSenderServiceDep,
     server_config: ServerConfigDep,
     user_service: UserServceDep,
@@ -65,7 +65,7 @@ AuthServiceDep = Annotated[AuthService, Depends(auth_service_dep)]
 
 
 async def decode_token(auth_service: AuthServiceDep, token: AuthTokenDep) -> TokenPayload:
-    return auth_service.decode_token(token)
+    return await auth_service.decode_token(token)
 
 
 TokenPayloadDep = Annotated[TokenPayload, Depends(decode_token)]
@@ -74,7 +74,7 @@ TokenPayloadDep = Annotated[TokenPayload, Depends(decode_token)]
 class Authorize:
     """Dependency for authorizing users based on their role."""
 
-    def __init__(self, required_role: str = None):
+    def __init__(self, required_role: Optional[str] = None):
         self.required_role = required_role
 
     def __call__(self, token_payload: TokenPayloadDep) -> bool:

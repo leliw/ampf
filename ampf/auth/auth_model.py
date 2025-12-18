@@ -22,9 +22,9 @@ class TokenPayload(BaseModel):
     sub: str
     email: str | None = None
     name: str | None = None
-    roles: Optional[List[str]] = Field(default_factory=lambda: [])
+    roles: List[str] = Field(default_factory=list)
     picture: Optional[str] = None
-    exp: datetime | None = None
+    exp: datetime
 
 
 class TokenExp(BaseModel):
@@ -35,7 +35,7 @@ class TokenExp(BaseModel):
 
 
 class BaseUser(BaseModel):
-    username: Optional[str] = None
+    username: str = ""
     email: Optional[EmailStr] = None
 
     @field_validator("username", "email", mode="before")
@@ -63,12 +63,12 @@ class BaseUser(BaseModel):
 class AuthUser(BaseUser):
     """Base user model for authentication"""
 
-    name: str | None = None
+    name: Optional[str] = None
     disabled: bool = False
-    roles: Optional[List[str]] = Field(default_factory=lambda: [])
+    roles: List[str] = Field(default_factory=list)
     picture: Optional[str] = None
-    password: Optional[str] | None = None
-    hashed_password: Optional[str] | None = None
+    password: Optional[str] = None
+    hashed_password: Optional[str] = None
     reset_code: Optional[str] = None
     reset_code_exp: Optional[datetime] = None
 
@@ -98,7 +98,7 @@ class APIKeyRequest(BaseModel):
     """Data for generating API key"""
 
     exp: datetime | None = None
-    roles: Optional[List[str]] = Field(default_factory=lambda: [])
+    roles: List[str] = Field(default_factory=list)
 
 
 class APIKeyInDB(APIKeyRequest):

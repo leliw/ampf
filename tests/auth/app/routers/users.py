@@ -11,25 +11,24 @@ router = APIRouter(
 
 @router.post("")
 async def create(user_service: UserServceDep, user: User):
-    user_service.create(user)
-    return user
+    await user_service.create(user)
 
 
 @router.get("")
 async def get_all(user_service: UserServceDep):
-    return user_service.get_all()
+    return await user_service.get_all()
 
 
 @router.get("/{username}")
 async def get_by_email(user_service: UserServceDep, username: str) -> User:
-    return user_service.get(username)
+    return await user_service.get(username)
 
 
 @router.put("/{username}")
 async def update(user_service: UserServceDep, username: str, user: User):
-    return user_service.update(username, user)
+    return await user_service.update(username, user)
 
 
 @router.delete("/{username}")
 async def delete(user_service: UserServceDep, username: str):
-    return user_service.delete(username)
+    return await user_service.delete(username)
