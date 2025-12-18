@@ -3,13 +3,13 @@ from typing import Callable, Dict, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
+from .in_memory_async_storage import InMemoryAsyncStorage
 
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
-from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections: Dict[str,InMemoryStorage] = {}
+    collections: Dict[str, InMemoryAsyncStorage] = {}
 
     def create_storage[T: BaseModel](
         self,
@@ -19,13 +19,12 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         key: Optional[Callable[[T], str]] = None,
     ) -> BaseAsyncStorage[T]:
         if collection_name not in self.collections:
-            self.collections[collection_name] = InMemoryStorage(
+            self.collections[collection_name] = InMemoryAsyncStorage(
                 collection_name=collection_name,
                 clazz=clazz,
-                key_name=key_name,
-                key=key,
+                key=key or key_name,
             )
-        return self.collections.get(collection_name) # type: ignore
+        return self.collections.get(collection_name)  # type: ignore
 
     def create_blob_storage[T: BaseModel](
         self,
