@@ -1,8 +1,9 @@
 from typing import Optional
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ampf.auth import DefaultUser, AuthConfig, ResetPasswordMailConfig, SmtpConfig
+from ampf.auth import AuthConfig, DefaultUser, ResetPasswordMailConfig, SmtpConfig
 from ampf.base.base_factory import BaseFactory
 
 
@@ -11,7 +12,7 @@ class ServerConfig(BaseSettings):
 
     version: str = "0.6.8"
     data_dir: str = "data"
-    default_user: DefaultUser = DefaultUser()
+    default_user: DefaultUser = DefaultUser(username="admin", password="admin")
 
     smtp: SmtpConfig = SmtpConfig()
     reset_password_mail: ResetPasswordMailConfig = ResetPasswordMailConfig()
@@ -32,9 +33,7 @@ class UserConfig(BaseModel):
 
 class UserConfigService:
     def __init__(self, factory: BaseFactory):
-        self.storage = factory.create_compact_storage(
-            "user_config", UserConfig, key_name="config"
-        )
+        self.storage = factory.create_compact_storage("user_config", UserConfig, key_name="config")
 
     def get(self) -> UserConfig:
         return self.storage.get("config")
