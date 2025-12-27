@@ -30,6 +30,11 @@ def app():
     async def root_put(d: D):
         return d
 
+
+    @app.patch("/")
+    async def root_patch(d: D):
+        return d
+    
     @app.delete("/")
     async def root_delete():
         return {"message": "deleted"}
@@ -109,6 +114,31 @@ def test_put_status(client: ApiTestClient):
         # Then: It is not ok
         client.put("/", status_code=400, json=D(name="foo", value="bar"))
 
+def test_put_typed(client: ApiTestClient):
+    # When: Call the put_typed method with a Pydantic model
+    ret = client.put_typed("/", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
+    # Then: The response is correctly typed and contains the expected data
+    assert isinstance(ret, D)
+    assert ret.name == "foo"
+    assert ret.value == "bar"
+
+def test_patch_status(client: ApiTestClient):
+    # When: Call the put method with an expected status code
+    client.patch("/", status_code=200, json=D(name="foo", value="bar"))
+    # Then: It is ok
+    assert True
+    with pytest.raises(AssertionError):
+        # When: Call the put method with an unexpected status code
+        # Then: It is not ok
+        client.put("/", status_code=400, json=D(name="foo", value="bar"))
+
+def test_patch_typed(client: ApiTestClient):
+    # When: Call the put_typed method with a Pydantic model
+    ret = client.patch_typed("/", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
+    # Then: The response is correctly typed and contains the expected data
+    assert isinstance(ret, D)
+    assert ret.name == "foo"
+    assert ret.value == "bar"
 
 def test_delete_status(client: ApiTestClient):
     # When: Call the delete method with an expected status code
