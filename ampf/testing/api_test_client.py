@@ -26,9 +26,14 @@ class ApiTestClient(TestClient):
             raise ValueError("Response is not a list")
         return [ret_clazz.model_validate(item) for item in resp]
 
-    def post(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
+    def _prepare_parameters(self, kwargs):
         if "json" in kwargs and issubclass(kwargs["json"].__class__, BaseModel):
             kwargs["json"] = kwargs["json"].model_dump(mode="json")
+        if "data" in kwargs and issubclass(kwargs["data"].__class__, BaseModel):
+            kwargs["data"] = kwargs["data"].model_dump_json()
+
+    def post(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
+        self._prepare_parameters(kwargs)
         response = super().post(url, **kwargs)
         if status_code is not None:
             assert response.status_code == status_code, f"Expected status code {status_code}, got {response.status_code}"
@@ -47,8 +52,7 @@ class ApiTestClient(TestClient):
         return [ret_clazz.model_validate(item) for item in resp]
 
     def put(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
-        if "json" in kwargs and issubclass(kwargs["json"].__class__, BaseModel):
-            kwargs["json"] = kwargs["json"].model_dump(mode="json")
+        self._prepare_parameters(kwargs)
         response = super().put(url, **kwargs)
         if status_code is not None:
             assert response.status_code == status_code, f"Expected status code {status_code}, got {response.status_code}"
@@ -60,8 +64,7 @@ class ApiTestClient(TestClient):
         return ret_clazz.model_validate(resp)
 
     def patch(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
-        if "json" in kwargs and issubclass(kwargs["json"].__class__, BaseModel):
-            kwargs["json"] = kwargs["json"].model_dump(mode="json")
+        self._prepare_parameters(kwargs)
         response = super().patch(url, **kwargs)
         if status_code is not None:
             assert response.status_code == status_code, f"Expected status code {status_code}, got {response.status_code}"

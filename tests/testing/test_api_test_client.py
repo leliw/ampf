@@ -98,6 +98,15 @@ def test_post_status(client: ApiTestClient):
         # Then: It is not ok
         client.post("/", status_code=400, json=D(name="foo", value="bar"))
 
+def test_post_data(client: ApiTestClient):
+    # When: Call the post method with an expected status code
+    client.post("/", status_code=200, data=D(name="foo", value="bar"))
+    # Then: It is ok
+    assert True
+    with pytest.raises(AssertionError):
+        # When: Call the post method with an unexpected status code
+        # Then: It is not ok
+        client.post("/", status_code=400, json=D(name="foo", value="bar"))
 
 def test_post_typed(client: ApiTestClient):
     # When: Call the post_typed method with a Pydantic model
