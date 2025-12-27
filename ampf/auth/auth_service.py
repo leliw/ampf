@@ -3,6 +3,7 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import jwt
 from pydantic import EmailStr
@@ -38,10 +39,10 @@ class AuthService[T: AuthUser]:
     def __init__(
         self,
         storage_factory: BaseAsyncFactory,
-        email_sender_service: BaseEmailSender,
         user_service: BaseUserService[T],
-        reset_mail_template: EmailTemplate,
         auth_config: AuthConfig,
+        email_sender_service: Optional[BaseEmailSender] = None,
+        reset_mail_template: Optional[EmailTemplate] = None,
     ) -> None:
         self._storage_factory = storage_factory
         self._storage = storage_factory.create_compact_storage("token_black_list", TokenExp, "token")
@@ -154,6 +155,12 @@ class AuthService[T: AuthUser]:
         await self._user_service.set_reset_code(user.username, reset_code, reset_code_expires)
 
     def send_reset_email(self, recipient: EmailStr, reset_code: str) -> None:
+        if not self._email_sender_service:
+            self._log.warning("Email sender service is not configured")
+            raise ValueError("Email sender service is not configured")
+        if not self.reset_mail_template:
+            self._log.warning("Reset mail template is not configured")
+            raise ValueError("Reset mail template is not configured")
         self._email_sender_service.send(
             **self.reset_mail_template.render(
                 recipient=recipient,
