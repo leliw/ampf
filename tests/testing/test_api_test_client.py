@@ -25,6 +25,10 @@ def app():
     @app.post("/")
     async def root_post(d: D):
         return d
+    
+    @app.post("/list")
+    async def list_post(d: D):
+        return [d]
 
     @app.put("/")
     async def root_put(d: D):
@@ -67,9 +71,9 @@ def test_get_typed(client: ApiTestClient):
     assert ret.value == "bar"
 
 
-def test_get_list(client: ApiTestClient):
+def test_get_typed_list(client: ApiTestClient):
     # When: Call the get_list method with a Pydantic model
-    ret = client.get_list("/list", 200, D)
+    ret = client.get_typed_list("/list", 200, D)
     # Then: The response is a list of correctly typed Pydantic models
     assert isinstance(ret, list)
     assert len(ret) == 1
@@ -78,11 +82,11 @@ def test_get_list(client: ApiTestClient):
     assert ret[0].value == "bar"
 
 
-def test_get_list_err(client: ApiTestClient):
+def test_get_typed_list_err(client: ApiTestClient):
     # When: Call the get_list method with a non-list response
     # Then: It raises a ValueError
     with pytest.raises(ValueError):
-        client.get_list("/", 200, D)
+        client.get_typed_list("/", 200, D)
 
 def test_post_status(client: ApiTestClient):
     # When: Call the post method with an expected status code
@@ -103,6 +107,15 @@ def test_post_typed(client: ApiTestClient):
     assert ret.name == "foo"
     assert ret.value == "bar"
 
+def test_post_typed_list(client: ApiTestClient):
+    # When: Call the post_typed method with a Pydantic model
+    ret = client.post_typed_list("/list", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
+    # Then: The response is a list of correctly typed Pydantic models
+    assert isinstance(ret, list)
+    assert len(ret) == 1
+    assert isinstance(ret[0], D)
+    assert ret[0].name == "foo"
+    assert ret[0].value == "bar"
 
 def test_put_status(client: ApiTestClient):
     # When: Call the put method with an expected status code

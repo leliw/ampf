@@ -17,7 +17,7 @@ class ApiTestClient(TestClient):
         resp = response.json()
         return ret_clazz.model_validate(resp)
 
-    def get_list[T: BaseModel](
+    def get_typed_list[T: BaseModel](
         self, url: httpx._types.URLTypes, status_code: int, ret_clazz: Type[T], **kwargs
     ) -> List[T]:
         response = self.get(url, status_code=status_code, **kwargs)
@@ -38,6 +38,13 @@ class ApiTestClient(TestClient):
         response = self.post(url, status_code=status_code, **kwargs)
         resp = response.json()
         return ret_clazz.model_validate(resp)
+
+    def post_typed_list[T: BaseModel](self, url: httpx._types.URLTypes, status_code: int, ret_clazz: Type[T], **kwargs) -> List[T]:
+        response = self.post(url, status_code=status_code, **kwargs)
+        resp = response.json()
+        if not isinstance(resp, list):
+            raise ValueError("Response is not a list")
+        return [ret_clazz.model_validate(item) for item in resp]
 
     def put(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
         if "json" in kwargs and issubclass(kwargs["json"].__class__, BaseModel):
