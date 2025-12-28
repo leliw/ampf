@@ -114,10 +114,10 @@ async def test_reset_password_request(email_sender, client, user_service: UserSe
     assert len(email_sender.sent_emails) == 1
     email = email_sender.sent_emails[0]
     assert email["recipient"] == "test@test.com"
-    match = re.search(r"wpisz kod: (\S+) w formularzu\.", email["body"])
+    match = re.search(r"please enter the following code into the form: (\S+)\.", email["body"])
     code = match.group(1) if match else ""
     assert len(code) == 16
-    match = re.search(r"Kod jest ważny przez (\d+) minut\.", email["body"])
+    match = re.search(r"This code is valid for (\d+) minutes\.", email["body"])
     time = match.group(1) if match else None
     assert time == "15"
 
@@ -133,7 +133,7 @@ async def test_reset_password(email_sender, client, user_service: UserService):
     # Given: Code is extracted from email
     assert len(email_sender.sent_emails) == 1
     email = email_sender.sent_emails[0]
-    match = re.search(r"wpisz kod: (\S+) w formularzu\.", email["body"])
+    match = re.search(r"please enter the following code into the form: (\S+)\.", email["body"])
     code = match.group(1) if match else None
     # When: Default user resets password with the code
     response = client.post(
