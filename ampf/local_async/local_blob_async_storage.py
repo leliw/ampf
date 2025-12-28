@@ -12,7 +12,6 @@ from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
-from ampf.mimetypes import get_content_type
 
 class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def __init__(
@@ -97,19 +96,15 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         with open(data_path, "rb") as f:
             data = f.read()
 
-        if self.clazz:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta_raw = json.load(f)
-                metadata = (
-                    self.metadata_type.model_validate(meta_raw["metadata"])
-                    if meta_raw["metadata"] and self.metadata_type
-                    else None
-                )
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta_raw = json.load(f)
+            metadata = (
+                self.metadata_type.model_validate(meta_raw["metadata"])
+                if meta_raw["metadata"] and self.metadata_type
+                else None
+            )
 
-            content_type = meta_raw.get("content_type")
-        else:
-            metadata = None
-            content_type = get_content_type(data_path.name)
+        content_type = meta_raw.get("content_type")
         return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
 
     @override
