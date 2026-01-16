@@ -5,12 +5,12 @@ from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
-from ampf.local_async import AsyncLocalFactory
+from ampf.local import LocalAsyncFactory
 
 
-@pytest.fixture(params=[InMemoryAsyncFactory, AsyncLocalFactory, GcpAsyncFactory])
+@pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory, GcpAsyncFactory])
 def factory(request, tmp_path):
-    if request.param == AsyncLocalFactory:
+    if request.param == LocalAsyncFactory:
         factory = request.param(tmp_path)
     elif request.param == GcpAsyncFactory:
         factory = request.param(bucket_name='unit-tests-001')

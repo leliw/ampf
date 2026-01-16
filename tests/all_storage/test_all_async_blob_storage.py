@@ -11,7 +11,7 @@ from ampf.base import BaseAsyncBlobStorage, BaseBlobStorage, KeyNotExistsExcepti
 from ampf.base.blob_model import Blob
 from ampf.gcp import GcpAsyncBlobStorage
 from ampf.in_memory import InMemoryAsyncBlobStorage
-from ampf.local_async.local_blob_async_storage import LocalAsyncBlobStorage
+from ampf.local import LocalAsyncBlobStorage
 
 # from ampf.local import LocalBlobStorage
 
