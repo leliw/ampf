@@ -1,9 +1,10 @@
+from io import BytesIO
 from ampf.base.blob_model import Blob
 
 
 def test_get_content():
     # Given: A blob with data
-    blob = Blob(name="foo", data=b"bar")
+    blob = Blob(name="foo", data=BytesIO(b"bar"))
     # When: I get the content
     content = blob.content
     # Then: The content is correct

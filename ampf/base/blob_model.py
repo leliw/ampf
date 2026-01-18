@@ -1,6 +1,8 @@
+import asyncio
+from contextlib import contextmanager
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
-from typing import BinaryIO, Optional
+from typing import AsyncGenerator, BinaryIO, Generator, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -33,50 +35,75 @@ class BlobHeader[T: BaseModel](BaseModel):
     metadata: Optional[T] = None
 
 
-class Blob[T: BaseModel](BlobHeader[T]):
-    """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
+class BlobError(ValueError):
+    def __init__(self):
+        super().__init__("Provide either 'data' or 'content', but not both")
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    _data: Optional[BinaryIO | BytesIO | bytes | str] = None
+
+class Blob[T: BaseModel]:
+    """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
 
     def __init__(
         self,
         name: str,
-        data: Optional[BlobData] = None,
-        content: Optional[bytes] = None,
+        data: Optional[BinaryIO] = None,
+        content: Optional[bytes | str] = None,
         content_type: Optional[str] = None,
         metadata: Optional[T] = None,
     ):
-        super().__init__(name=name, content_type=content_type, metadata=metadata)
-        if data:
-            self.data = data  # type: ignore # setter
-        elif content:
-            self.data = content
-        else:
-            raise ValueError("Either data or content must be provided")
+        self.name = name
+        self.content_type = content_type
+        self.metadata = metadata
+        self._data: Optional[BinaryIO] = data
+        self._content: Optional[bytes] = None
+        if content:
+            self.content = content
+        if not data and not content:
+            raise BlobError()
+        if data and content:
+            raise BlobError()
 
-    @property
-    def data(self) -> BinaryIO:
+    @contextmanager
+    def data(self) -> Generator[BinaryIO]:
         if not self._data:
-            raise ValueError("Data is not set")
-        if isinstance(self._data, BinaryIO) or isinstance(self._data, SpooledTemporaryFile):
-            self._data.seek(0)
-            return self._data  # type: ignore
-        elif isinstance(self._data, str):
-            return BytesIO(self._data.encode())
+            if self._content:
+                data = BytesIO(self._content)
+            else:
+                raise BlobError()
         else:
-            return BytesIO(self._data)  # type: ignore
-
-    @data.setter
-    def data(self, value: BinaryIO | BytesIO | bytes | str):
-        self._data = value
-        if isinstance(value, str) and not self.content_type:
-            self.content_type = "text/plain"
+            data = self._data
+        yield data
+        data.close()
+        self._data = None
 
     @property
     def content(self) -> bytes:
-        return self.data.read()
+        if self._content:
+            return self._content
+        else:
+            with self.data() as data:
+                self._content = data.read()
+                self._data = None
+                return self._content
 
     @content.setter
-    def content(self, value: bytes):
-        self._data = value
+    def content(self, v: bytes | str):
+        if self._data:
+            raise BlobError()
+        else:
+            self._content = v.encode() if isinstance(v, str) else v
+
+    async def stream(self, chunk_size=1024 * 1024) -> AsyncGenerator[bytes]:
+        if self._content:
+            # If content is already loaded in memory, yield chunks from it
+            for i in range(0, len(self._content), chunk_size):
+                yield self._content[i : i + chunk_size]
+            return
+        else:
+            with self.data() as data:
+                while True:
+                    # data.read() jest synchroniczne, więc delegujemy do wątku
+                    chunk = await asyncio.to_thread(data.read, chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk

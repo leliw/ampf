@@ -75,7 +75,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         return Blob(
             name=key,
-            data=g_blob.download_as_string(),
+            content=g_blob.download_as_string(),
             content_type=g_blob.content_type,
             metadata=self.get_metadata(key),
         )

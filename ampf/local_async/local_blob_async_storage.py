@@ -3,8 +3,10 @@ import json
 import mimetypes
 import os
 from pathlib import Path
+import shutil
 from typing import Awaitable, Callable, List, Optional, Type, override
 
+import aiofiles
 from pydantic import BaseModel
 
 from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
@@ -14,7 +16,10 @@ from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
 from ampf.mimetypes import get_content_type
 
+
 class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
+    chunk_size = 1024 * 1024  # 1MB
+
     def __init__(
         self,
         collection_name: str,
@@ -60,7 +65,9 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def _generate_data_path(self, key: str, content_type: Optional[str]) -> Path:
         """Generate a data path with appropriate extension."""
         ext = mimetypes.guess_extension(content_type or "")
-        ext = ext if ext else ""  # fallback to no extension
+        ext = ext or ""  # fallback to no extension
+        if ext == ".json":
+            ext = "._json"  # JSON extension is used by metadatafile
         if ext and key.endswith(ext):
             key = key[: -len(ext)]
         return self.base_path / f"{key}{ext}"
@@ -72,8 +79,12 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
-            with open(data_path, "wb") as f:
-                f.write(blob.data.read())
+            async with aiofiles.open(data_path, "wb") as f:
+                async for chunk in blob.stream():
+                    await f.write(chunk)
+            # with open(data_path, "wb") as f:
+            #     with blob.data() as data:
+            #         shutil.copyfileobj(data, f)
 
         async def write_meta():
             meta_dict = {
@@ -81,8 +92,8 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
                 "content_type": blob.content_type,
                 "metadata": blob.metadata.model_dump() if blob.metadata else {},
             }
-            with open(meta_path, "w", encoding="utf-8") as f:
-                json.dump(meta_dict, f)
+            async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
+                await f.write(json.dumps(meta_dict))
 
         await asyncio.gather(write_data(), write_meta())
 
@@ -94,23 +105,17 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         if not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
-        with open(data_path, "rb") as f:
-            data = f.read()
-
         if self.clazz:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta_raw = json.load(f)
-                metadata = (
-                    self.metadata_type.model_validate(meta_raw["metadata"])
-                    if meta_raw["metadata"] and self.metadata_type
-                    else None
-                )
-
+            async with aiofiles.open(meta_path, "r", encoding="utf-8") as f:
+                meta_raw = json.loads(await f.read())
+                metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if meta_raw["metadata"] and self.metadata_type else None
             content_type = meta_raw.get("content_type")
         else:
             metadata = None
             content_type = get_content_type(data_path.name)
-        return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
+
+        f = await asyncio.to_thread(open, data_path, "rb")
+        return Blob[T](name=key, metadata=metadata, content_type=content_type, data=f)
 
     @override
     def delete(self, key: str) -> None:
@@ -143,11 +148,7 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
 
             with open(meta_file, "r", encoding="utf-8") as f:
                 meta_raw = json.load(f)
-                metadata = (
-                    self.metadata_type.model_validate(meta_raw["metadata"])
-                    if meta_raw["metadata"] and self.metadata_type
-                    else None
-                )
+                metadata = self.metadata_type.model_validate(meta_raw["metadata"]) if meta_raw["metadata"] and self.metadata_type else None
             content_type = meta_raw.get("content_type")
 
             headers.append(BlobHeader(name=key, metadata=metadata, content_type=content_type))

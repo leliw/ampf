@@ -46,7 +46,7 @@ async def get_all_documents(service: DocumentServiceDep) -> List[Document]:
 async def get(service: DocumentServiceDep, document_id: UUID) -> Response:
     blob = await service.get(document_id)
     return Response(
-        content=blob.data.read(),
+        content=blob.content,
         media_type=blob.content_type,
         headers={"Content-Disposition": f'attachment; filename="{blob.name}"'},
     )

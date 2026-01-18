@@ -74,7 +74,7 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     uploaded_blob = await async_storage.download_async(f"{document_id}")
     assert uploaded_blob.name == f"{document_id}"
     assert uploaded_blob.content_type == content_type
-    assert uploaded_blob.data.read().decode() == file_content
+    assert uploaded_blob.content.decode() == file_content
 
     # Test GET all documents
     response = client.get("/api/documents")
@@ -116,7 +116,7 @@ async def test_post_get_put_delete_document(client: TestClient, local_async_fact
     updated_blob = await async_storage.download_async(f"{document_id}")
     assert updated_blob.name == f"{document_id}"
     assert updated_blob.content_type == updated_content_type
-    assert updated_blob.data.read().decode() == updated_file_content
+    assert updated_blob.content.decode() == updated_file_content
 
     # Test GET the updated document
     response = client.get(f"/api/documents/{document_id}")
