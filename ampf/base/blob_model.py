@@ -3,10 +3,11 @@ from contextlib import contextmanager
 from io import BytesIO
 from tempfile import SpooledTemporaryFile
 from typing import AsyncGenerator, BinaryIO, Generator, Optional
+from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
-type BlobData = BinaryIO | BytesIO | bytes | str | SpooledTemporaryFile
+type BlobData = BinaryIO | SpooledTemporaryFile
 
 
 class BlobLocation(BaseModel):
@@ -16,15 +17,20 @@ class BlobLocation(BaseModel):
     name: str
 
 
-class BlobCreate[T: BaseModel](BaseModel):
-    """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    name: Optional[str] = None
-    data: BlobData
-    content_type: Optional[str] = None
-    metadata: Optional[T] = None
+class BlobCreate[T: BaseModel]:
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        data: Optional[BlobData] = None,
+        content: Optional[bytes | str] = None,
+        content_type: Optional[str] = None,
+        metadata: Optional[T] = None,
+    ):
+        self.name = name
+        self.data = data
+        self.content = content
+        self.content_type = content_type
+        self.metadata = metadata
 
 
 class BlobHeader[T: BaseModel](BaseModel):
@@ -46,7 +52,7 @@ class Blob[T: BaseModel]:
     def __init__(
         self,
         name: str,
-        data: Optional[BinaryIO] = None,
+        data: Optional[BlobData] = None,
         content: Optional[bytes | str] = None,
         content_type: Optional[str] = None,
         metadata: Optional[T] = None,
@@ -54,7 +60,7 @@ class Blob[T: BaseModel]:
         self.name = name
         self.content_type = content_type
         self.metadata = metadata
-        self._data: Optional[BinaryIO] = data
+        self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
         if content:
             self.content = content
@@ -63,8 +69,18 @@ class Blob[T: BaseModel]:
         if data and content:
             raise BlobError()
 
+    @classmethod
+    def create(cls, value_create: BlobCreate[T]) -> "Blob[T]":
+        return cls(
+            name=value_create.name or str(uuid4()),
+            data=value_create.data,
+            content=value_create.content,
+            content_type=value_create.content_type,
+            metadata=value_create.metadata,
+        )
+
     @contextmanager
-    def data(self) -> Generator[BinaryIO]:
+    def data(self) -> Generator[BlobData]:
         if not self._data:
             if self._content:
                 data = BytesIO(self._content)

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, Response, UploadFile
 from ampf.base.blob_model import BlobCreate
 from ampf.fastapi import JsonStreamingResponse
 
-from ..dependencies import AsyncFactoryDep, FactoryDep
+from ..dependencies import AsyncFactoryDep
 from ..features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from ..features.documents.document_service import DocumentService
 
@@ -17,8 +17,8 @@ ITEM_PATH = "/{document_id}"
 _log = logging.getLogger(__name__)
 
 
-def get_document_service(factory: FactoryDep, async_factory: AsyncFactoryDep):
-    return DocumentService(factory, async_factory)
+def get_document_service(async_factory: AsyncFactoryDep):
+    return DocumentService(async_factory)
 
 
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
@@ -33,7 +33,7 @@ async def upload_document(
 ) -> Document:
     document_create = DocumentCreate(name=name, content_type=content_type)
     blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
-    document = await service.post(blob_create, document_create)
+    document = await service.post(document_create, blob_create)
     return document
 
 
@@ -54,7 +54,7 @@ async def get(service: DocumentServiceDep, document_id: UUID) -> Response:
 
 @router.get(f"{ITEM_PATH}/metadata")
 async def get_metadata(service: DocumentServiceDep, document_id: UUID) -> Document:
-    return service.get_meta(document_id)
+    return await service.get_meta(document_id)
 
 
 @router.put(ITEM_PATH)
@@ -77,9 +77,9 @@ async def patch(
     document_id: UUID,
     document_patch: DocumentPatch,
 ) -> Document:
-    return service.patch(document_id, document_patch)
+    return await service.patch(document_id, document_patch)
 
 
 @router.delete(ITEM_PATH)
 async def delete(service: DocumentServiceDep, document_id: UUID) -> None:
-    service.delete(document_id)
+    await service.delete(document_id)
