@@ -11,7 +11,7 @@ from ..dependencies import AsyncFactoryDep
 from ..features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from ..features.documents.document_service import DocumentService
 
-router = APIRouter(tags=["Documents"])
+router = APIRouter(tags=["Documents (blob, metadata & data)"])
 ITEM_PATH = "/{document_id}"
 
 _log = logging.getLogger(__name__)

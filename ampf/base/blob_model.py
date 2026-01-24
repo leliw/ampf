@@ -1,10 +1,12 @@
 import asyncio
 from contextlib import contextmanager
 from io import BytesIO
+from mimetypes import guess_file_type
 from tempfile import SpooledTemporaryFile
 from typing import AsyncGenerator, BinaryIO, Generator, Optional
 from uuid import uuid4
 
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 type BlobData = BinaryIO | SpooledTemporaryFile
@@ -31,6 +33,15 @@ class BlobCreate[T: BaseModel]:
         self.content = content
         self.content_type = content_type
         self.metadata = metadata
+
+    @classmethod
+    def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate":
+        if file.content_type is None or file.content_type in ["application/octet-stream", "video/vnd.dlna.mpeg-tts"]:
+            content_type, _ = guess_file_type(file.filename) if file.filename else (None, None)
+            content_type = content_type or "application/octet-stream"
+        else:
+            content_type = file.content_type
+        return cls(name=file.filename, data=file.file, content_type=content_type, metadata=metadata)
 
 
 class BlobHeader[T: BaseModel](BaseModel):
@@ -78,6 +89,10 @@ class Blob[T: BaseModel]:
             content_type=value_create.content_type,
             metadata=value_create.metadata,
         )
+
+    @classmethod
+    def create_from_file(cls, file: UploadFile, metadata: Optional[T] = None) -> "Blob[T]":
+        return cls.create(BlobCreate.create(file, metadata))
 
     @contextmanager
     def data(self) -> Generator[BlobData]:
