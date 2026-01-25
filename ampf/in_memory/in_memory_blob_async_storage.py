@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator, Awaitable, Callable, List, Optional, Type, override
+from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
 from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
