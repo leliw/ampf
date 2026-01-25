@@ -33,6 +33,10 @@ class BaseBlobMetadata(BaseModel):
         return cls(filename=file.filename, content_type=content_type)
 
 
+class BlobMetadata(BaseBlobMetadata):
+    pass
+
+
 class BlobCreate[T: BaseBlobMetadata]:
     def __init__(
         self,
@@ -47,10 +51,16 @@ class BlobCreate[T: BaseBlobMetadata]:
         self.metadata = metadata
 
     @classmethod
-    def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate":
+    def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate[T]":
         if not metadata:
-            metadata = BaseBlobMetadata.create(file)  # type: ignore
+            metadata = BlobMetadata.create(file)  # type: ignore
         return cls(data=file.file, metadata=metadata)
+
+    @classmethod
+    def from_content(
+        cls, content: bytes | str, content_type: str = "application/octet-stream"
+    ) -> "BlobCreate[BlobMetadata]":
+        return BlobCreate[BlobMetadata](content=content, metadata=BlobMetadata(content_type=content_type))
 
 
 class BlobError(ValueError):
