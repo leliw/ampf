@@ -1,7 +1,7 @@
 [project]
 name = "ampf"
 description = "Angular & Material & Python & FastAPI"
-version = "0.9.3"
+version = "0.9.4"
 license = "MIT"
 authors = [
     { name = "Marcin Leliwa", email = "marcin.leliwa@gmail.com" }
