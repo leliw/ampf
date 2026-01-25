@@ -7,16 +7,15 @@ import google.auth.exceptions
 import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
-from pydantic import BaseModel
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
-from ampf.base.blob_model import Blob
+from ampf.base.blob_model import BaseBlobMetadata, Blob
 from ampf.base.exceptions import KeyNotExistsException, KeyExistsException
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
 
 
-class GcpAsyncBlobStorage[T: BaseModel](GcpBaseBlobStorage, BaseAsyncBlobStorage):
+class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlobStorage):
     _log = logging.getLogger(__name__)
     chunk_size = 1024 * 1024  # 1MB
 

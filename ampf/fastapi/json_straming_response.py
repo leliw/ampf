@@ -1,4 +1,4 @@
-from typing import AsyncIterable, AsyncIterator, Iterator, List, Mapping, Optional
+from typing import AsyncGenerator, AsyncIterable, AsyncIterator, Generator, Iterator, List, Mapping, Optional
 
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -31,7 +31,7 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
 
     def __init__(
         self,
-        content: Iterator[T] | AsyncIterator[T],
+        content: Iterator[T] | AsyncIterator[T] | Generator[T] | AsyncGenerator[T],
         status_code: int = 200,
         headers: Optional[Mapping[str, str]] = None,
         media_type: str = "application/json",
@@ -45,7 +45,7 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         yield "[\n"
         try:
             i = 0
-            if isinstance(responses, AsyncIterator) or isinstance(responses, AsyncIterable):
+            if isinstance(responses, AsyncGenerator) or isinstance(responses, AsyncIterator) or isinstance(responses, AsyncIterable):
                 async for r in responses:
                     yield self.object_to_text(i, r)
                     i += 1

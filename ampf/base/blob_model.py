@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from io import BytesIO
 from mimetypes import guess_file_type
 from tempfile import SpooledTemporaryFile
-from typing import AsyncGenerator, BinaryIO, Generator, Optional
+from typing import AsyncGenerator, BinaryIO, Generator, Optional, Self, overload
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -18,38 +18,38 @@ class BlobLocation(BaseModel):
     bucket: Optional[str] = None
     name: str
 
-
-class BlobCreate[T: BaseModel]:
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        data: Optional[BlobData] = None,
-        content: Optional[bytes | str] = None,
-        content_type: Optional[str] = None,
-        metadata: Optional[T] = None,
-    ):
-        self.name = name
-        self.data = data
-        self.content = content
-        self.content_type = content_type
-        self.metadata = metadata
+class BaseBlobMetadata(BaseModel):
+    content_type: str = "application/octet-stream"
+    filename: Optional[str] = None
 
     @classmethod
-    def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate":
+    def create(cls, file: UploadFile) -> Self:
         if file.content_type is None or file.content_type in ["application/octet-stream", "video/vnd.dlna.mpeg-tts"]:
             content_type, _ = guess_file_type(file.filename) if file.filename else (None, None)
             content_type = content_type or "application/octet-stream"
         else:
             content_type = file.content_type
-        return cls(name=file.filename, data=file.file, content_type=content_type, metadata=metadata)
+        return cls(filename= file.filename, content_type=content_type)
 
+class BlobCreate[T: BaseBlobMetadata]:
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        data: Optional[BlobData] = None,
+        content: Optional[bytes | str] = None,
+        metadata: Optional[T] = None,
+    ):
+        self.name = name
+        self.data = data
+        self.content = content
+        self.metadata = metadata
 
-class BlobHeader[T: BaseModel](BaseModel):
-    """Header for a blob, containing metadata."""
+    @classmethod
+    def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate":
+        if not metadata:
+            metadata = BaseBlobMetadata.create(file) # type: ignore
+        return cls(data=file.file, metadata=metadata)
 
-    name: str
-    content_type: Optional[str] = None
-    metadata: Optional[T] = None
 
 
 class BlobError(ValueError):
@@ -57,7 +57,7 @@ class BlobError(ValueError):
         super().__init__("Provide either 'data' or 'content', but not both")
 
 
-class Blob[T: BaseModel]:
+class Blob[T: BaseBlobMetadata]:
     """Blob, containing data and metadata. Data can be a file-like object or bytes. Metadata is optional."""
 
     def __init__(
@@ -70,7 +70,7 @@ class Blob[T: BaseModel]:
     ):
         self.name = name
         self.content_type = content_type
-        self.metadata = metadata
+        self.metadata: T = metadata or (BaseBlobMetadata(content_type=content_type) if content_type else BaseBlobMetadata()) # type: ignore
         self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
         if content:
@@ -80,19 +80,28 @@ class Blob[T: BaseModel]:
         if data and content:
             raise BlobError()
 
+    @overload
     @classmethod
-    def create(cls, value_create: BlobCreate[T]) -> "Blob[T]":
-        return cls(
-            name=value_create.name or str(uuid4()),
-            data=value_create.data,
-            content=value_create.content,
-            content_type=value_create.content_type,
-            metadata=value_create.metadata,
-        )
+    def create(cls, value_create: BlobCreate) -> "Blob":
+        ...
+
+    @overload
+    @classmethod
+    def create(cls, value_create: UploadFile, metadata: Optional[T] = None) -> "Blob":
+        ...
 
     @classmethod
-    def create_from_file(cls, file: UploadFile, metadata: Optional[T] = None) -> "Blob[T]":
-        return cls.create(BlobCreate.create(file, metadata))
+    def create(cls, value_create, metadata: Optional[T] = None) -> "Blob":
+        if isinstance(value_create, BlobCreate):
+            return cls(
+                name=value_create.name or str(uuid4()),
+                data=value_create.data,
+                content=value_create.content,
+                metadata=value_create.metadata,
+            )
+        else:
+            return cls.create(BlobCreate.create(value_create, metadata))
+
 
     @contextmanager
     def data(self) -> Generator[BlobData]:
@@ -138,3 +147,14 @@ class Blob[T: BaseModel]:
                     if not chunk:
                         break
                     yield chunk
+
+
+class BlobHeader[T: BaseBlobMetadata](BaseModel):
+    """Header for a blob, containing metadata."""
+
+    name: str
+    metadata: T
+
+    @classmethod
+    def create(cls, blob: Blob[T]):
+        return cls(name=blob.name, metadata=blob.metadata)

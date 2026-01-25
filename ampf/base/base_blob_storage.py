@@ -4,7 +4,7 @@ from typing import Iterator, Optional, Type
 
 from pydantic import BaseModel
 
-from .blob_model import Blob
+from .blob_model import BaseBlobMetadata, Blob
 
 
 class FileNameMimeType(BaseModel):
@@ -12,7 +12,7 @@ class FileNameMimeType(BaseModel):
     mime_type: Optional[str] = None
 
 
-class BaseBlobStorage[T: BaseModel](ABC):
+class BaseBlobStorage[T: BaseBlobMetadata](ABC):
     """Base class for blob storage implementations"""
 
     def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
