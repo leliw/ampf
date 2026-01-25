@@ -3,6 +3,7 @@ from typing import Annotated, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Response, UploadFile
+from fastapi.responses import StreamingResponse
 
 from ampf.base.blob_model import BlobCreate
 from ampf.fastapi import JsonStreamingResponse
@@ -32,7 +33,7 @@ async def upload_document(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_create = DocumentCreate(name=name, content_type=content_type)
-    blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
+    blob_create = BlobCreate.create(file)
     document = await service.post(document_create, blob_create)
     return document
 
@@ -45,10 +46,13 @@ async def get_all_documents(service: DocumentServiceDep) -> List[Document]:
 @router.get(ITEM_PATH)
 async def get(service: DocumentServiceDep, document_id: UUID) -> Response:
     blob = await service.get(document_id)
-    return Response(
-        content=blob.content,
-        media_type=blob.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{blob.name}"'},
+    headers = {}
+    if blob.metadata and blob.metadata.filename:
+        headers = {"Content-Disposition": f'attachment; filename="{blob.metadata.filename}"'}
+    return StreamingResponse(
+        blob.stream(),
+        media_type=blob.metadata.content_type,
+        headers=headers,
     )
 
 
@@ -66,7 +70,7 @@ async def put(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_patch = DocumentPatch(name=name, content_type=content_type)
-    blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
+    blob_create = BlobCreate.create(file)
     document = await service.put(document_id, blob_create, document_patch)
     return document
 

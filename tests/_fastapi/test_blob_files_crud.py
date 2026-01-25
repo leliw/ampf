@@ -1,9 +1,6 @@
-from typing import Iterable
-
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from fastapi.testclient import TestClient
 
 from ampf.base.blob_model import BlobHeader
 from ampf.base.exceptions import KeyNotExistsException
@@ -14,8 +11,8 @@ from ampf.testing.api_test_client import ApiTestClient
 from .app.config import ServerConfig
 from .app.dependencies import get_async_factory, get_server_config, lifespan
 from .app.routers import files
-
 from .app.routers.files import FileMetadata
+
 
 @pytest.fixture
 def config() -> ServerConfig:
@@ -42,7 +39,7 @@ def app(config, local_async_factory) -> FastAPI:
 
 
 @pytest.fixture
-def client(app: FastAPI) -> Iterable[TestClient]:
+def client(app: FastAPI):
     app.include_router(router=files.router, prefix="/api/files")
     with ApiTestClient(app) as client:
         yield client

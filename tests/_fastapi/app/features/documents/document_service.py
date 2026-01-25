@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 from uuid import UUID
 
 from ampf.base import BaseAsyncFactory, Blob
-from ampf.base.blob_model import BlobCreate
+from ampf.base.blob_model import BaseBlobMetadata, BlobCreate
 
 from .document_model import Document, DocumentCreate, DocumentPatch
 
@@ -14,7 +14,7 @@ class DocumentService:
 
     def __init__(self, async_factory: BaseAsyncFactory):
         self.storage = async_factory.create_storage("documents", Document, key="id")
-        self.blob_storage = async_factory.create_blob_storage("documents")  # type: ignore
+        self.blob_storage = async_factory.create_blob_storage("documents", BaseBlobMetadata)
 
     async def post(self, document_create: DocumentCreate, blob_create: BlobCreate) -> Document:
         document = Document.create(document_create)
@@ -33,7 +33,7 @@ class DocumentService:
     async def get_meta(self, id: UUID) -> Document:
         return await self.storage.get(id)
 
-    async def get(self, id: UUID) -> Blob:
+    async def get(self, id: UUID) -> Blob[BaseBlobMetadata]:
         document = await self.storage.get(id)
         blob = await self.blob_storage.download_async(str(id))
         blob.name = document.name
