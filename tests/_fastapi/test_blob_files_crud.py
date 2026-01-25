@@ -1,10 +1,9 @@
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-import pytest_asyncio
 
-from ampf.base.blob_model import BlobHeader
-from ampf.base.exceptions import KeyNotExistsException
+from ampf.base import BaseAsyncFactory, BlobHeader, KeyNotExistsException
 from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
@@ -28,7 +27,7 @@ async def async_factory(request, tmp_path):
     if request.param == LocalAsyncFactory:
         yield LocalAsyncFactory(tmp_path)
     elif request.param == GcpAsyncFactory:
-        factory: GcpAsyncFactory = request.param(root_storage="test_blobs", bucket_name='unit-tests-001')
+        factory: GcpAsyncFactory = request.param(bucket_name="unit-tests-001")
         yield factory
         storage = factory.create_blob_storage("files")
         await storage.drop()
@@ -57,7 +56,7 @@ def client(app: FastAPI):
 
 
 @pytest.mark.asyncio
-async def test_post_get_put_delete_file(client: ApiTestClient, async_factory: LocalAsyncFactory):
+async def test_post_get_put_delete_file(client: ApiTestClient, async_factory: BaseAsyncFactory):
     # Test POST (Upload a file)
     file_content = "This is a test markdown document."
     file_name = "test_document.md"
@@ -89,7 +88,7 @@ async def test_post_get_put_delete_file(client: ApiTestClient, async_factory: Lo
 
     # Verify file is deleted from disk
     with pytest.raises(KeyNotExistsException):
-        uploaded_blob = await async_storage.download_async(file_name)
+        uploaded_blob = await async_storage.download_async(blob_header.name)
 
     # Test GET after deletion (should be 404)
-    client.get(f"/api/files/{file_name}", 404)
+    client.get(f"/api/files/{blob_header.name}", 404)
