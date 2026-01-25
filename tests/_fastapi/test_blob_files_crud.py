@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from ampf.base.blob_model import BlobHeader
 from ampf.base.exceptions import KeyNotExistsException
+from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
 from ampf.testing.api_test_client import ApiTestClient
 
@@ -20,16 +21,19 @@ def config() -> ServerConfig:
     return config
 
 
-@pytest.fixture
-def local_async_factory(tmp_path):
-    return LocalAsyncFactory(tmp_path)
+@pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory])
+def async_factory(request, tmp_path):
+    if request.param == LocalAsyncFactory:
+        return LocalAsyncFactory(tmp_path)
+    else:
+        return request.param()
 
 
 @pytest.fixture
-def app(config, local_async_factory) -> FastAPI:
+def app(config, async_factory) -> FastAPI:
     app = FastAPI(lifespan=lifespan)
     app.dependency_overrides[get_server_config] = lambda: config
-    app.dependency_overrides[get_async_factory] = lambda: local_async_factory
+    app.dependency_overrides[get_async_factory] = lambda: async_factory
 
     @app.exception_handler(KeyNotExistsException)
     async def exception_not_found_callback(request: Request, exc: KeyNotExistsException):
@@ -46,7 +50,7 @@ def client(app: FastAPI):
 
 
 @pytest.mark.asyncio
-async def test_post_get_put_delete_file(client: ApiTestClient, local_async_factory: LocalAsyncFactory):
+async def test_post_get_put_delete_file(client: ApiTestClient, async_factory: LocalAsyncFactory):
     # Test POST (Upload a file)
     file_content = "This is a test markdown document."
     file_name = "test_document.md"
@@ -56,7 +60,7 @@ async def test_post_get_put_delete_file(client: ApiTestClient, local_async_facto
     assert blob_header
 
     # Verify file exists in storage
-    async_storage = local_async_factory.create_blob_storage("files", FileMetadata)
+    async_storage = async_factory.create_blob_storage("files", FileMetadata)
     uploaded_blob = await async_storage.download_async(blob_header.name)
     assert uploaded_blob.name == blob_header.name
     assert uploaded_blob.metadata.content_type == content_type

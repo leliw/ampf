@@ -3,6 +3,7 @@ from typing import Callable, Dict, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
+from ampf.base.blob_model import BaseBlobMetadata
 
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
 from .in_memory_storage import InMemoryStorage
@@ -27,7 +28,7 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
             )
         return self.collections.get(collection_name) # type: ignore
 
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
         clazz: Optional[Type[T]] = None,
