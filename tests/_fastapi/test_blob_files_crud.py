@@ -1,9 +1,11 @@
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+import pytest_asyncio
 
 from ampf.base.blob_model import BlobHeader
 from ampf.base.exceptions import KeyNotExistsException
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
 from ampf.testing.api_test_client import ApiTestClient
@@ -21,12 +23,17 @@ def config() -> ServerConfig:
     return config
 
 
-@pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory])
-def async_factory(request, tmp_path):
+@pytest_asyncio.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory, GcpAsyncFactory])
+async def async_factory(request, tmp_path):
     if request.param == LocalAsyncFactory:
-        return LocalAsyncFactory(tmp_path)
+        yield LocalAsyncFactory(tmp_path)
+    elif request.param == GcpAsyncFactory:
+        factory: GcpAsyncFactory = request.param(root_storage="test_blobs", bucket_name='unit-tests-001')
+        yield factory
+        storage = factory.create_blob_storage("files")
+        await storage.drop()
     else:
-        return request.param()
+        yield request.param()
 
 
 @pytest.fixture

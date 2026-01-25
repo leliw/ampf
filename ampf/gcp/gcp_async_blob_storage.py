@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Awaitable, Callable, Optional, Type, override
+from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
 import aiohttp
 import google.auth.exceptions
@@ -9,14 +9,15 @@ from google.api_core import exceptions
 from google.cloud import storage
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
-from ampf.base.blob_model import BaseBlobMetadata, Blob
+from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
 from ampf.base.exceptions import KeyNotExistsException, KeyExistsException
 
 from .gcp_base_blob_storage import GcpBaseBlobStorage
 
+_log = logging.getLogger(__name__)
+
 
 class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlobStorage):
-    _log = logging.getLogger(__name__)
     chunk_size = 1024 * 1024  # 1MB
 
     def __init__(
@@ -29,6 +30,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
+        self.clazz: Type[T] = clazz or BaseBlobMetadata # type: ignore
         self.max_retries_per_transaction = 5
 
     def _get_signed_url(self, name: str, method: str, content_type: Optional[str] = None, expiration: int = 3600) -> str:
@@ -97,6 +99,29 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
 
         return Blob(name=name, content=content, content_type=response.content_type, metadata=metadata)
 
+    @override
+    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
+        """Returns a list of blob headers, optionally filtered by a prefix.
+        
+        Args:
+            prefix: The prefix to filter the blobs by.
+        
+        Returns:
+            A list of blob headers.
+        """
+        prefix = self.get_full_name(prefix or "")
+        col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
+        for blob in self._bucket.list_blobs(prefix=prefix):
+            try:
+                yield BlobHeader(
+                    name=blob.name[col_name_len:],
+                    metadata=self.clazz.model_validate(blob.metadata, extra="ignore")
+                )
+            except Exception as e:
+                _log.warning("Failed to parse metadata for blob '%s': %s", blob.name, e)
+
+    @override
+
     async def _upsert_transactional(
         self,
         name: str,
@@ -139,7 +164,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 return  # Success
 
             except exceptions.PreconditionFailed as e:
-                self._log.warning(f"Precondition failed on attempt {attempt + 1} for blob '{name}'. Retrying...")
+                _log.warning(f"Precondition failed on attempt {attempt + 1} for blob '{name}'. Retrying...")
                 if attempt == self.max_retries_per_transaction - 1:
                     raise e  # Re-raise after the last attempt
                 await asyncio.sleep(0.1 * (2**attempt))  # Exponential backoff
