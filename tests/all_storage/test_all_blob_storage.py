@@ -175,7 +175,7 @@ def test_move_blob(storage: BaseBlobStorage):
 
 blob = Blob(
     name="test/file",
-    data=b"test data",
+    content=b"test data",
     content_type="text/plain",
     metadata=MyMetadata(name="test", age=10),
 )

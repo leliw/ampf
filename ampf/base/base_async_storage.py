@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, AsyncIterator, Callable, Dict, List, Literal, Optional, Tuple, Type
+from typing import Any, AsyncGenerator, AsyncIterable, AsyncIterator, Callable, Dict, List, Literal, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -96,7 +96,7 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         async for key in self.keys():
             await self.delete(key)
 
-    async def get_all(self, sort: Any = None) -> AsyncIterator[T]:
+    async def get_all(self, sort: Any = None) -> AsyncGenerator[T]:
         """Get all the values"""
         async for key in self.keys():
             yield await self.get(key)

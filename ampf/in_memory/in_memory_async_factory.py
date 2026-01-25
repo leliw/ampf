@@ -2,14 +2,15 @@ from typing import Callable, Dict, Optional, Type
 
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncFactory, BaseAsyncStorage, BaseAsyncBlobStorage
+from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
 
+from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
 from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections: Dict[str,InMemoryStorage] = {}
+    collections: Dict[str, InMemoryStorage] = {}
 
     def create_storage[T: BaseModel](
         self,
@@ -19,15 +20,24 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         key: Optional[Callable[[T], str]] = None,
     ) -> BaseAsyncStorage[T]:
         if collection_name not in self.collections:
-            self.collections[collection_name] = InMemoryStorage(
+            self.collections[collection_name] = InMemoryStorage[T](
                 collection_name=collection_name,
                 clazz=clazz,
                 key_name=key_name,
                 key=key,
             )
-        return self.collections.get(collection_name) # type: ignore
+        storage = self.collections[collection_name]
+        instance = InMemoryAsyncStorage(
+            storage.collection_name,
+            storage.clazz,
+            storage.key,
+            storage.embedding_field_name,
+            storage.embedding_search_limit,
+        )
+        instance.storage = storage
+        return instance
 
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
         clazz: Optional[Type[T]] = None,

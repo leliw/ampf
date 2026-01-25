@@ -4,7 +4,7 @@ from typing import Iterator, Optional, Type
 
 from pydantic import BaseModel
 
-from .blob_model import Blob
+from .blob_model import BaseBlobMetadata, Blob
 
 
 class FileNameMimeType(BaseModel):
@@ -12,7 +12,7 @@ class FileNameMimeType(BaseModel):
     mime_type: Optional[str] = None
 
 
-class BaseBlobStorage[T: BaseModel](ABC):
+class BaseBlobStorage[T: BaseBlobMetadata](ABC):
     """Base class for blob storage implementations"""
 
     def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
@@ -25,7 +25,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
         """
         self.collection_name = collection_name
         self.clazz = clazz
-        self.content_type = content_type
+        self.content_type = content_type or "application/octet-stream"
 
     def upload(self, blob: Blob[T]) -> None:
         """Uploads a blob to the storage
@@ -33,7 +33,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
         Args:
             blob: The blob to upload
         """
-        self.upload_blob(blob.name, blob.data.read(), blob.metadata, blob.content_type)
+        self.upload_blob(blob.name, blob.content, blob.metadata, blob.content_type)
 
     @abstractmethod
     def upload_blob(
@@ -56,7 +56,7 @@ class BaseBlobStorage[T: BaseModel](ABC):
         """
         data = self.download_blob(name)
         metadata = self.get_metadata(name) if self.clazz else None
-        return Blob[T](name=name, data=data, metadata=metadata)
+        return Blob[T](name=name, content=data, metadata=metadata)
 
     @abstractmethod
     def download_blob(self, key: str) -> bytes:
