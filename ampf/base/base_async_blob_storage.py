@@ -69,10 +69,12 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         """Returns a list of blob headers, optionally filtered by a prefix."""
         pass
 
-    def put_metadata(self, name: str, metadata: T) -> None:
+    @abstractmethod
+    async def put_metadata(self, name: str, metadata: T) -> None:
         pass
-
-    def get_metadata(self, name: str) -> Optional[T]:
+    
+    @abstractmethod
+    async def get_metadata(self, name: str) -> Optional[T]:
         pass
 
     async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
@@ -80,11 +82,13 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
             yield blob_header.name
 
     async def drop(self) -> None:
-        async for name in self.names():
+        names = [name async for name in self.names()]
+        for name in names:
             self.delete(name)
 
     async def delete_folder(self, folder_name: str) -> None:
-        async for name in self.names(folder_name):
+        names = [name async for name in self.names() if name.startswith(folder_name)]
+        for name in names:
             self.delete(name)
 
     async def insert_transactional(self, name: str, create_func: Callable[[str], Awaitable[Blob[T]]]) -> None:

@@ -146,6 +146,14 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
             raise KeyNotExistsException
 
     @override
+    async def put_metadata(self, name: str, metadata: T) -> None:
+        meta_path = self._get_meta_path(name)
+        os.makedirs(meta_path.parent, exist_ok=True)
+        async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
+            await f.write(metadata.model_dump_json())
+
+
+    @override
     async def _upsert_transactional(
         self,
         name: str,

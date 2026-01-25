@@ -18,6 +18,7 @@ class BlobLocation(BaseModel):
     bucket: Optional[str] = None
     name: str
 
+
 class BaseBlobMetadata(BaseModel):
     content_type: str = "application/octet-stream"
     filename: Optional[str] = None
@@ -29,7 +30,8 @@ class BaseBlobMetadata(BaseModel):
             content_type = content_type or "application/octet-stream"
         else:
             content_type = file.content_type
-        return cls(filename= file.filename, content_type=content_type)
+        return cls(filename=file.filename, content_type=content_type)
+
 
 class BlobCreate[T: BaseBlobMetadata]:
     def __init__(
@@ -47,9 +49,8 @@ class BlobCreate[T: BaseBlobMetadata]:
     @classmethod
     def create(cls, file: UploadFile, metadata: Optional[T] = None) -> "BlobCreate":
         if not metadata:
-            metadata = BaseBlobMetadata.create(file) # type: ignore
+            metadata = BaseBlobMetadata.create(file)  # type: ignore
         return cls(data=file.file, metadata=metadata)
-
 
 
 class BlobError(ValueError):
@@ -65,12 +66,14 @@ class Blob[T: BaseBlobMetadata]:
         name: str,
         data: Optional[BlobData] = None,
         content: Optional[bytes | str] = None,
-        content_type: Optional[str] = None,
+        content_type: str = "application/octet-stream",
         metadata: Optional[T] = None,
     ):
         self.name = name
         self.content_type = content_type
-        self.metadata: T = metadata or (BaseBlobMetadata(content_type=content_type) if content_type else BaseBlobMetadata()) # type: ignore
+        self.metadata: T = metadata or (
+            BaseBlobMetadata(content_type=content_type) if content_type else BaseBlobMetadata()
+        )  # type: ignore
         self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
         if content:
@@ -82,13 +85,11 @@ class Blob[T: BaseBlobMetadata]:
 
     @overload
     @classmethod
-    def create(cls, value_create: BlobCreate) -> "Blob":
-        ...
+    def create(cls, value_create: BlobCreate) -> "Blob": ...
 
     @overload
     @classmethod
-    def create(cls, value_create: UploadFile, metadata: Optional[T] = None) -> "Blob":
-        ...
+    def create(cls, value_create: UploadFile, metadata: Optional[T] = None) -> "Blob": ...
 
     @classmethod
     def create(cls, value_create, metadata: Optional[T] = None) -> "Blob":
@@ -101,7 +102,6 @@ class Blob[T: BaseBlobMetadata]:
             )
         else:
             return cls.create(BlobCreate.create(value_create, metadata))
-
 
     @contextmanager
     def data(self) -> Generator[BlobData]:

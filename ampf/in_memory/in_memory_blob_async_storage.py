@@ -30,11 +30,15 @@ class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
             raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
 
     @override
-    def get_metadata(self, key: str) -> Optional[T]:
+    async def get_metadata(self, key: str) -> Optional[T]:
         try:
             return self.buckets[self.collection_name][key].metadata
         except KeyError:
             raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
+
+    @override
+    async def put_metadata(self, key: str, metadata: T) -> None:
+        self.buckets[self.collection_name][key].metadata = metadata
 
     @override
     def delete(self, key: str) -> None:
@@ -46,6 +50,12 @@ class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
     @override
     def exists(self, key: str) -> bool:
         return key in self.buckets[self.collection_name]
+
+    @override
+    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
+        for name, blob in self.buckets[self.collection_name].items():
+            if prefix is None or name.startswith(prefix):
+                yield name
 
     @override
     async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:

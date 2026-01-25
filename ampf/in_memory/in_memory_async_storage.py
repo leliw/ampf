@@ -24,17 +24,6 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
             key=key if isinstance(key, Callable) else None,
         )
 
-    @classmethod
-    def create(cls, storage: InMemoryStorage):
-        instance = cls(
-            storage.collection_name,
-            storage.clazz,
-            storage.key,
-            storage.embedding_field_name,
-            storage.embedding_search_limit,
-        )
-        instance.storage = storage
-        return instance
 
     async def put(self, key: str, value: T) -> None:
         self.storage.put(key, value)
