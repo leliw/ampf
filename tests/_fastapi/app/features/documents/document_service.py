@@ -36,7 +36,7 @@ class DocumentService:
     async def get(self, id: UUID) -> Blob[BaseBlobMetadata]:
         document = await self.storage.get(id)
         blob = await self.blob_storage.download_async(str(id))
-        blob.name = document.name
+        blob.metadata.filename = document.name
         return blob
 
     async def patch(self, id: UUID, document_patch: DocumentPatch) -> Document:
