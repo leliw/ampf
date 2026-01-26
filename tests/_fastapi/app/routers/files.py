@@ -26,7 +26,7 @@ FileServiceDep = Annotated[FileService, Depends(get_file_service)]
 @router.post("")
 async def upload(service: FileServiceDep, file: UploadFile) -> BlobHeader:
     file_metadata = FileMetadata.create(file)
-    blob = Blob.create(file, file_metadata)
+    blob = Blob.from_upload_file(file, file_metadata)
     await service.upload_blob(blob)
     return BlobHeader.create(blob)
 

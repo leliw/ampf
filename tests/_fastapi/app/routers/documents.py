@@ -33,7 +33,7 @@ async def upload_document(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_create = DocumentCreate(name=name, content_type=content_type)
-    blob_create = BlobCreate.create(file)
+    blob_create = BlobCreate.from_upload_file(file)
     document = await service.post(document_create, blob_create)
     return document
 
@@ -70,7 +70,7 @@ async def put(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_patch = DocumentPatch(name=name, content_type=content_type)
-    blob_create = BlobCreate.create(file)
+    blob_create = BlobCreate.from_upload_file(file)
     document = await service.put(document_id, blob_create, document_patch)
     return document
 
