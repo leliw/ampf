@@ -13,7 +13,7 @@ from .base_query import BaseQuery
 from .base_query_storage import BaseQueryStorage
 from .base_storage import BaseStorage
 from .base_topic import BaseTopic
-from .blob_model import Blob, BlobCreate, BlobData, BlobHeader, BlobLocation
+from .blob_model import BaseBlobMetadata, Blob, BlobCreate, BlobData, BlobHeader, BlobLocation
 from .collection_def import CollectionDef
 from .email_template import EmailTemplate
 from .exceptions import KeyExistsException, KeyNotExistsException
@@ -40,6 +40,7 @@ __all__ = [
     "BaseCollectionStorage",
     "CollectionDef",
     "BaseAsyncBlobStorage",
+    "BaseBlobMetadata",
     "Blob",
     "BlobHeader",
     "BlobCreate",

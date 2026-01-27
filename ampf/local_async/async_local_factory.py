@@ -3,11 +3,11 @@ from typing import Callable, Optional, Type
 
 from pydantic import BaseModel
 
-from ..base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
+from ..base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
 from ..local.file_storage import StrPath
 from .json_multi_files_async_storage import JsonMultiFilesAsyncStorage
 from .json_one_file_async_storage import JsonOneFileAsyncStorage
-from .local_blob_async_storage import LocalBlobAsyncStorage
+from .local_blob_async_storage import LocalAsyncBlobStorage
 
 
 class LocalAsyncFactory(BaseAsyncFactory):
@@ -40,13 +40,16 @@ class LocalAsyncFactory(BaseAsyncFactory):
             root_path=self._root_path,
         )
 
-    def create_blob_storage[T: BaseModel](
-        self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: str = "text/plain", bucket_name: Optional[str] = None
+    def create_blob_storage[T: BaseBlobMetadata](
+        self,
+        collection_name: str,
+        clazz: Type[T] = BaseBlobMetadata,
+        content_type: str = "text/plain",
+        bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:
         root_path = Path(bucket_name) if bucket_name else self._root_path
-        return LocalBlobAsyncStorage(
-            collection_name, clazz, content_type, root_path=root_path / "blobs"
-        )
+        return LocalAsyncBlobStorage[T](collection_name, clazz, content_type, root_path=root_path / "blobs")
+
 
 # deprecated
 class AsyncLocalFactory(LocalAsyncFactory):

@@ -3,22 +3,23 @@ from typing import Annotated, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Response, UploadFile
+from fastapi.responses import StreamingResponse
 
 from ampf.base.blob_model import BlobCreate
 from ampf.fastapi import JsonStreamingResponse
 
-from ..dependencies import AsyncFactoryDep, FactoryDep
+from ..dependencies import AsyncFactoryDep
 from ..features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from ..features.documents.document_service import DocumentService
 
-router = APIRouter(tags=["Documents"])
+router = APIRouter(tags=["Documents (blob, metadata & data)"])
 ITEM_PATH = "/{document_id}"
 
 _log = logging.getLogger(__name__)
 
 
-def get_document_service(factory: FactoryDep, async_factory: AsyncFactoryDep):
-    return DocumentService(factory, async_factory)
+def get_document_service(async_factory: AsyncFactoryDep):
+    return DocumentService(async_factory)
 
 
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
@@ -32,8 +33,8 @@ async def upload_document(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_create = DocumentCreate(name=name, content_type=content_type)
-    blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
-    document = await service.post(blob_create, document_create)
+    blob_create = BlobCreate.from_upload_file(file)
+    document = await service.post(document_create, blob_create)
     return document
 
 
@@ -45,16 +46,19 @@ async def get_all_documents(service: DocumentServiceDep) -> List[Document]:
 @router.get(ITEM_PATH)
 async def get(service: DocumentServiceDep, document_id: UUID) -> Response:
     blob = await service.get(document_id)
-    return Response(
-        content=blob.data.read(),
-        media_type=blob.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{blob.name}"'},
+    headers = {}
+    if blob.metadata and blob.metadata.filename:
+        headers = {"Content-Disposition": f'attachment; filename="{blob.metadata.filename}"'}
+    return StreamingResponse(
+        blob.stream(),
+        media_type=blob.metadata.content_type,
+        headers=headers,
     )
 
 
 @router.get(f"{ITEM_PATH}/metadata")
 async def get_metadata(service: DocumentServiceDep, document_id: UUID) -> Document:
-    return service.get_meta(document_id)
+    return await service.get_meta(document_id)
 
 
 @router.put(ITEM_PATH)
@@ -66,7 +70,7 @@ async def put(
     content_type: Annotated[Optional[str], Form()] = None,
 ) -> Document:
     document_patch = DocumentPatch(name=name, content_type=content_type)
-    blob_create = BlobCreate(name=file.filename, data=file.file, content_type=file.content_type)
+    blob_create = BlobCreate.from_upload_file(file)
     document = await service.put(document_id, blob_create, document_patch)
     return document
 
@@ -77,9 +81,9 @@ async def patch(
     document_id: UUID,
     document_patch: DocumentPatch,
 ) -> Document:
-    return service.patch(document_id, document_patch)
+    return await service.patch(document_id, document_patch)
 
 
 @router.delete(ITEM_PATH)
 async def delete(service: DocumentServiceDep, document_id: UUID) -> None:
-    service.delete(document_id)
+    await service.delete(document_id)

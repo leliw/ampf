@@ -43,7 +43,7 @@ def test_create_blob_storage(factory):
 def test_upload_and_download_blob(factory):
     # Given: A blob and a blob location
     blob_location = BlobLocation(name="blob_test.txt")
-    blob = Blob(name="blob_test.txt", data=b"test data")
+    blob = Blob(name="blob_test.txt", content=b"test data")
     # When: A blob is uploaded
     factory.upload_blob(blob_location, blob)
     # Then: It can be downloaded
