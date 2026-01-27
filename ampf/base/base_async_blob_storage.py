@@ -1,14 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Awaitable, Callable, Iterable, List, Optional, Type
+from typing import AsyncGenerator, Awaitable, Callable, Optional, Type
 
-from pydantic import BaseModel
-
-from ampf.base.exceptions import KeyExistsException, KeyNotExistsException  # noqa: F401
-
-from .blob_model import Blob, BlobHeader
+from .blob_model import BaseBlobMetadata, Blob, BlobHeader
 
 
-class BaseAsyncBlobStorage[T: BaseModel](ABC):
+class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     """
     Abstract base class for asynchronous blob storage operations.
     This class defines the interface for uploading, downloading, deleting,
@@ -69,25 +65,30 @@ class BaseAsyncBlobStorage[T: BaseModel](ABC):
         pass
 
     @abstractmethod
-    def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
+    def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix."""
         pass
 
-    def put_metadata(self, name: str, metadata: T) -> None:
+    @abstractmethod
+    async def put_metadata(self, name: str, metadata: T) -> None:
+        pass
+    
+    @abstractmethod
+    async def get_metadata(self, name: str) -> Optional[T]:
         pass
 
-    def get_metadata(self, name: str) -> Optional[T]:
-        pass
+    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
+        async for blob_header in self.list_blobs(prefix):
+            yield blob_header.name
 
-    def names(self, prefix: Optional[str] = None) -> Iterable[str]:
-        return [blob.name for blob in self.list_blobs(prefix)]
-
-    def drop(self) -> None:
-        for name in self.names():
+    async def drop(self) -> None:
+        names = [name async for name in self.names()]
+        for name in names:
             self.delete(name)
 
-    def delete_folder(self, folder_name: str) -> None:
-        for name in self.names(folder_name):
+    async def delete_folder(self, folder_name: str) -> None:
+        names = [name async for name in self.names() if name.startswith(folder_name)]
+        for name in names:
             self.delete(name)
 
     async def insert_transactional(self, name: str, create_func: Callable[[str], Awaitable[Blob[T]]]) -> None:

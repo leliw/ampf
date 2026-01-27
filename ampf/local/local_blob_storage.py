@@ -83,11 +83,11 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
         Args:
             name: The name of the blob
         """
-        data = self.download_blob(key)
+        content = self.download_blob(key)
         file_path = self._create_file_path(key)
         content_type = get_content_type(str(file_path))
         metadata = self.get_metadata(key) if self.clazz else None
-        return Blob(name=key, data=data, content_type=content_type, metadata=metadata)
+        return Blob(name=key, content=content, content_type=content_type, metadata=metadata)
 
     @override
     def download_blob(self, key: str) -> bytes:

@@ -1,14 +1,12 @@
 from pathlib import Path
 from uuid import UUID, uuid4
+
 import pytest
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncFactory, BaseAsyncStorage
-from ampf.base.base_factory import CollectionDef
+from ampf.base import BaseAsyncFactory, BaseAsyncStorage, CollectionDef
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
-
-
 
 
 class D(BaseModel):
@@ -51,19 +49,28 @@ class D3(BaseModel):
     name: str
     id: str
 
+
 @pytest.mark.asyncio
 async def test_create_storage_tree(tmp_path: Path):
     factory = LocalAsyncFactory(tmp_path)
-    
+
     # Given: A storage tree definition
-    storage_def = CollectionDef("collections", D1, "id", [
-            CollectionDef("documents", D2, "id", [
+    storage_def = CollectionDef(
+        "collections",
+        D1,
+        "id",
+        [
+            CollectionDef(
+                "documents",
+                D2,
+                "id",
+                [
                     CollectionDef("markdowns", D3, "id"),
                 ],
             )
         ],
     )
-    
+
     # When: The storage tree is created
     storage = factory.create_storage_tree(storage_def)
     # And: Storage saves data

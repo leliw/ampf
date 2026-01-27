@@ -1,14 +1,12 @@
 import asyncio
-from typing import Awaitable, Callable, List, Optional, Type, override
-
-from pydantic import BaseModel
+from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
 from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
-from ampf.base.blob_model import Blob, BlobHeader
+from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
 
 
-class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
+class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
     buckets = {}
 
     def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
@@ -21,6 +19,7 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
+        _ = blob.content  # Reads data from file and stores in content property
         self.buckets[self.collection_name][blob.name] = blob
 
     @override
@@ -31,12 +30,16 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
             raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
 
     @override
-    def get_metadata(self, key: str) -> Optional[T]:
+    async def get_metadata(self, key: str) -> Optional[T]:
         try:
             return self.buckets[self.collection_name][key].metadata
         except KeyError:
             raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
-    
+
+    @override
+    async def put_metadata(self, key: str, metadata: T) -> None:
+        self.buckets[self.collection_name][key].metadata = metadata
+
     @override
     def delete(self, key: str) -> None:
         if key in self.buckets[self.collection_name]:
@@ -49,12 +52,16 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
         return key in self.buckets[self.collection_name]
 
     @override
-    def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
-        blobs = []
+    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
         for name, blob in self.buckets[self.collection_name].items():
             if prefix is None or name.startswith(prefix):
-                blobs.append(BlobHeader(name=name, content_type=blob.content_type, metadata=blob.metadata))
-        return blobs
+                yield name
+
+    @override
+    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
+        for name, blob in self.buckets[self.collection_name].items():
+            if prefix is None or name.startswith(prefix):
+                yield BlobHeader(name=name, metadata=blob.metadata)
 
     @override
     async def _upsert_transactional(
@@ -79,5 +86,5 @@ class InMemoryAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage):
 
 
 # deprecated
-class InMemoryBlobAsyncStorage[T: BaseModel](InMemoryAsyncBlobStorage[T]):
+class InMemoryBlobAsyncStorage[T: BaseBlobMetadata](InMemoryAsyncBlobStorage[T]):
     pass

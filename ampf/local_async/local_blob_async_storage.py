@@ -3,28 +3,30 @@ import json
 import mimetypes
 import os
 from pathlib import Path
-from typing import Awaitable, Callable, List, Optional, Type, override
+from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
-from pydantic import BaseModel
+import aiofiles
 
+from ampf.base.blob_model import BaseBlobMetadata
 from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
 
-class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
+class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
+    chunk_size = 1024 * 1024  # 1MB
+
     def __init__(
         self,
         collection_name: str,
-        metadata_type: Optional[Type[T]] = None,
+        metadata_type: Type[T] = BaseBlobMetadata,
         content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
         self.collection_name = collection_name
         self.clazz = metadata_type
         self.base_path = Path(root_path / collection_name) if root_path else Path(collection_name)
-        self.metadata_type = metadata_type
         self.content_type = content_type
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.transaction_lock = asyncio.Lock()
@@ -59,29 +61,30 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
     def _generate_data_path(self, key: str, content_type: Optional[str]) -> Path:
         """Generate a data path with appropriate extension."""
         ext = mimetypes.guess_extension(content_type or "")
-        ext = ext if ext else ""  # fallback to no extension
+        ext = ext or ""  # fallback to no extension
+        if ext == ".json":
+            ext = "._json"  # JSON extension is used by metadatafile
         if ext and key.endswith(ext):
             key = key[: -len(ext)]
         return self.base_path / f"{key}{ext}"
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
-        data_path = self._generate_data_path(blob.name, blob.content_type)
+        data_path = self._generate_data_path(blob.name, blob.metadata.content_type)
         meta_path = self._get_meta_path(blob.name)
         os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
-            with open(data_path, "wb") as f:
-                f.write(blob.data.read())
+            async with aiofiles.open(data_path, "wb") as f:
+                async for chunk in blob.stream():
+                    await f.write(chunk)
+            # with open(data_path, "wb") as f:
+            #     with blob.data() as data:
+            #         shutil.copyfileobj(data, f)
 
         async def write_meta():
-            meta_dict = {
-                "key": blob.name,
-                "content_type": blob.content_type,
-                "metadata": blob.metadata.model_dump() if blob.metadata else {},
-            }
-            with open(meta_path, "w", encoding="utf-8") as f:
-                json.dump(meta_dict, f)
+            async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
+                await f.write(blob.metadata.model_dump_json())
 
         await asyncio.gather(write_data(), write_meta())
 
@@ -93,19 +96,9 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         if not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
-        with open(data_path, "rb") as f:
-            data = f.read()
-
-        with open(meta_path, "r", encoding="utf-8") as f:
-            meta_raw = json.load(f)
-            metadata = (
-                self.metadata_type.model_validate(meta_raw["metadata"])
-                if meta_raw["metadata"] and self.metadata_type
-                else None
-            )
-
-        content_type = meta_raw.get("content_type")
-        return Blob[T](name=key, metadata=metadata, content_type=content_type, data=data)
+        metadata = await self.get_metadata(key) 
+        f = await asyncio.to_thread(open, data_path, "rb")
+        return Blob[T](name=key, metadata=metadata, data=f)
 
     @override
     def delete(self, key: str) -> None:
@@ -125,8 +118,7 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
         return data_path is not None and self._get_meta_path(key).exists()
 
     @override
-    def list_blobs(self, prefix: Optional[str] = None) -> List[BlobHeader[T]]:
-        headers = []
+    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
         # Use rglob to recursively find all .json files in the directory tree.
         for meta_file in self.base_path.rglob("*.json"):
             # Calculate the key by making the path relative to the base_path
@@ -135,30 +127,31 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
 
             if prefix and not key.startswith(prefix):
                 continue
-
-            with open(meta_file, "r", encoding="utf-8") as f:
-                meta_raw = json.load(f)
-                metadata = (
-                    self.metadata_type.model_validate(meta_raw["metadata"])
-                    if meta_raw["metadata"] and self.metadata_type
-                    else None
-                )
-            content_type = meta_raw.get("content_type")
-
-            headers.append(BlobHeader(name=key, metadata=metadata, content_type=content_type))
-        return headers
+            metadata = await self.get_metadata(key)
+            yield BlobHeader(name=key, metadata=metadata)
 
     @override
-    def get_metadata(self, name: str) -> T:
-        if not self.metadata_type:
+    async def get_metadata(self, name: str) -> T:
+        if not self.clazz:
             raise ValueError("clazz must be set")
         meta_path = self._get_meta_path(name)
         try:
-            with open(meta_path, "rt", encoding="utf8") as f:
-                meta_raw = json.load(f)
-            return self.metadata_type.model_validate(meta_raw["metadata"])
+            async with aiofiles.open(meta_path, "r", encoding="utf-8") as f:
+                meta_raw = json.loads(await f.read())
+            if "metadata" in meta_raw:
+                return self.clazz.model_validate(meta_raw["metadata"])  # type: ignore
+            else:
+                return self.clazz.model_validate(meta_raw)  # type: ignore
         except FileNotFoundError:
             raise KeyNotExistsException
+
+    @override
+    async def put_metadata(self, name: str, metadata: T) -> None:
+        meta_path = self._get_meta_path(name)
+        os.makedirs(meta_path.parent, exist_ok=True)
+        async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
+            await f.write(metadata.model_dump_json())
+
 
     @override
     async def _upsert_transactional(
@@ -182,5 +175,5 @@ class LocalAsyncBlobStorage[T: BaseModel](BaseAsyncBlobStorage[T]):
                 await self.upload_async(created_blob)
 
 
-class LocalBlobAsyncStorage[T: BaseModel](LocalAsyncBlobStorage[T]):
+class LocalBlobAsyncStorage[T: BaseBlobMetadata](LocalAsyncBlobStorage[T]):
     pass

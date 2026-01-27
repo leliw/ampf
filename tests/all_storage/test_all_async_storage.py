@@ -10,6 +10,7 @@ from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
+from ampf.local import FileStorage
 from ampf.local_async import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
 
 _log = logging.getLogger(__name__)

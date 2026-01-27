@@ -1,6 +1,7 @@
 from pathlib import Path
-from pydantic import BaseModel
+
 import pytest
+from pydantic import BaseModel
 
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.local import LocalAsyncFactory
@@ -30,8 +31,8 @@ def test_create_compact_storage(factory):
 @pytest.mark.asyncio
 async def test_upload_and_download_blob(factory: LocalAsyncFactory, tmp_path: Path):
     # Given: A blob and a blob location
-    blob_location = BlobLocation(name="blob_test.txt", bucket= str(tmp_path / "test"))
-    blob = Blob(name="blob_test.txt", data=b"test data")
+    blob_location = BlobLocation(name="blob_test.txt", bucket=str(tmp_path / "test"))
+    blob = Blob(name="blob_test.txt", content=b"test data", content_type="text/plain")
     # When: A blob is uploaded
     await factory.upload_blob(blob_location, blob)
     # Then: It can be downloaded

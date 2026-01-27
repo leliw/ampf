@@ -8,7 +8,7 @@ from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
 from .base_async_query_storage import BaseAsyncQueryStorage
 from .base_topic import BaseTopic
-from .blob_model import Blob, BlobLocation
+from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 from .collection_def import CollectionDef
 from .exceptions import KeyNotExistsException
 
@@ -58,7 +58,7 @@ class BaseAsyncFactory(ABC):
         return self.create_storage(collection_name, clazz, key)
 
     @abstractmethod
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: Optional[str] = None,
         clazz: Optional[Type[T]] = None,
@@ -75,7 +75,7 @@ class BaseAsyncFactory(ABC):
         Returns:
             Blob storage object.
         """
-        
+
     # deprecated
     def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseAsyncCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
