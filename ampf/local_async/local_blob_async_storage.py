@@ -4,6 +4,7 @@ import mimetypes
 import os
 from pathlib import Path
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
+from warnings import deprecated
 
 import aiofiles
 
@@ -93,12 +94,14 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         meta_path = self._get_meta_path(key)
         data_path = self._find_data_path(key)
 
-        if not data_path or (self.clazz and not meta_path.exists()):
+        if data_path and self.clazz == BaseBlobMetadata and not meta_path.exists():
+            metadata = BaseBlobMetadata.from_filename(data_path.name)
+        elif not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
-
-        metadata = await self.get_metadata(key) 
+        else:
+            metadata = await self.get_metadata(key) 
         f = await asyncio.to_thread(open, data_path, "rb")
-        return Blob[T](name=key, metadata=metadata, data=f)
+        return Blob[T](name=key, metadata=metadata, data=f) # type: ignore
 
     @override
     def delete(self, key: str) -> None:
@@ -174,6 +177,6 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
                 created_blob = await create_func(name)
                 await self.upload_async(created_blob)
 
-
+@deprecated("Use LocalAsyncBlobStorage")
 class LocalBlobAsyncStorage[T: BaseBlobMetadata](LocalAsyncBlobStorage[T]):
     pass

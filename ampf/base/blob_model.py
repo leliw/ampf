@@ -30,11 +30,15 @@ class BaseBlobMetadata(BaseModel):
     @classmethod
     def create(cls, file: UploadFile) -> Self:
         if file.content_type is None or file.content_type in ["application/octet-stream", "video/vnd.dlna.mpeg-tts"]:
-            content_type, _ = guess_file_type(file.filename) if file.filename else (None, None)
-            content_type = content_type or "application/octet-stream"
+            return cls.from_filename(file.filename or "")
         else:
-            content_type = file.content_type
-        return cls(filename=file.filename, content_type=content_type)
+            return cls(filename=file.filename, content_type=file.content_type)
+
+    @classmethod
+    def from_filename(cls, filename: str) -> Self:
+        content_type, _ = guess_file_type(filename)
+        content_type = content_type or "application/octet-stream"
+        return cls(filename=filename, content_type=content_type)
 
 
 empty_blob_metadata = BaseBlobMetadata(content_type="")
@@ -89,6 +93,10 @@ class Blob[T: BaseBlobMetadata]:
                 metadata = metadata.__class__(content_type=content_type)
             else:
                 metadata = metadata.__class__()
+        elif metadata and not content_type:
+            self.content_type = metadata.content_type
+        elif metadata and content_type:
+            raise ValueError("Either metadata nor content_type should be set.")
         self.metadata: T = metadata
         self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
@@ -132,8 +140,8 @@ class Blob[T: BaseBlobMetadata]:
         else:
             with self.data() as data:
                 self._content = data.read()
-                self._data = None
-                return self._content
+            self._data = None
+            return self._content
 
     @content.setter
     def content(self, v: bytes | str):
