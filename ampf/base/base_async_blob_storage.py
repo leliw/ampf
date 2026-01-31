@@ -12,7 +12,7 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     """
 
     def __init__(
-        self, collection_name: Optional[str] = None, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None
+        self, collection_name: Optional[str] = None, clazz: Type[T] = BaseBlobMetadata, content_type: Optional[str] = None
     ):
         """
         Initializes the storage.

@@ -15,7 +15,7 @@ class FileNameMimeType(BaseModel):
 class BaseBlobStorage[T: BaseBlobMetadata](ABC):
     """Base class for blob storage implementations"""
 
-    def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
+    def __init__(self, collection_name: str, clazz: Type[T] = BaseBlobMetadata, content_type: Optional[str] = None):
         """Initializes the storage
 
         Args:
@@ -55,7 +55,7 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
             name: The name of the blob
         """
         data = self.download_blob(name)
-        metadata = self.get_metadata(name) if self.clazz else None
+        metadata = self.get_metadata(name)
         return Blob[T](name=name, content=data, metadata=metadata)
 
     @abstractmethod

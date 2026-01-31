@@ -3,14 +3,13 @@ from pathlib import Path
 from typing import Iterator, Optional, Type
 
 from google.cloud import storage
-from pydantic import BaseModel
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.blob_model import Blob
+from ampf.base.blob_model import Blob, BaseBlobMetadata
 
 
-class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
+class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     """A simple wrapper around Google Cloud Storage."""
 
     _storage_client = None
@@ -26,7 +25,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
         storage_client: Optional[storage.Client] = None,
@@ -57,7 +56,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
     def upload(self, blob: Blob[T]) -> None:
         g_blob = self._get_blob(blob.name)
         if blob.metadata:
-            g_blob.metadata = blob.metadata.model_dump()
+            g_blob.metadata = blob.metadata.model_dump(exclude_none=True)
 
         g_blob.upload_from_string(blob.content, content_type=blob.content_type or self.content_type)
 
@@ -66,7 +65,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
     ) -> None:
         blob = self._get_blob(key)
         if metadata:
-            blob.metadata = metadata.model_dump()
+            blob.metadata = metadata.model_dump(exclude_none=True)
         blob.upload_from_string(data, content_type=content_type or self.content_type)
 
     def download(self, key: str) -> Blob[T]:
@@ -76,7 +75,6 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         return Blob(
             name=key,
             content=g_blob.download_as_string(),
-            content_type=g_blob.content_type,
             metadata=self.get_metadata(key),
         )
 
@@ -91,7 +89,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
         blob.metadata = metadata.dict()
         blob.patch()
 
-    def get_metadata(self, key: str) -> Optional[T]:
+    def get_metadata(self, key: str) -> T:
         blob = self._get_blob(key)
         if not blob.exists():
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
@@ -99,7 +97,7 @@ class GcpBlobStorage[T: BaseModel](BaseBlobStorage[T]):
             # I don't know why, but sometimes the metadata is None (ML)
             blob.reload()
         if not blob.metadata or not self.clazz:
-            return None
+            raise ValueError(f"No metadata found for blob '{key}'")
         return self.clazz(**blob.metadata)
 
     def delete(self, key: str):

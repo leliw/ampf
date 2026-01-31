@@ -240,7 +240,7 @@ async def test_update_transactional_one_thread(storage: BaseAsyncBlobStorage):
     await storage.upload_async(blob)
 
     async def update_func(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
-        return Blob(name=b.name, content=b.content + b"_updated", content_type=b.content_type, metadata=b.metadata)
+        return Blob(name=b.name, content=b.content + b"_updated", metadata=b.metadata)
 
     await storage.update_transactional("test_blob", update_func)
 
@@ -277,7 +277,7 @@ async def test_update_transactional_two_threads(storage: BaseAsyncBlobStorage):
 @pytest.mark.asyncio
 async def test_update_transactional_non_existent_blob(storage: BaseAsyncBlobStorage):
     async def update_func(b: Blob[MyMetadata]) -> Blob[MyMetadata]:
-        return Blob(name=b.name, content=b.content + b"_updated")
+        return Blob(name=b.name, content=b.content + b"_updated", metadata=b.metadata)
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)

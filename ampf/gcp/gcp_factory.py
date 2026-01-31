@@ -4,6 +4,8 @@ from typing import Callable, Optional, Type, override
 from google.cloud import firestore, storage
 from pydantic import BaseModel
 
+from ampf.base.blob_model import BaseBlobMetadata
+
 from ..base import BaseAsyncStorage, BaseBlobStorage, BaseFactory, BaseStorage
 from .gcp_async_storage import GcpAsyncStorage
 from .gcp_base_factory import GcpBaseFactory
@@ -40,10 +42,10 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
             root_storage=self.root_storage,
         )
 
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
     ) -> BaseBlobStorage[T]:

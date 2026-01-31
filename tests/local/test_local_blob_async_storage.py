@@ -33,7 +33,7 @@ def storage_no_metadata(temp_storage_dir):
 async def test_upload_and_download(storage: LocalAsyncBlobStorage):
     metadata = SampleMetadata(name="file1", version=1)
     blob = Blob[SampleMetadata](
-        name="test_blob", content_type="text/plain", metadata=metadata, content=b"Hello, World!"
+        name="test_blob", metadata=metadata, content=b"Hello, World!"
     )
 
     await storage.upload_async(blob)
@@ -76,10 +76,10 @@ async def test_upload_and_download_without_metadata(storage_no_metadata: LocalAs
 @pytest.mark.asyncio
 async def test_list_blobs(storage: LocalAsyncBlobStorage):
     blob1 = Blob[SampleMetadata](
-        name="item1", content_type="application/json", metadata=SampleMetadata(name="first", version=1), content=b"{}"
+        name="item1", metadata=SampleMetadata(name="first", version=1, content_type="application/json"), content=b"{}"
     )
     blob2 = Blob[SampleMetadata](
-        name="item2", content_type="application/json", metadata=SampleMetadata(name="second", version=2), content=b"{}"
+        name="item2", metadata=SampleMetadata(name="second", version=2, content_type="application/json"), content=b"{}"
     )
 
     await storage.upload_async(blob1)
@@ -98,8 +98,7 @@ async def test_list_blobs(storage: LocalAsyncBlobStorage):
 async def test_delete_blob(storage: LocalAsyncBlobStorage):
     blob = Blob[SampleMetadata](
         name="todelete",
-        content_type="text/plain",
-        metadata=SampleMetadata(name="to delete", version=1),
+        metadata=SampleMetadata(name="to delete", version=1, content_type="text/plain"),
         content=b"delete me",
     )
     await storage.upload_async(blob)
@@ -119,8 +118,7 @@ async def test_download_missing_blob_raises(storage: LocalAsyncBlobStorage):
 async def test_content_type_affects_file_extension(storage: LocalAsyncBlobStorage):
     blob = Blob[SampleMetadata](
         name="typed_blob",
-        content_type="application/json",
-        metadata=SampleMetadata(name="json test", version=3),
+        metadata=SampleMetadata(name="json test", version=3, content_type="application/json"),
         content=b'{"foo": "bar"}',
     )
     await storage.upload_async(blob)

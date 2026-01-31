@@ -6,7 +6,7 @@ from typing import Iterator, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseBlobStorage, Blob
+from ampf.base import BaseBlobStorage, Blob, BaseBlobMetadata
 from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
@@ -14,7 +14,7 @@ from ..mimetypes import get_content_type, get_extension
 from .file_storage import FileStorage, StrPath
 
 
-class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
+class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
     """Stores binary data on the local disk.
 
     Args:
@@ -28,7 +28,7 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
     def __init__(
         self,
         bucket_name: str,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: Optional[str] = None,
         subfolder_characters: Optional[int] = None,
         root_path: Optional[StrPath] = None,
@@ -84,10 +84,8 @@ class LocalBlobStorage[T: BaseModel](BaseBlobStorage[T], FileStorage):
             name: The name of the blob
         """
         content = self.download_blob(key)
-        file_path = self._create_file_path(key)
-        content_type = get_content_type(str(file_path))
-        metadata = self.get_metadata(key) if self.clazz else None
-        return Blob(name=key, content=content, content_type=content_type, metadata=metadata)
+        metadata = self.get_metadata(key)
+        return Blob(name=key, content=content, metadata=metadata)
 
     @override
     def download_blob(self, key: str) -> bytes:
