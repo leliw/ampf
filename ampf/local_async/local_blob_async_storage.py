@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import mimetypes
 import os
 from pathlib import Path
@@ -13,6 +14,8 @@ from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
+
+_log = logging.getLogger(__name__)
 
 
 class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
@@ -76,9 +79,12 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
+            if blob._data and blob._data.name and Path(blob._data.name) == data_path:
+                return  # This is the same file
             async with aiofiles.open(data_path, "wb") as f:
                 async for chunk in blob.stream():
                     await f.write(chunk)
+                await f.flush()
             # with open(data_path, "wb") as f:
             #     with blob.data() as data:
             #         shutil.copyfileobj(data, f)
@@ -99,9 +105,9 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         elif not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         else:
-            metadata = await self.get_metadata(key) 
+            metadata = await self.get_metadata(key)
         f = await asyncio.to_thread(open, data_path, "rb")
-        return Blob[T](name=key, metadata=metadata, data=f) # type: ignore
+        return Blob[T](name=key, metadata=metadata, data=f)  # type: ignore
 
     @override
     def delete(self, key: str) -> None:
@@ -155,7 +161,6 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
             await f.write(metadata.model_dump_json())
 
-
     @override
     async def _upsert_transactional(
         self,
@@ -176,6 +181,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
                     raise e
                 created_blob = await create_func(name)
                 await self.upload_async(created_blob)
+
 
 @deprecated("Use LocalAsyncBlobStorage")
 class LocalBlobAsyncStorage[T: BaseBlobMetadata](LocalAsyncBlobStorage[T]):

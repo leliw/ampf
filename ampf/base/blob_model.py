@@ -106,7 +106,7 @@ class Blob[T: BaseBlobMetadata]:
         self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
         if content:
-            self.content = content
+            self._content = content.encode() if isinstance(content, str) else content
         if not data and not content:
             raise BlobError()
         if data and content:
@@ -138,6 +138,7 @@ class Blob[T: BaseBlobMetadata]:
                 raise BlobError()
         else:
             data = self._data
+            data.seek(0)
         yield data
         data.close()
         self._data = None
