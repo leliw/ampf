@@ -135,7 +135,9 @@ class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
                 d = json.load(f)
             return self.clazz.model_validate(d)
         except FileNotFoundError:
-            raise KeyNotExistsException
+            if self.clazz == BaseBlobMetadata:
+                return BaseBlobMetadata.from_filename(key) # type: ignore
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     @override
     def keys(self) -> Iterator[str]:

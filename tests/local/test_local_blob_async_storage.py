@@ -1,4 +1,5 @@
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 
@@ -179,3 +180,20 @@ async def test_update_transactional_non_existent_blob(storage: LocalAsyncBlobSto
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)
+
+
+@pytest.mark.asyncio
+async def test_download_blob_without_metadata():
+    # Given: A test file without metadata
+    path = "./tests/data/"
+    filename = "test.txt"
+    assert os.path.exists(path + filename)
+    # And: A storage
+    storage = LocalAsyncBlobStorage(path, root_path=Path("."))
+    # When: Download the file
+    blob = await storage.download_async(filename)
+    # Then: A blob is downloaded
+    assert blob
+    # And: The metadata is created from filename
+    assert blob.metadata.filename == filename
+    assert blob.metadata.content_type == "text/plain"
