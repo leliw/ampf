@@ -79,8 +79,11 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
-            if blob._data and blob._data.name and Path(blob._data.name) == data_path:
-                return  # This is the same file
+            try:
+                if blob._data and blob._data.name and Path(blob._data.name) == data_path:
+                    return  # This is the same file
+            except AttributeError:
+                pass
             async with aiofiles.open(data_path, "wb") as f:
                 async for chunk in blob.stream():
                     await f.write(chunk)
@@ -100,7 +103,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         meta_path = self._get_meta_path(key)
         data_path = self._find_data_path(key)
 
-        if data_path and self.clazz == BaseBlobMetadata and not meta_path.exists():
+        if data_path and self.clazz is BaseBlobMetadata and not meta_path.exists():
             metadata = BaseBlobMetadata.from_filename(data_path.name)
         elif not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
