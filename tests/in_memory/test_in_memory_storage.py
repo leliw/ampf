@@ -12,7 +12,12 @@ class D(BaseModel):
 
 @pytest.fixture
 def storage():
-    return InMemoryStorage("test", D)
+    storage = InMemoryStorage("test", D)
+    storage.drop()
+    yield storage
+    storage.drop()
+
+
 
 
 def test_storage_all(storage: BaseStorage):

@@ -1,4 +1,5 @@
-from typing import AsyncIterator, Callable, Optional, Type
+import asyncio
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, Optional, Type
 
 from pydantic import BaseModel
 
@@ -23,7 +24,8 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
             key_name=key if isinstance(key, str) else None,
             key=key if isinstance(key, Callable) else None,
         )
-
+        self.storage.to_storage = self._to_storage
+        self.storage.from_storage = self._from_storage
 
     async def put(self, key: str, value: T) -> None:
         self.storage.put(key, value)
@@ -50,3 +52,15 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
 
     async def is_empty(self) -> bool:
         return self.storage.is_empty()
+
+    def _to_storage(self, data: T) -> Dict[str, Any]:
+        ret = self.to_storage(data)
+        if isinstance(ret, Coroutine):
+            ret = asyncio.run(ret)
+        return ret
+
+    def _from_storage(self, data: Dict[str, Any]) -> T:
+        ret = self.from_storage(data)
+        if isinstance(ret, Coroutine):
+            ret = asyncio.run(ret)
+        return ret

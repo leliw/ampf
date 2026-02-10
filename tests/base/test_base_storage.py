@@ -15,7 +15,11 @@ class D(BaseModel):
 
 @pytest.fixture
 def storage():
-    return InMemoryStorage("test", D)
+    storage = InMemoryStorage("test", D)
+    yield storage
+    storage.drop()
+
+
 
 
 def test_create_new(storage: BaseStorage):
@@ -204,23 +208,24 @@ class TC(BaseModel):
     name: str
     embedding: Optional[List[float]] = None
 
+@pytest.fixture
+def storage_tc():
+    storage = InMemoryStorage("test", TC)
+    yield storage
+    storage.drop()
 
-def test_embedding(storage: BaseStorage[TC]):
+def test_embedding(storage_tc: BaseStorage[TC]):
     # Given: Data with embedding
     tc1 = TC(name="test1", embedding=[1.0, 2.0, 3.0])
     tc2 = TC(name="test2", embedding=[4.0, 5.0, 6.0])
     # When: Save them
-    storage.put("1", tc1)
-    storage.put("2", tc2)
+    storage_tc.put("1", tc1)
+    storage_tc.put("2", tc2)
     # And: Find nearest
-    nearest = list(storage.find_nearest(tc1.embedding or []))
+    nearest = list(storage_tc.find_nearest(tc1.embedding or []))
     # Then: All two are returned
     assert len(nearest) == 2
     # And: The nearest is the first one
     assert nearest[0] == tc1
     # And: The second is the second
     assert nearest[1] == tc2
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
