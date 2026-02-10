@@ -10,8 +10,7 @@ from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
-from ampf.local import FileStorage
-from ampf.local_async import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
+from ampf.local import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
 
 _log = logging.getLogger(__name__)
 
@@ -157,9 +156,8 @@ async def test_patch_key_value(storage: BaseAsyncStorage):
     # Then: An old key doesn't exist
     with pytest.raises(KeyNotExistsException):
         await storage.get("foo")
-    # And: A new key exists   
+    # And: A new key exists
     assert D(name="bar", value="beer") == await storage.get("bar")
-
 
 
 @pytest.mark.asyncio
@@ -195,12 +193,12 @@ async def test_delete_existing(storage: BaseAsyncStorage):
     # Then: It is not exist
     assert not await storage.key_exists("foo")
 
+
 @pytest.mark.asyncio
 async def test_delete_not_existing(storage: BaseAsyncStorage):
     # When: I delete it
     with pytest.raises(KeyNotExistsException):
         await storage.delete("not_exists")
-
 
 
 @pytest.mark.asyncio
@@ -271,6 +269,7 @@ async def test_embedding(storage: BaseAsyncStorage[D]):
     # And: The second is the second
     assert nearest[1] == tc2
 
+
 @pytest.mark.asyncio()
 async def test_async_where_embedding(storage: BaseAsyncStorage[D]):
     # Given: Data with embedding
@@ -284,6 +283,7 @@ async def test_async_where_embedding(storage: BaseAsyncStorage[D]):
     # Then: Only one is returned
     assert len(nearest) == 1
     assert nearest[0] == tc1
+
 
 @pytest.mark.asyncio
 async def test_query(storage: BaseAsyncQueryStorage):
@@ -302,6 +302,7 @@ async def test_query(storage: BaseAsyncQueryStorage):
     # Then: One item is returned
     assert len(ret) == 1
     assert ret[0].name == "baz"
+
 
 @pytest.mark.asyncio
 async def test_query_uuid(storage_uuid: BaseAsyncQueryStorage):
@@ -331,6 +332,7 @@ async def test_put_exists(storage: BaseAsyncStorage):
     # Then: It is changed
     assert (await storage.get("foo")).value == "wine"
 
+
 @pytest.mark.asyncio
 async def test_put_new_key(storage: BaseAsyncStorage):
     # Given: A new saved element
@@ -342,4 +344,3 @@ async def test_put_new_key(storage: BaseAsyncStorage):
         await storage.get("foo")
     # And: New object exists
     assert (await storage.get("foo2")).value == "beer"
-
