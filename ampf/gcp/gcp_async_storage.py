@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Type, override
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Type, override
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -56,7 +56,10 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
         ).stream():  # type: ignore
-            yield self.clazz.model_validate(ds.to_dict())
+            ret = self.from_storage(ds.to_dict())
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
     @override
     async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
@@ -108,7 +111,9 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
 
     async def put(self, key: Any, data: T) -> None:
         """Put a document in the collection."""
-        data_dict = data.model_dump(by_alias=True, exclude_none=True)
+        data_dict = self.to_storage(data)
+        if isinstance(data_dict, Coroutine):
+            data_dict = await data_dict
         data_dict = self.on_before_save(data_dict)  # Preprocess data
         new_key = self.get_key(data)
         # If the key of the value has changed, remove the old key
@@ -155,7 +160,10 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         doc = await self._coll_ref.document(str(key)).get()
         data = doc.to_dict()
         if data:
-            return self.clazz.model_validate(data)
+            ret = self.from_storage(data)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            return ret
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
@@ -188,7 +196,13 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
                 else:
                     coll_ref = coll_ref.order_by(o)
         async for doc in coll_ref.stream():
-            yield self.clazz.model_validate(doc.to_dict())
+            data_dict = doc.to_dict()
+            if data_dict:
+                ret = self.from_storage(data_dict)
+                if isinstance(ret, Coroutine):
+                    ret = await ret
+                yield ret
+
 
     async def create(self, value: T) -> None:
         """Adds to collection a new element but only if such key doesn't already exists"""
@@ -199,7 +213,9 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
             doc = await self._coll_ref.document(str(key)).get(transaction=transaction)
             if doc.exists:
                 raise KeyExistsException
-            data_dict = value.model_dump(by_alias=True, exclude_none=True)
+            data_dict = self.to_storage(value)
+            if isinstance(data_dict, Coroutine):
+                data_dict = await data_dict
             data_dict = self.on_before_save(data_dict)  # Preprocess data
             transaction.set(doc.reference, data_dict)
 
@@ -221,7 +237,10 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
         ).stream():  # type: ignore
-            yield self.clazz(**ds.to_dict())
+            ret = self.from_storage(ds.to_dict())
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:

@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, AsyncIterator, Callable, Optional, Type
+from typing import Any, AsyncIterator, Callable, Coroutine, Optional, Type
 
 from pydantic import BaseModel
 
@@ -72,7 +72,10 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncS
             dv = data[key]
             if isinstance(self.key, str):
                 dv[self.key] = key
-            return self.clazz.model_validate(dv)
+            ret = self.from_storage(dv)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            return ret
         except KeyError:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
