@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import contextmanager
 from io import BytesIO
 from mimetypes import guess_file_type
@@ -6,12 +7,15 @@ from tempfile import SpooledTemporaryFile
 from typing import Any, AsyncGenerator, BinaryIO, Generator, Optional, Self
 from uuid import uuid4
 
+from pydantic import BaseModel
+
+_log = logging.getLogger(__name__)
+
 try:
     from fastapi import UploadFile
 except ImportError:
     type UploadFile = Any
 
-from pydantic import BaseModel
 
 type BlobData = BinaryIO | SpooledTemporaryFile
 
@@ -30,11 +34,19 @@ class BaseBlobMetadata(BaseModel):
     @classmethod
     def create(cls, file: UploadFile) -> Self:
         if file.content_type is None or file.content_type in ["application/octet-stream", "video/vnd.dlna.mpeg-tts"]:
-            content_type, _ = guess_file_type(file.filename) if file.filename else (None, None)
-            content_type = content_type or "application/octet-stream"
+            return cls.from_filename(file.filename or "")
         else:
-            content_type = file.content_type
-        return cls(filename=file.filename, content_type=content_type)
+            return cls(filename=file.filename or None, content_type=file.content_type)
+
+    @classmethod
+    def from_filename(cls, filename: str) -> Self:
+        ext = filename.split(".")[-1]
+        if ext == "ts":
+            content_type = "text/typescript"
+        else:
+            content_type, _ = guess_file_type(filename)
+        content_type = content_type or "application/octet-stream"
+        return cls(filename=filename or None, content_type=content_type)
 
 
 empty_blob_metadata = BaseBlobMetadata(content_type="")
@@ -83,21 +95,26 @@ class Blob[T: BaseBlobMetadata]:
         metadata: T = empty_blob_metadata,
     ):
         self.name = name
-        self.content_type = content_type
         if metadata == empty_blob_metadata:
             if content_type:
                 metadata = metadata.__class__(content_type=content_type)
             else:
                 metadata = metadata.__class__()
+        elif metadata and content_type:
+            metadata.content_type = content_type
         self.metadata: T = metadata
         self._data: Optional[BlobData] = data
         self._content: Optional[bytes] = None
         if content:
-            self.content = content
+            self._content = content.encode() if isinstance(content, str) else content
         if not data and not content:
             raise BlobError()
         if data and content:
             raise BlobError()
+
+    @property
+    def content_type(self) -> str:
+        return self.metadata.content_type
 
     @classmethod
     def create(cls, value_create: BlobCreate) -> "Blob":
@@ -109,7 +126,7 @@ class Blob[T: BaseBlobMetadata]:
         )
 
     @classmethod
-    def from_upload_file(cls, file: UploadFile, metadata: Optional[T] = None) -> "Blob":
+    def from_upload_file(cls, file: UploadFile, metadata: T = empty_blob_metadata) -> "Blob[T]":
         return cls.create(BlobCreate.from_upload_file(file, metadata))
 
     @contextmanager
@@ -121,6 +138,7 @@ class Blob[T: BaseBlobMetadata]:
                 raise BlobError()
         else:
             data = self._data
+            data.seek(0)
         yield data
         data.close()
         self._data = None
@@ -132,8 +150,8 @@ class Blob[T: BaseBlobMetadata]:
         else:
             with self.data() as data:
                 self._content = data.read()
-                self._data = None
-                return self._content
+            self._data = None
+            return self._content
 
     @content.setter
     def content(self, v: bytes | str):

@@ -1,5 +1,8 @@
 from typing import List, Optional
+
 from pydantic import BaseModel
+
+from ampf.auth.auth_model import BaseUser
 
 
 class AuthConfig(BaseModel):
@@ -12,11 +15,10 @@ class AuthConfig(BaseModel):
     jwt_secret_key: str
 
 
-class DefaultUser(BaseModel):
+class DefaultUser(BaseUser):
     """Default user for the application"""
 
-    username: str = "admin"
-    password: str = "admin"
+    password: str
     roles: List[str] = ["admin"]
 
 
@@ -34,11 +36,11 @@ class ResetPasswordMailConfig(BaseModel):
     """Configuration for reset password emails."""
 
     sender: str = "admin@example.com"
-    subject: str = "Resetowanie hasła"
-    body_template: str = """Witaj!
+    subject: str = "Password reset"
+    body_template: str = """Hello,
         
-Otrzymałeś ten email, ponieważ poprosiłeś o zresetowanie hasła.
-Aby zresetować swoje hasło, wpisz kod: {reset_code} w formularzu.
-Kod jest ważny przez {reset_code_expire_minutes} minut.
-Jeśli nie prosiłeś o zresetowanie hasła, zignoruj ten email.
+You are receiving this email because you requested a password reset.
+To reset your password, please enter the following code into the form: {reset_code}.
+This code is valid for {reset_code_expire_minutes} minutes.
+If you did not request a password reset, please ignore this email.
 """

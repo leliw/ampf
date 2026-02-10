@@ -1,4 +1,5 @@
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 
@@ -25,12 +26,15 @@ def temp_storage_dir():
 def storage(temp_storage_dir):
     return LocalAsyncBlobStorage(collection_name=temp_storage_dir, metadata_type=SampleMetadata)
 
+@pytest.fixture
+def storage_no_metadata(temp_storage_dir):
+    return LocalAsyncBlobStorage(collection_name=temp_storage_dir)
 
 @pytest.mark.asyncio
 async def test_upload_and_download(storage: LocalAsyncBlobStorage):
     metadata = SampleMetadata(name="file1", version=1)
     blob = Blob[SampleMetadata](
-        name="test_blob", content_type="text/plain", metadata=metadata, content=b"Hello, World!"
+        name="test_blob", metadata=metadata, content=b"Hello, World!"
     )
 
     await storage.upload_async(blob)
@@ -54,14 +58,29 @@ async def test_upload_and_download_without_content_type(storage: LocalAsyncBlobS
     assert downloaded.metadata == blob.metadata
     assert downloaded.content == blob.content
 
+@pytest.mark.asyncio
+async def test_upload_and_download_without_metadata(storage_no_metadata: LocalAsyncBlobStorage):
+    blob = Blob(
+        name="test_blob",
+        content=b"Hello, World!",
+        content_type="text/x-scss"
+    )
+
+    await storage_no_metadata.upload_async(blob)
+    downloaded = await storage_no_metadata.download_async("test_blob")
+
+    assert downloaded.name == blob.name
+    assert downloaded.metadata == blob.metadata
+    assert downloaded.content == blob.content
+
 
 @pytest.mark.asyncio
 async def test_list_blobs(storage: LocalAsyncBlobStorage):
     blob1 = Blob[SampleMetadata](
-        name="item1", content_type="application/json", metadata=SampleMetadata(name="first", version=1), content=b"{}"
+        name="item1", metadata=SampleMetadata(name="first", version=1, content_type="application/json"), content=b"{}"
     )
     blob2 = Blob[SampleMetadata](
-        name="item2", content_type="application/json", metadata=SampleMetadata(name="second", version=2), content=b"{}"
+        name="item2", metadata=SampleMetadata(name="second", version=2, content_type="application/json"), content=b"{}"
     )
 
     await storage.upload_async(blob1)
@@ -80,8 +99,7 @@ async def test_list_blobs(storage: LocalAsyncBlobStorage):
 async def test_delete_blob(storage: LocalAsyncBlobStorage):
     blob = Blob[SampleMetadata](
         name="todelete",
-        content_type="text/plain",
-        metadata=SampleMetadata(name="to delete", version=1),
+        metadata=SampleMetadata(name="to delete", version=1, content_type="text/plain"),
         content=b"delete me",
     )
     await storage.upload_async(blob)
@@ -101,8 +119,7 @@ async def test_download_missing_blob_raises(storage: LocalAsyncBlobStorage):
 async def test_content_type_affects_file_extension(storage: LocalAsyncBlobStorage):
     blob = Blob[SampleMetadata](
         name="typed_blob",
-        content_type="application/json",
-        metadata=SampleMetadata(name="json test", version=3),
+        metadata=SampleMetadata(name="json test", version=3, content_type="application/json"),
         content=b'{"foo": "bar"}',
     )
     await storage.upload_async(blob)
@@ -159,7 +176,24 @@ async def test_update_transactional_two_threads(storage: LocalAsyncBlobStorage):
 @pytest.mark.asyncio
 async def test_update_transactional_non_existent_blob(storage: LocalAsyncBlobStorage):
     async def update_func(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
-        return Blob(name=b.name, content=b.content + b"_updated")
+        return Blob(name=b.name, content=b.content + b"_updated", metadata=b.metadata)
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)
+
+
+@pytest.mark.asyncio
+async def test_download_blob_without_metadata():
+    # Given: A test file without metadata
+    path = "./tests/data/"
+    filename = "test.txt"
+    assert os.path.exists(path + filename)
+    # And: A storage
+    storage = LocalAsyncBlobStorage(path, root_path=Path("."))
+    # When: Download the file
+    blob = await storage.download_async(filename)
+    # Then: A blob is downloaded
+    assert blob
+    # And: The metadata is created from filename
+    assert blob.metadata.filename == filename
+    assert blob.metadata.content_type == "text/plain"

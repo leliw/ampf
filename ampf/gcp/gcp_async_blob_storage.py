@@ -24,13 +24,13 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         self,
         bucket_name: str,
         collection_name: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         storage_client: Optional[storage.Client] = None,
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
-        self.clazz: Type[T] = clazz or BaseBlobMetadata # type: ignore
+        self.clazz: Type[T] = clazz
         self.max_retries_per_transaction = 5
 
     def _get_signed_url(self, name: str, method: str, content_type: Optional[str] = None, expiration: int = 3600) -> str:
@@ -97,7 +97,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 response.raise_for_status()
                 content = await response.read()
 
-        return Blob(name=name, content=content, content_type=response.content_type, metadata=metadata)
+        return Blob[T](name=name, content=content, metadata=metadata)
 
     @override
     async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
@@ -143,9 +143,8 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                     storage_blob.reload()  # Get the latest metadata, including generation
                     content = storage_blob.download_as_bytes()
                     generation_to_match = storage_blob.generation
-                    content_type = storage_blob.content_type
                     metadata =  self.clazz(**storage_blob.metadata) # type: ignore
-                    blob = Blob(name=name, content=content, content_type=content_type, metadata=metadata)
+                    blob = Blob(name=name, content=content, metadata=metadata)
                     if update_func:
                         # Apply the user-defined update/creation logic
                         new_blob = await update_func(blob)
@@ -189,7 +188,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         blob.metadata = metadata.model_dump()
         blob.patch()
 
-    async def get_metadata(self, name: str) -> Optional[T]:
+    async def get_metadata(self, name: str) -> T:
         """Gets metadata for a blob.
 
         Args:
@@ -204,6 +203,6 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         if not blob.metadata:
             # I don't know why, but sometimes the metadata is None (ML)
             blob.reload()
-        if not blob.metadata or not self.clazz:
-            return None
+        if not blob.metadata:
+            raise ValueError(f"No metadata found for blob '{name}'")
         return self.clazz(**blob.metadata)

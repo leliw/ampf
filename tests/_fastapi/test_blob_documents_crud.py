@@ -1,3 +1,4 @@
+import asyncio
 from typing import Iterable
 
 import pytest
@@ -8,12 +9,12 @@ from fastapi.responses import JSONResponse
 from ampf.base import BaseAsyncFactory, BaseBlobMetadata, KeyNotExistsException
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
-from ampf.local import LocalAsyncFactory, LocalFactory
+from ampf.local import LocalAsyncFactory
 from ampf.testing.api_test_client import ApiTestClient
 
 # Test application source files
 from .app.config import ServerConfig
-from .app.dependencies import get_async_factory, get_factory, get_server_config, lifespan
+from .app.dependencies import get_async_factory, get_server_config, lifespan
 from .app.features.documents.document_model import Document, DocumentCreate, DocumentPatch
 from .app.routers import documents
 
@@ -29,10 +30,16 @@ async def async_factory(request, tmp_path):
     if request.param == LocalAsyncFactory:
         yield LocalAsyncFactory(tmp_path)
     elif request.param == GcpAsyncFactory:
-        factory: GcpAsyncFactory = request.param(bucket_name="unit-tests-001")
-        yield factory
-        storage = factory.create_blob_storage("files")
-        await storage.drop()
+        async_factory: GcpAsyncFactory = request.param(bucket_name="unit-tests-001")
+        yield async_factory
+        async_factory._async_db.close()
+        async_factory: GcpAsyncFactory = request.param(bucket_name="unit-tests-001")
+        storage = async_factory.create_storage("documents", Document)
+        blob_storage = async_factory.create_blob_storage("documents")
+        await asyncio.gather(
+            storage.drop(),
+            blob_storage.drop(),
+        )
     else:
         yield request.param()
 

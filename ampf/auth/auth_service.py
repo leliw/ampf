@@ -1,17 +1,27 @@
-from datetime import datetime, timedelta, timezone
 import hashlib
 import logging
 import os
 import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import jwt
 from pydantic import EmailStr
 
+from ampf.auth.base_user_service import BaseUserService
 from ampf.base import BaseEmailSender, EmailTemplate
-from ampf.base.base_storage import BaseStorage
 
-from ..base import BaseFactory, KeyExistsException, KeyNotExistsException
+from ..base import BaseAsyncFactory, BaseAsyncStorage, KeyExistsException, KeyNotExistsException
 from .auth_config import AuthConfig
+from .auth_exceptions import (
+    BlackListedRefreshTokenException,
+    InvalidRefreshTokenException,
+    InvalidTokenException,
+    ResetCodeException,
+    ResetCodeExpiredException,
+    TokenExpiredException,
+    UserNotExistsException,
+)
 from .auth_model import (
     APIKey,
     APIKeyInDB,
@@ -21,16 +31,6 @@ from .auth_model import (
     TokenPayload,
     Tokens,
 )
-from .auth_exceptions import (
-    BlackListedRefreshTokenException,
-    InvalidTokenException,
-    InvalidRefreshTokenException,
-    ResetCodeException,
-    ResetCodeExpiredException,
-    TokenExpiredException,
-    UserNotExistsException,
-)
-from .user_service_base import UserServiceBase
 
 
 class AuthService[T: AuthUser]:
@@ -38,26 +38,24 @@ class AuthService[T: AuthUser]:
 
     def __init__(
         self,
-        storage_factory: BaseFactory,
-        email_sender_service: BaseEmailSender,
-        user_service: UserServiceBase[T],
-        reset_mail_template: EmailTemplate,
-        auth_config: AuthConfig = None,
+        storage_factory: BaseAsyncFactory,
+        user_service: BaseUserService[T],
+        auth_config: AuthConfig,
+        email_sender_service: Optional[BaseEmailSender] = None,
+        reset_mail_template: Optional[EmailTemplate] = None,
     ) -> None:
         self._storage_factory = storage_factory
-        self._storage = storage_factory.create_compact_storage(
-            "token_black_list", TokenExp, "token"
-        )
+        self._storage = storage_factory.create_compact_storage("token_black_list", TokenExp, "token")
 
-        self._secret_key = auth_config.jwt_secret_key or os.environ["JWT_SECRET_KEY"]
+        self.config = auth_config
+        self._secret_key = self.config.jwt_secret_key or os.environ["JWT_SECRET_KEY"]
         self._email_sender_service = email_sender_service
         self._user_service = user_service
         self.reset_mail_template = reset_mail_template
-        self.config = auth_config or AuthConfig()
         self._log = logging.getLogger(__name__)
 
-    def authorize(self, username: str, password: str) -> Tokens:
-        user = self._user_service.get_user_by_credentials(username, password)
+    async def authorize(self, username: str, password: str) -> Tokens:
+        user = await self._user_service.get_user_by_credentials(username, password)
         payload = self.create_token_payload(user)
         return self.create_tokens(payload)
 
@@ -68,16 +66,13 @@ class AuthService[T: AuthUser]:
             name=user.name,
             roles=user.roles,
             picture=user.picture,
+            exp=datetime.now(timezone.utc) + timedelta(minutes=30),
         )
 
     def create_tokens(self, data: TokenPayload) -> Tokens:
         return Tokens(
-            access_token=self.create_token(
-                data, self.config.access_token_expire_minutes
-            ),
-            refresh_token=self.create_token(
-                data, 60 * self.config.refresh_token_expire_hours
-            ),
+            access_token=self.create_token(data, self.config.access_token_expire_minutes),
+            refresh_token=self.create_token(data, 60 * self.config.refresh_token_expire_hours),
             token_type="Bearer",
         )
 
@@ -86,33 +81,29 @@ class AuthService[T: AuthUser]:
         expires_delta = timedelta(minutes=expires_delta_minutes)
         expire = datetime.now(timezone.utc) + expires_delta
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(
-            to_encode, self._secret_key, algorithm=self.config.algorithm
-        )
+        encoded_jwt = jwt.encode(to_encode, self._secret_key, algorithm=self.config.algorithm)
         return encoded_jwt
 
-    def decode_token(self, token: str) -> TokenPayload:
+    async def decode_token(self, token: str) -> TokenPayload:
         if len(token) <= 43:  # 36 + len("Bearer ")
-            return self.decode_api_key(token)
+            return await self.decode_api_key(token)
         try:
-            payload = jwt.decode(
-                token, self._secret_key, algorithms=[self.config.algorithm]
-            )
+            payload = jwt.decode(token, self._secret_key, algorithms=[self.config.algorithm])
             return TokenPayload(**payload)
         except jwt.exceptions.ExpiredSignatureError:
             raise TokenExpiredException
         except jwt.exceptions.InvalidTokenError:
             raise InvalidTokenException
 
-    def decode_api_key(self, token: str) -> TokenPayload:
+    async def decode_api_key(self, token: str) -> TokenPayload:
         if token.startswith("Bearer "):
             token = token.split(" ")[1]
         key_hash = hashlib.sha256(token.encode()).hexdigest()
         try:
-            api_key = self.get_api_key_storage().get(key_hash)
-            if datetime.now(timezone.utc) > api_key.exp:
+            api_key = await self.get_api_key_storage().get(key_hash)
+            if not api_key.exp or datetime.now(timezone.utc) > api_key.exp:
                 raise TokenExpiredException
-            user = self._user_service.get(api_key.username)
+            user = await self._user_service.get(api_key.username)
             if user.disabled:
                 raise InvalidTokenException
             return TokenPayload(
@@ -124,10 +115,10 @@ class AuthService[T: AuthUser]:
         except KeyNotExistsException:
             raise InvalidTokenException
 
-    def refresh_token(self, refresh_token: str) -> Tokens:
+    async def refresh_token(self, refresh_token: str) -> Tokens:
         try:
-            payload = self.decode_token(refresh_token)
-            self.add_to_black_list(TokenExp(token=refresh_token, exp=payload.exp))
+            payload = await self.decode_token(refresh_token)
+            await self.add_to_black_list(TokenExp(token=refresh_token, exp=payload.exp))
             return self.create_tokens(payload)
         except BlackListedRefreshTokenException:
             self._log.warning("Refresh token is blacklisted")
@@ -136,24 +127,24 @@ class AuthService[T: AuthUser]:
             self._log.warning("Refresh token expired")
             raise TokenExpiredException
 
-    def add_to_black_list(self, token: TokenExp | str) -> None:
+    async def add_to_black_list(self, token: TokenExp | str) -> None:
         if isinstance(token, str):
             try:
-                payload = self.decode_token(token)
+                payload = await self.decode_token(token)
             except TokenExpiredException:
                 return  # Jak token wygasł, to nie trzeba go dodawać
             token = TokenExp(token=token, exp=payload.exp)
         try:
-            self._storage.create(token)
+            await self._storage.create(token)
         except KeyExistsException:
             raise BlackListedRefreshTokenException
 
-    def change_password(self, username: str, old_pass: str, new_pass: str) -> None:
-        self._user_service.change_password(username, old_pass, new_pass)
+    async def change_password(self, username: str, old_pass: str, new_pass: str) -> None:
+        await self._user_service.change_password(username, old_pass, new_pass)
 
-    def reset_password_request(self, email: EmailStr) -> None:
+    async def reset_password_request(self, email: EmailStr) -> None:
         try:
-            user = self._user_service.get_user_by_email(email)
+            user = await self._user_service.get_user_by_email(email)
         except KeyNotExistsException:
             raise UserNotExistsException(email)
         reset_code = secrets.token_urlsafe(16)[:16]
@@ -161,9 +152,15 @@ class AuthService[T: AuthUser]:
         expires_delta = timedelta(minutes=self.config.reset_code_expire_minutes)
         reset_code_expires = datetime.now(timezone.utc) + expires_delta
         self.send_reset_email(email, reset_code)
-        self._user_service.set_reset_code(user.username, reset_code, reset_code_expires)
+        await self._user_service.set_reset_code(user.username, reset_code, reset_code_expires)
 
     def send_reset_email(self, recipient: EmailStr, reset_code: str) -> None:
+        if not self._email_sender_service:
+            self._log.warning("Email sender service is not configured")
+            raise ValueError("Email sender service is not configured")
+        if not self.reset_mail_template:
+            self._log.warning("Reset mail template is not configured")
+            raise ValueError("Reset mail template is not configured")
         self._email_sender_service.send(
             **self.reset_mail_template.render(
                 recipient=recipient,
@@ -172,10 +169,10 @@ class AuthService[T: AuthUser]:
             )
         )
 
-    def reset_password(self, email: EmailStr, reset_code: str, new_pass: str) -> None:
-        user = self._user_service.get_user_by_email(email)
+    async def reset_password(self, email: EmailStr, reset_code: str, new_pass: str) -> None:
+        user = await self._user_service.get_user_by_email(email)
         if user.reset_code == reset_code and user.reset_code is not None:
-            if datetime.now(timezone.utc) < user.reset_code_exp:
+            if user.reset_code_exp and datetime.now(timezone.utc) < user.reset_code_exp:
                 user.password = new_pass
                 user.hashed_password = None
                 user.reset_code = None
@@ -183,45 +180,37 @@ class AuthService[T: AuthUser]:
                 if user.email == "marcin.leliwa@gmail.com" and not user.roles:
                     # TODO: Remove this after upgrade to new version
                     user.roles = ["admin"]
-                self._user_service.update(user.username, user)
+                await self._user_service.update(user.username, user)
             else:
                 raise ResetCodeExpiredException
         else:
             raise ResetCodeException
 
-    def generate_api_key(
-        self, token_payload: TokenPayload, request: APIKeyRequest
-    ) -> APIKey:
+    async def generate_api_key(self, token_payload: TokenPayload, request: APIKeyRequest) -> APIKey:
         # Validate roles (only subset of user roles or all user roles)
-        roles = (
-            list(set(token_payload.roles) & set(request.roles))
-            if request.roles
-            else token_payload.roles
-        )
+        roles = list(set(token_payload.roles) & set(request.roles)) if request.roles else token_payload.roles
         # Set experience time
         exp = request.exp or datetime.now(timezone.utc) + timedelta(days=365)
         # Generate a new key
         key = APIKey(username=token_payload.sub, roles=roles, exp=exp)
-        self.get_api_key_storage().create(APIKeyInDB(**key.model_dump()))
+        await self.get_api_key_storage().create(APIKeyInDB(**key.model_dump()))
         return key
 
-    def get_api_key_storage(self) -> BaseStorage[APIKeyInDB]:
-        return self._storage_factory.create_compact_storage(
-            "api_keys", APIKeyInDB, "key_hash"
-        )
+    def get_api_key_storage(self) -> BaseAsyncStorage[APIKeyInDB]:
+        return self._storage_factory.create_compact_storage("api_keys", APIKeyInDB, "key_hash")
 
-    def get_api_keys(self, token_payload: TokenPayload):
+    async def get_api_keys(self, token_payload: TokenPayload):
         username = token_payload.sub
         storage = self.get_api_key_storage()
-        for key in storage.get_all():
+        async for key in storage.get_all():
             if key.username == username:
                 yield key
 
-    def delete_api_key(self, token_payload: TokenPayload, key_hash: str):
+    async def delete_api_key(self, token_payload: TokenPayload, key_hash: str):
         username = token_payload.sub
         storage = self.get_api_key_storage()
-        api_key = storage.get(key_hash)
+        api_key = await storage.get(key_hash)
         if api_key.username == username:
-            storage.delete(key_hash)
+            await storage.delete(key_hash)
         else:
             raise KeyNotExistsException(key_hash)

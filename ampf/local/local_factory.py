@@ -4,7 +4,7 @@ from typing import Callable, Optional, Type, override
 
 from pydantic import BaseModel
 
-from ampf.base.blob_model import BlobLocation
+from ampf.base.blob_model import BaseBlobMetadata, BlobLocation
 
 from ..base import BaseFactory, BaseStorage
 from .file_storage import StrPath
@@ -47,10 +47,10 @@ class LocalFactory(BaseFactory):
             root_path=self._root_path,
         )
 
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: Optional[str] = None,
         bucket_name: Optional[str] = None,
     ) -> LocalBlobStorage[T]:

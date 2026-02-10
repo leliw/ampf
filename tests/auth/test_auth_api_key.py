@@ -1,19 +1,18 @@
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
-from ampf.auth.auth_model import APIKey, APIKeyRequest, APIKeyInDB
-from ampf.base import BaseFactory, BaseStorage, KeyNotExistsException
+from ampf.auth.auth_model import APIKey, APIKeyInDB, APIKeyRequest
+from ampf.base import BaseAsyncFactory, BaseAsyncStorage, KeyNotExistsException
 from tests.auth.app.features.user.user_service import UserService
 
 
 @pytest.fixture
-def api_key_storage(factory: BaseFactory) -> BaseStorage[APIKeyInDB]:
+def api_key_storage(factory: BaseAsyncFactory) -> BaseAsyncStorage[APIKeyInDB]:
     return factory.create_compact_storage("api_keys", APIKeyInDB, "key_hash")
 
 
-def test_generate(
-    client: TestClient, auth_header, api_key_storage: BaseStorage[APIKeyInDB]
-):
+@pytest.mark.asyncio
+async def test_generate(client: TestClient, auth_header, api_key_storage: BaseAsyncStorage[APIKeyInDB]):
     # Given: ApiKeyRequest
     req = APIKeyRequest()
     # When: API key is generated
@@ -31,17 +30,16 @@ def test_generate(
     assert "roles" in response.json()
     # And: API key is stored
     r = APIKey(**response.json())
-    stored = api_key_storage.get(response.json()["key_hash"])
+    stored = await api_key_storage.get(response.json()["key_hash"])
     assert stored.username == r.username
     assert stored.exp == r.exp
     assert stored.roles == r.roles
     assert "key" not in stored.model_dump()
-    api_key_storage.drop()
+    await api_key_storage.drop()
 
 
-def test_authorize_ok(
-    client: TestClient, auth_header, api_key_storage: BaseStorage[APIKeyInDB]
-):
+@pytest.mark.asyncio
+async def test_authorize_ok(client: TestClient, auth_header, api_key_storage: BaseAsyncStorage[APIKeyInDB]):
     # Given: A generated API key
     response = client.post(
         "/api/api-keys",
@@ -54,10 +52,12 @@ def test_authorize_ok(
     # Then: The response status code is 200
     assert response.status_code == 200
     assert 1 == len(response.json())
-    api_key_storage.drop()
+    await api_key_storage.drop()
 
-def test_authorize_disabled_user(
-    client: TestClient, auth_header, api_key_storage: BaseStorage[APIKeyInDB], user_service: UserService
+
+@pytest.mark.asyncio
+async def test_authorize_disabled_user(
+    client: TestClient, auth_header, api_key_storage: BaseAsyncStorage[APIKeyInDB], user_service: UserService
 ):
     # Given: A generated API key
     response = client.post(
@@ -67,20 +67,18 @@ def test_authorize_disabled_user(
     )
     key = response.json()["key"]
     # And: User is disabled
-    user = user_service.get("test")
+    user = await user_service.get("test")
     user.disabled = True
-    user_service.update(user.username, user)
+    await user_service.update(user.username, user)
     # When: Get users with the key
     response = client.get("/api/users", headers={"Authorization": f"Bearer {key}"})
     # Then: The response status code is 401
     assert response.status_code == 401
-    api_key_storage.drop()
+    await api_key_storage.drop()
 
 
-
-def test_get_user_api_keys(
-    client: TestClient, auth_header, api_key_storage: BaseStorage[APIKeyInDB]
-):
+@pytest.mark.asyncio
+async def test_get_user_api_keys(client: TestClient, auth_header, api_key_storage: BaseAsyncStorage[APIKeyInDB]):
     # Given: A generated API key
     response = client.post(
         "/api/api-keys",
@@ -95,12 +93,11 @@ def test_get_user_api_keys(
     assert 1 == len(response.json())
     assert key_hash == response.json()[0]["key_hash"]
     # Clean up
-    api_key_storage.drop()
+    await api_key_storage.drop()
 
 
-def test_delete_api_key_ok(
-    client: TestClient, auth_header, api_key_storage: BaseStorage[APIKeyInDB]
-):
+@pytest.mark.asyncio
+async def test_delete_api_key_ok(client: TestClient, auth_header, api_key_storage: BaseAsyncStorage[APIKeyInDB]):
     # Given: A generated API key
     response = client.post(
         "/api/api-keys",
@@ -117,11 +114,15 @@ def test_delete_api_key_ok(
     assert response.status_code == 200
     # And: Key is deleted from storage
     with pytest.raises(KeyNotExistsException):
-        api_key_storage.get(key_hash)
+        await api_key_storage.get(key_hash)
 
 
-def test_delete_api_key_wrong_user(
-    client: TestClient, auth_header, auth_header2, api_key_storage: BaseStorage[APIKeyInDB],
+@pytest.mark.asyncio
+async def test_delete_api_key_wrong_user(
+    client: TestClient,
+    auth_header,
+    auth_header2,
+    api_key_storage: BaseAsyncStorage[APIKeyInDB],
 ):
     # Given: A generated API key by first user
     response = client.post(
@@ -138,8 +139,5 @@ def test_delete_api_key_wrong_user(
     # Then: The response status code is 200
     assert response.status_code == 404
     # And: Key still exists
-    st_key = api_key_storage.get(key_hash)
+    st_key = await api_key_storage.get(key_hash)
     assert st_key.username == "test"
-
-
-

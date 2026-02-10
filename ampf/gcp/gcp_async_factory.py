@@ -35,7 +35,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
+        clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:

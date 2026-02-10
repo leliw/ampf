@@ -1,6 +1,8 @@
 import re
 import time
 
+import pytest
+
 from tests.auth.app.features.user.user_model import User
 from tests.auth.app.features.user.user_service import UserService
 
@@ -97,10 +99,10 @@ def test_change_password(client, tokens):
         ).status_code
     )
 
-
-def test_reset_password_request(email_sender, client, user_service: UserService):
+@pytest.mark.asyncio
+async def test_reset_password_request(email_sender, client, user_service: UserService):
     # Given: Stored an user with email 
-    user_service.create(User(email="test@test.com", password="test"))
+    await user_service.create(User(email="test@test.com", password="test"))
     # When: The user requests password reset
     response = client.post(
         "/api/reset-password-request",
@@ -112,17 +114,17 @@ def test_reset_password_request(email_sender, client, user_service: UserService)
     assert len(email_sender.sent_emails) == 1
     email = email_sender.sent_emails[0]
     assert email["recipient"] == "test@test.com"
-    match = re.search(r"wpisz kod: (\S+) w formularzu\.", email["body"])
-    code = match.group(1)
+    match = re.search(r"please enter the following code into the form: (\S+)\.", email["body"])
+    code = match.group(1) if match else ""
     assert len(code) == 16
-    match = re.search(r"Kod jest ważny przez (\d+) minut\.", email["body"])
-    time = match.group(1)
+    match = re.search(r"This code is valid for (\d+) minutes\.", email["body"])
+    time = match.group(1) if match else None
     assert time == "15"
 
-
-def test_reset_password(email_sender, client, user_service: UserService):
+@pytest.mark.asyncio
+async def test_reset_password(email_sender, client, user_service: UserService):
     # Given: Stored an user with email 
-    user_service.create(User(email="test@test.com", password="test"))
+    await user_service.create(User(email="test@test.com", password="test"))
     # Given: The user requests password reset
     client.post(
         "/api/reset-password-request",
@@ -131,8 +133,8 @@ def test_reset_password(email_sender, client, user_service: UserService):
     # Given: Code is extracted from email
     assert len(email_sender.sent_emails) == 1
     email = email_sender.sent_emails[0]
-    match = re.search(r"wpisz kod: (\S+) w formularzu\.", email["body"])
-    code = match.group(1)
+    match = re.search(r"please enter the following code into the form: (\S+)\.", email["body"])
+    code = match.group(1) if match else None
     # When: Default user resets password with the code
     response = client.post(
         "/api/reset-password",

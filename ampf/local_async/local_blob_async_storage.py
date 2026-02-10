@@ -1,9 +1,11 @@
 import asyncio
 import json
+import logging
 import mimetypes
 import os
 from pathlib import Path
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
+from warnings import deprecated
 
 import aiofiles
 
@@ -13,6 +15,8 @@ from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 from ..base import Blob, BlobHeader
 from ..base.base_async_blob_storage import BaseAsyncBlobStorage
 
+_log = logging.getLogger(__name__)
+
 
 class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
     chunk_size = 1024 * 1024  # 1MB
@@ -20,12 +24,12 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        metadata_type: Optional[Type[T]] = None,
+        metadata_type: Type[T] = BaseBlobMetadata,
         content_type: Optional[str] = None,
         root_path: Optional[Path] = None,
     ):
         self.collection_name = collection_name
-        self.clazz = metadata_type or BaseBlobMetadata  # type: ignore
+        self.clazz = metadata_type
         self.base_path = Path(root_path / collection_name) if root_path else Path(collection_name)
         self.content_type = content_type
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -75,9 +79,12 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         os.makedirs(data_path.parent, exist_ok=True)
 
         async def write_data():
+            if blob._data and blob._data.name and Path(blob._data.name) == data_path:
+                return  # This is the same file
             async with aiofiles.open(data_path, "wb") as f:
                 async for chunk in blob.stream():
                     await f.write(chunk)
+                await f.flush()
             # with open(data_path, "wb") as f:
             #     with blob.data() as data:
             #         shutil.copyfileobj(data, f)
@@ -93,12 +100,14 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         meta_path = self._get_meta_path(key)
         data_path = self._find_data_path(key)
 
-        if not data_path or (self.clazz and not meta_path.exists()):
+        if data_path and self.clazz == BaseBlobMetadata and not meta_path.exists():
+            metadata = BaseBlobMetadata.from_filename(data_path.name)
+        elif not data_path or (self.clazz and not meta_path.exists()):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
-
-        metadata = await self.get_metadata(key) if self.clazz else None
+        else:
+            metadata = await self.get_metadata(key)
         f = await asyncio.to_thread(open, data_path, "rb")
-        return Blob[T](name=key, metadata=metadata, data=f)
+        return Blob[T](name=key, metadata=metadata, data=f)  # type: ignore
 
     @override
     def delete(self, key: str) -> None:
@@ -152,7 +161,6 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         async with aiofiles.open(meta_path, "w", encoding="utf-8") as f:
             await f.write(metadata.model_dump_json())
 
-
     @override
     async def _upsert_transactional(
         self,
@@ -175,5 +183,6 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
                 await self.upload_async(created_blob)
 
 
+@deprecated("Use LocalAsyncBlobStorage")
 class LocalBlobAsyncStorage[T: BaseBlobMetadata](LocalAsyncBlobStorage[T]):
     pass

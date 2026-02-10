@@ -2,16 +2,16 @@ import os
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from ampf.base import BaseBlobStorage, KeyNotExistsException
+from ampf.base import BaseBlobMetadata, BaseBlobStorage, KeyNotExistsException
 from ampf.base.blob_model import Blob
 from ampf.gcp import GcpBlobStorage
 from ampf.in_memory import InMemoryBlobStorage
 from ampf.local import LocalBlobStorage
 
 
-class MyMetadata(BaseModel):
+class MyMetadata(BaseBlobMetadata):
     name: str = Field(...)
     age: int = Field(...)
 
@@ -19,9 +19,7 @@ class MyMetadata(BaseModel):
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
 def storage(gcp_factory, request, tmp_path):
     if request.param == LocalBlobStorage:
-        storage = request.param(
-            "unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path
-        )
+        storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)
     else:
         if request.param == GcpBlobStorage:
             bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")
@@ -176,8 +174,7 @@ def test_move_blob(storage: BaseBlobStorage):
 blob = Blob(
     name="test/file",
     content=b"test data",
-    content_type="text/plain",
-    metadata=MyMetadata(name="test", age=10),
+    metadata=MyMetadata(name="test", age=10, content_type="text/plain"),
 )
 
 
@@ -198,5 +195,4 @@ def test_download(storage: BaseBlobStorage):
     # Then: A downloaded blob is the same as the original
     assert downloaded_blob.name == blob.name
     assert downloaded_blob.content == blob.content
-    assert downloaded_blob.content_type == blob.content_type
     assert downloaded_blob.metadata == blob.metadata

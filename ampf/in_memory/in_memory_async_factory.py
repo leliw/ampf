@@ -3,10 +3,10 @@ from typing import Callable, Dict, Optional, Type
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
+from .in_memory_storage import InMemoryStorage
 
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
-from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
@@ -45,3 +45,6 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         bucket_name: Optional[str] = None,
     ) -> BaseAsyncBlobStorage[T]:
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
+
+    def drop(self):
+        self.collections = {}
