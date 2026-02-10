@@ -1,20 +1,34 @@
 """Base class for storage implementations which store Pydantic objects"""
 
 from __future__ import annotations
-
+import copy
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, AsyncIterable, AsyncIterator, Callable, Dict, List, Literal, Optional, Tuple, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+)
 
 from pydantic import BaseModel
 
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_storage import BaseStorage
+from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .exceptions import KeyExistsException, KeyNotExistsException
 
 
-class BaseAsyncStorage[T: BaseModel](ABC):
+class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
     _log = logging.getLogger(__name__)
@@ -146,3 +160,20 @@ class BaseAsyncStorage[T: BaseModel](ABC):
 
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
         raise NotImplementedError
+
+    def using_class[U: BaseModel](self, clazz: Type[U]) -> BaseAsyncStorage[U]:
+        duplicat: BaseAsyncStorage[U] = copy.copy(self)  # type: ignore
+        duplicat.clazz = clazz
+        return duplicat
+
+    def to_storage(self, data: T) -> Dict[str, Any] | Coroutine[Any, Any, Dict[str, Any]]:
+        if isinstance(data, VersionedBaseModel):
+            return data.to_storage()
+        else:
+            return data.model_dump(by_alias=True, exclude_none=True)
+
+    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+        if issubclass(self.clazz, VersionedBaseModel):
+            return self.clazz.from_storage(data)
+        else:
+            return self.clazz.model_validate(data)

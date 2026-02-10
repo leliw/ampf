@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
+from ampf.base.versioned_base_model import VersionedBaseModel
+
 from .base_query import OP, BaseQuery
 from .exceptions import KeyExistsException
 
 
-class BaseStorage[T: BaseModel](ABC):
+class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
     _log = logging.getLogger(__name__)
@@ -87,7 +90,7 @@ class BaseStorage[T: BaseModel](ABC):
         data.__dict__.update(patch_dict)
         self.put(key, data)
         return data
-    
+
     def save(self, value: T) -> None:
         """Save the value in the storage. The key is calculated based on the value.
         If the key already exists, it will be overwritten.
@@ -174,3 +177,20 @@ class BaseStorage[T: BaseModel](ABC):
     @abstractmethod
     def where(self, field: str, op: OP, value: Any) -> BaseQuery[T]:
         pass
+
+    def using_class[U: BaseModel](self, clazz: Type[U]) -> BaseStorage[U]:
+        duplicat: BaseStorage[U] = copy.copy(self)  # type: ignore
+        duplicat.clazz = clazz
+        return duplicat
+
+    def to_storage(self, data: T) -> Dict[str, Any]:
+        if isinstance(data, VersionedBaseModel):
+            return data.to_storage()
+        else:
+            return data.model_dump(by_alias=True, exclude_none=True)
+
+    def from_storage(self, data: Dict[str, Any]) -> T:
+        if issubclass(self.clazz, VersionedBaseModel):
+            return self.clazz.from_storage(data)
+        else:
+            return self.clazz.model_validate(data)
