@@ -33,9 +33,10 @@ class D_v1(BaseModel):
 
 
 class D_v2(VersionedBaseModel):
-    _v: int = 2
+    v: int = 2
     name: str
     value2: str
+    value3: str = ""
 
     @classmethod
     def from_storage(cls, data: dict):
@@ -67,9 +68,9 @@ def clazz(gcp_factory, request) -> Type[BaseAsyncStorage]:
 @pytest.fixture
 async def storage_v1(clazz, tmp_path):
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v1, root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", D_v1, key="name", root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("tests-ampf-gcp", D_v1)
+        storage = clazz("tests-ampf-gcp", D_v1, key="name")
     yield storage
     await storage.drop()
 
@@ -77,9 +78,9 @@ async def storage_v1(clazz, tmp_path):
 @pytest.fixture
 async def storage_v2(clazz, tmp_path):
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v2, root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", D_v2, key="name", root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("tests-ampf-gcp", D_v2)
+        storage = clazz("tests-ampf-gcp", D_v2, key="name")
     yield storage
     await storage.drop()
 
@@ -90,6 +91,7 @@ def test_v1_to_v2():
     # When: Convert to v2
     v2 = D_v2.from_storage(v1.model_dump(by_alias=True, exclude_none=True))
     # Then: It is converted
+    assert v2.v == 2
     assert v2.name == "test"
     assert v2.value2 == "value1"
 
@@ -119,9 +121,38 @@ def test_v2_to_v2(config_v2):
 @pytest.mark.asyncio
 async def test_read_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: BaseAsyncStorage[D_v2]):
     # Given: A stored v1 object
-    await storage_v1.create(D_v1(name="test", value1="value1"))
+    await storage_v1.create(D_v1(name="test", value1="value"))
     # When: It is read in v2 format
     d = await storage_v2.get("test")
     # Then: It is v2
+    assert d.v == 2
     assert d.name == "test"
-    assert d.value2 == "value1"
+    assert d.value2 == "value"
+
+
+@pytest.mark.asyncio
+async def test_write_v2_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: BaseAsyncStorage[D_v2]):
+    # Given: A given v2 object
+    v2 = D_v2(name="test", value2="value", value3="value3")
+    # When: Store in v1 format
+    await storage_v2.create(v2)
+    # Then: It can be read by v1 storage
+    d = await storage_v1.get("test")
+    # Then: It is v2
+    assert d.name == "test"
+    assert d.value1 == "value"
+
+
+@pytest.mark.asyncio
+async def test_write_v2_to_v2(storage_v1: BaseAsyncStorage[D_v1], storage_v2: BaseAsyncStorage[D_v2], config_v2):
+    # Given: A given v2 object
+    v2 = D_v2(name="test", value2="value", value3="value3")
+    # When: Store in v1 format
+    await storage_v2.create(v2)
+    # Then: It can be read by v1 storage
+    d = await storage_v2.get("test")
+    # Then: It is v2
+    assert d.v == 2
+    assert d.name == "test"
+    assert d.value2 == "value"
+    assert d.value3 == "value3"

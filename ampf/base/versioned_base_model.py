@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VersionedBaseModel(BaseModel, ABC):
-    _v: int
+    v: int = Field(..., ge=1, description="Schema version")
 
     @classmethod
     @abstractmethod
