@@ -53,7 +53,9 @@ class JsonOneFileAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncS
 
     async def put(self, key: Any, value: T) -> None:
         key = str(key)
-        dv = value.model_dump()
+        dv = self.to_storage(value)
+        if isinstance(dv, Coroutine):
+            dv = await dv
         if isinstance(self.key, str):
             dv.pop(self.key, None)
         data = await self._load_data()

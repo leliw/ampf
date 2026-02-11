@@ -49,7 +49,10 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
             key = new_key
 
         full_path = self._key_to_full_path(key)
-        json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
+        data = self.to_storage(value)
+        if isinstance(data, Coroutine):
+            data = await data
+        json_str = json.dumps(data,  default=str)
         await self._async_write_to_file(full_path, json_str)
 
     async def get(self, key: Any) -> T:

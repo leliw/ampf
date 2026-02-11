@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from typing import Any, AsyncIterable, AsyncIterator, Callable, List, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
+
+from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .base_query import OP
 
 
-class BaseAsyncQuery[T: BaseModel](ABC):
+class BaseAsyncQuery[T: BaseModel | VersionedBaseModel](ABC):
     """Base query with a defalt, brute force implementation."""
 
     _log = logging.getLogger(__name__)
@@ -95,3 +97,6 @@ class BaseAsyncQuery[T: BaseModel](ABC):
         # This makes get_all an async generator itself.
         async for item in self._src():
             yield item
+
+    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+        raise NotImplementedError()

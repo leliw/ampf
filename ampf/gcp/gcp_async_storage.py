@@ -12,11 +12,12 @@ from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
 from ampf.base.exceptions import KeyExistsException
+from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .gcp_storage import convert_uuids
 
 
-class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
+class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
     def __init__(
         self,
         decorated: firestore.AsyncQuery,
@@ -56,7 +57,10 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
         ).stream():  # type: ignore
-            ret = self.from_storage(ds.to_dict())
+            d = ds.to_dict()
+            if not d:
+                continue
+            ret = self.from_storage(d)
             if isinstance(ret, Coroutine):
                 ret = await ret
             yield ret
@@ -72,10 +76,16 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
                 else:
                     coll_ref = coll_ref.order_by(o)
         async for doc in coll_ref.stream():
-            yield self.clazz.model_validate(doc.to_dict())
+            d = doc.to_dict()
+            if not d:
+                continue
+            ret = self.from_storage(d)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
 
-class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
+class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T]):
     """A simple wrapper around Google Cloud Firestore."""
 
     def __init__(
@@ -149,7 +159,11 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         data = (await doc_ref.get()).to_dict()
-        new_value = self.clazz.model_validate(data)
+        if not data:
+            raise ValueError
+        new_value = self.from_storage(data)
+        if isinstance(new_value, Coroutine):
+            new_value = await new_value
         if self.get_key(new_value) != key:
             await doc_ref.delete()
             await self.create(new_value)
@@ -203,7 +217,6 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
                     ret = await ret
                 yield ret
 
-
     async def create(self, value: T) -> None:
         """Adds to collection a new element but only if such key doesn't already exists"""
         key = self.get_key(value)
@@ -247,4 +260,6 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
-        return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
+        ret = GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
+        ret.from_storage = self.from_storage
+        return ret

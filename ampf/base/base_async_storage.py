@@ -1,7 +1,7 @@
 """Base class for storage implementations which store Pydantic objects"""
 
 from __future__ import annotations
-import copy
+
 import logging
 from abc import ABC, abstractmethod
 from typing import (
@@ -88,7 +88,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
         else:
             patch_dict = patch_data
         data = await self.get(key)
-        data.__dict__.update(patch_dict)
+        data = data.model_copy(update=patch_dict)
         await self.put(key, data)
         return data
 
@@ -160,11 +160,6 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
 
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
         raise NotImplementedError
-
-    def using_class[U: BaseModel](self, clazz: Type[U]) -> BaseAsyncStorage[U]:
-        duplicat: BaseAsyncStorage[U] = copy.copy(self)  # type: ignore
-        duplicat.clazz = clazz
-        return duplicat
 
     def to_storage(self, data: T) -> Dict[str, Any] | Coroutine[Any, Any, Dict[str, Any]]:
         if isinstance(data, VersionedBaseModel):

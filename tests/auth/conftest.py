@@ -33,7 +33,7 @@ def test_server_config(tmp_path: str, test_user) -> ServerConfig:
     return ServerConfig(
         data_dir=str(tmp_path),
         default_user=test_user,
-        auth=AuthConfig(jwt_secret_key="asdasdasd"),
+        auth=AuthConfig(jwt_secret_key="asdafdgsdfgsfdgfsdgsdfgsdfgsdasd"),
     )
 
 
