@@ -13,7 +13,6 @@ The application can be reverted to the previous version handling only old data f
    - set `CURRENT_VERSION = 2` class property
    - add `from_storage` and `to_storage` methods
 4. Define **feature flags** class and setting these flags (i.e. from app_config)
-5. 
 
 ### Step 2
 
