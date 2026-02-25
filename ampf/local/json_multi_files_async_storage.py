@@ -73,10 +73,15 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
             end_index = self.subfolder_characters + 1
         else:
             end_index = None
+        subcollections = []
         for root, _, files in os.walk(self.folder_path):
             if Path(f"{root}.json").is_file() and root != str(self.folder_path):
-                # If exists json file wtith the same name as directory
+                # If exists json file with the same name as directory
                 # and it's not root folder
+                # - skip it - it's subcollection
+                subcollections.append(root)
+                pass
+            if any([root.startswith(sc) for sc in subcollections]):
                 # - skip it - it's subcollection
                 pass
             else:
