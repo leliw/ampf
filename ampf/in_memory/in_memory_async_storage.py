@@ -33,7 +33,11 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
     async def get(self, key: str) -> T:
         if not self.storage.key_exists(key):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
-        return self.storage.get(key)
+        ret = self.storage.get(key)
+        if isinstance(ret, Coroutine):
+            ret = await ret
+        return ret # type: ignore
+
 
     async def keys(self) -> AsyncIterator[str]:
         for key in self.storage.keys():
@@ -60,7 +64,4 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
         return ret
 
     def _from_storage(self, data: Dict[str, Any]) -> T:
-        ret = self.from_storage(data)
-        if isinstance(ret, Coroutine):
-            ret = asyncio.run(ret)
-        return ret
+        return self.from_storage(data) # type: ignore
