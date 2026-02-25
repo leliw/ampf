@@ -1,8 +1,11 @@
+import logging
 from typing import AsyncGenerator, AsyncIterable, AsyncIterator, Generator, Iterator, List, Mapping, Optional
 
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
+
+_log = logging.getLogger(__name__)
 
 
 class StreamedException(BaseModel):
@@ -45,7 +48,11 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         yield "[\n"
         try:
             i = 0
-            if isinstance(responses, AsyncGenerator) or isinstance(responses, AsyncIterator) or isinstance(responses, AsyncIterable):
+            if (
+                isinstance(responses, AsyncGenerator)
+                or isinstance(responses, AsyncIterator)
+                or isinstance(responses, AsyncIterable)
+            ):
                 async for r in responses:
                     yield self.object_to_text(i, r)
                     i += 1
@@ -54,6 +61,7 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
                     yield self.object_to_text(i, r)
                     i += 1
         except Exception as e:
+            _log.warning(e)
             yield self.object_to_text(i, StreamedException.from_exception(e))
         yield "]\n"
 

@@ -87,7 +87,7 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
         else:
             patch_dict = patch_data
         data = self.get(key)
-        data.__dict__.update(patch_dict)
+        data.__dict__.update(patch_dict) # type: ignore
         self.put(key, data)
         return data
 
