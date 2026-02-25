@@ -169,6 +169,14 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
 
     def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
         if issubclass(self.clazz, VersionedBaseModel):
-            return self.clazz.from_storage(data)
+            ret = self.clazz.from_storage(data)
+            if ret.FORMAT_FLAGS.migrate_legacy_on_read and ret.CURRENT_VERSION != ret.v:
+                async def save_and_return():
+                    ret.v = ret.CURRENT_VERSION
+                    await self.save(ret)
+                    return ret
+                return save_and_return()
+            else:
+                return ret
         else:
             return self.clazz.model_validate(data)
