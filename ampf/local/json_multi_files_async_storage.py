@@ -1,9 +1,10 @@
 """Stores data on disk in json files"""
 
+import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Optional, Type
+from typing import Any, AsyncIterator, Callable, Coroutine, Optional, Type
 
 import aiofiles
 import aiofiles.os
@@ -48,7 +49,10 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
             key = new_key
 
         full_path = self._key_to_full_path(key)
-        json_str = value.model_dump_json(by_alias=True, indent=2, exclude_none=True)
+        data = self.to_storage(value)
+        if isinstance(data, Coroutine):
+            data = await data
+        json_str = json.dumps(data,  default=str)
         await self._async_write_to_file(full_path, json_str)
 
     async def get(self, key: Any) -> T:
@@ -56,7 +60,10 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
         full_path = self._key_to_full_path(key)
         try:
             data = await self._async_read_from_file(full_path)
-            return self.clazz.model_validate_json(data)
+            ret = self.from_storage(json.loads(data))
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            return ret
         except FileNotFoundError:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 

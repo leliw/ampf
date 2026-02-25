@@ -18,6 +18,8 @@ from .collection_def import CollectionDef
 from .email_template import EmailTemplate
 from .exceptions import KeyExistsException, KeyNotExistsException
 from .smtp_email_sender import SmtpEmailSender
+from .versioned_base_model import VersionedBaseModel
+
 
 __all__ = [
     "BaseDecorator",
@@ -47,4 +49,5 @@ __all__ = [
     "BlobData",
     "BlobLocation",
     "BaseTopic",
+    "VersionedBaseModel"
 ]

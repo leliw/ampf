@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Type, override
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Type, override
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
@@ -12,11 +12,12 @@ from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
 from ampf.base.exceptions import KeyExistsException
+from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .gcp_storage import convert_uuids
 
 
-class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
+class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
     def __init__(
         self,
         decorated: firestore.AsyncQuery,
@@ -56,7 +57,13 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
         ).stream():  # type: ignore
-            yield self.clazz.model_validate(ds.to_dict())
+            d = ds.to_dict()
+            if not d:
+                continue
+            ret = self.from_storage(d)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
     @override
     async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
@@ -69,10 +76,16 @@ class GcpAsyncQuery[T: BaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsync
                 else:
                     coll_ref = coll_ref.order_by(o)
         async for doc in coll_ref.stream():
-            yield self.clazz.model_validate(doc.to_dict())
+            d = doc.to_dict()
+            if not d:
+                continue
+            ret = self.from_storage(d)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
 
-class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
+class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T]):
     """A simple wrapper around Google Cloud Firestore."""
 
     def __init__(
@@ -108,7 +121,9 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
 
     async def put(self, key: Any, data: T) -> None:
         """Put a document in the collection."""
-        data_dict = data.model_dump(by_alias=True, exclude_none=True)
+        data_dict = self.to_storage(data)
+        if isinstance(data_dict, Coroutine):
+            data_dict = await data_dict
         data_dict = self.on_before_save(data_dict)  # Preprocess data
         new_key = self.get_key(data)
         # If the key of the value has changed, remove the old key
@@ -144,7 +159,11 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         data = (await doc_ref.get()).to_dict()
-        new_value = self.clazz.model_validate(data)
+        if not data:
+            raise ValueError
+        new_value = self.from_storage(data)
+        if isinstance(new_value, Coroutine):
+            new_value = await new_value
         if self.get_key(new_value) != key:
             await doc_ref.delete()
             await self.create(new_value)
@@ -155,7 +174,10 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
         doc = await self._coll_ref.document(str(key)).get()
         data = doc.to_dict()
         if data:
-            return self.clazz.model_validate(data)
+            ret = self.from_storage(data)
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            return ret
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
@@ -188,7 +210,12 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
                 else:
                     coll_ref = coll_ref.order_by(o)
         async for doc in coll_ref.stream():
-            yield self.clazz.model_validate(doc.to_dict())
+            data_dict = doc.to_dict()
+            if data_dict:
+                ret = self.from_storage(data_dict)
+                if isinstance(ret, Coroutine):
+                    ret = await ret
+                yield ret
 
     async def create(self, value: T) -> None:
         """Adds to collection a new element but only if such key doesn't already exists"""
@@ -199,7 +226,9 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
             doc = await self._coll_ref.document(str(key)).get(transaction=transaction)
             if doc.exists:
                 raise KeyExistsException
-            data_dict = value.model_dump(by_alias=True, exclude_none=True)
+            data_dict = self.to_storage(value)
+            if isinstance(data_dict, Coroutine):
+                data_dict = await data_dict
             data_dict = self.on_before_save(data_dict)  # Preprocess data
             transaction.set(doc.reference, data_dict)
 
@@ -221,11 +250,16 @@ class GcpAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T]):
             distance_measure=DistanceMeasure.COSINE,
             limit=limit or self.embedding_search_limit,
         ).stream():  # type: ignore
-            yield self.clazz(**ds.to_dict())
+            ret = self.from_storage(ds.to_dict())
+            if isinstance(ret, Coroutine):
+                ret = await ret
+            yield ret
 
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
         coll_ref = coll_ref.where(field, op, convert_uuids(value))
-        return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
+        ret = GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
+        ret.from_storage = self.from_storage
+        return ret

@@ -4,17 +4,31 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, AsyncIterable, AsyncIterator, Callable, Dict, List, Literal, Optional, Tuple, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+)
 
 from pydantic import BaseModel
 
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_storage import BaseStorage
+from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .exceptions import KeyExistsException, KeyNotExistsException
 
 
-class BaseAsyncStorage[T: BaseModel](ABC):
+class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
 
     _log = logging.getLogger(__name__)
@@ -74,7 +88,7 @@ class BaseAsyncStorage[T: BaseModel](ABC):
         else:
             patch_dict = patch_data
         data = await self.get(key)
-        data.__dict__.update(patch_dict)
+        data = data.model_copy(update=patch_dict)
         await self.put(key, data)
         return data
 
@@ -146,3 +160,23 @@ class BaseAsyncStorage[T: BaseModel](ABC):
 
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
         raise NotImplementedError
+
+    def to_storage(self, data: T) -> Dict[str, Any] | Coroutine[Any, Any, Dict[str, Any]]:
+        if isinstance(data, VersionedBaseModel):
+            return data.to_storage()
+        else:
+            return data.model_dump(by_alias=True, exclude_none=True)
+
+    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+        if issubclass(self.clazz, VersionedBaseModel):
+            ret = self.clazz.from_storage(data)
+            if ret.FORMAT_FLAGS.migrate_legacy_on_read and ret.CURRENT_VERSION != ret.v:
+                async def save_and_return():
+                    ret.v = ret.CURRENT_VERSION
+                    await self.save(ret)
+                    return ret
+                return save_and_return()
+            else:
+                return ret
+        else:
+            return self.clazz.model_validate(data)

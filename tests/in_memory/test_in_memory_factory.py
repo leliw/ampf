@@ -10,6 +10,7 @@ class D(BaseModel):
 def test_create_storage():
     t1 = InMemoryFactory()
     s1 = t1.create_storage("xxx", D)
+    s1.drop()
     s1.save(D(name="1", value="a"))
 
     t2 = InMemoryFactory()

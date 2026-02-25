@@ -8,6 +8,7 @@ Set of helper classes:
   * [BaseFactory](doc/base_factory.md) - base class for factory implementations which create other objects.
   * [BaseAsyncFactory](doc/base_async_factory.md) - base class for factory implementations which create other **asynchrous** objects.
   * [BaseStorage](doc/base_storage.md) - base class for storage implementations which store Pydantic objects.
+  * [BaseAsyncStorage](doc/base_async_storage_upgrade.md) - base class for asynchrous storage implementations which store Pydantic objects.
   * [BaseBlobStorage](doc/base_blob_storage.md) - base class for storage implementations which store binary objects (blobs).
   * [BaseQueryStorage](doc/base__query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
   * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.

@@ -2,16 +2,15 @@ import asyncio
 import logging
 
 import pytest
-from pydantic import BaseModel
 
-from ampf.base.blob_model import Blob
+from ampf.base.blob_model import Blob, BaseBlobMetadata
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory import InMemoryAsyncBlobStorage
 
 _log = logging.getLogger(__name__)
 
 
-class SampleMetadata(BaseModel):
+class SampleMetadata(BaseBlobMetadata):
     description: str
 
 
@@ -26,7 +25,7 @@ async def test_update_transactional_one_thread(storage: InMemoryAsyncBlobStorage
     await storage.upload_async(blob)
 
     async def update_func(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
-        return Blob(name=b.name, content=b.content + b"_updated")
+        return Blob(name=b.name, content=b.content + b"_updated", metadata=b.metadata)
 
     await storage.update_transactional("test_blob", update_func)
 
@@ -43,11 +42,11 @@ async def test_update_transactional_two_threads(storage: InMemoryAsyncBlobStorag
         print("Update func1 started")
         await asyncio.sleep(0.1)  # Simulate some processing delay
         print("Update func1 completed")
-        return Blob(name=b.name, content=b.content + b"_updated1")
+        return Blob(name=b.name, content=b.content + b"_updated1", metadata=b.metadata)
 
     async def update_func2(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
         print("Update func2 completed")
-        return Blob(name=b.name, content=b.content + b"_updated2")
+        return Blob(name=b.name, content=b.content + b"_updated2", metadata=b.metadata)
 
     await asyncio.gather(
         storage.update_transactional("test_blob", update_func1),
@@ -63,7 +62,7 @@ async def test_update_transactional_two_threads(storage: InMemoryAsyncBlobStorag
 @pytest.mark.asyncio
 async def test_update_transactional_non_existent_blob(storage: InMemoryAsyncBlobStorage):
     async def update_func(b: Blob[SampleMetadata]) -> Blob[SampleMetadata]:
-        return Blob(name=b.name, content=b.content + b"_updated")
+        return Blob(name=b.name, content=b.content + b"_updated", metadata=b.metadata)
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)
