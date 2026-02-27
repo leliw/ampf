@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 from ampf.base.blob_model import Blob, BlobCreate
 
 
@@ -10,6 +11,7 @@ def test_get_content():
     # Then: The content is correct
     assert content == b"bar"
 
+
 def test_set_content():
     # Given: A blob with content
     blob = Blob(name="foo", content=b"bar")
@@ -18,12 +20,14 @@ def test_set_content():
     # Then: The content is correct
     assert blob.content == b"baz"
 
+
 def test_blob_create_from_content_without_content_type():
     # When: Create from content without content-type
     blob_create = BlobCreate.from_content(b"bar")
     # Then: Content type is default
     assert blob_create.metadata
     assert blob_create.metadata.content_type == "application/octet-stream"
+
 
 def test_blob_create_from_content_with_content_type():
     # When: Create from content with content-type
@@ -32,3 +36,11 @@ def test_blob_create_from_content_with_content_type():
     assert blob_create.metadata
     assert blob_create.metadata.content_type == "text/plain"
 
+
+def test_blob_create_from_file():
+    # When: Create from file
+    blob = Blob.from_file(Path("./tests/data/test.txt"))
+    # Then: Content type is correct
+    assert blob.name == "test.txt"
+    assert blob.content == b"This is the test file."
+    assert blob.metadata.content_type == "text/plain"

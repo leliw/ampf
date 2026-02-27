@@ -10,7 +10,7 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "workbench.colorTheme": "Solarized Light",
     "workbench.preferredLightColorTheme": "Solarized Light",
-    "workbench.preferredDarkColorTheme": "Solarized Dark"
+    "workbench.preferredDarkColorTheme": "Solarized Dark",
+    "window.autoDetectColorScheme": true
 }

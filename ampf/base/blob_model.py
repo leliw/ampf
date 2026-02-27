@@ -3,6 +3,7 @@ import logging
 from contextlib import contextmanager
 from io import BytesIO
 from mimetypes import guess_file_type
+from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import Any, AsyncGenerator, BinaryIO, Generator, Optional, Self
 from uuid import uuid4
@@ -66,6 +67,13 @@ class BlobCreate[T: BaseBlobMetadata]:
         self.metadata = metadata
 
     @classmethod
+    def from_file(cls, path: Path, metadata: T = empty_blob_metadata) -> "BlobCreate[T]":
+        if metadata == empty_blob_metadata:
+            metadata = metadata.__class__.from_filename(path.name)
+        file = open(path, "rb")
+        return cls(name=path.name, data=file, metadata=metadata)
+
+    @classmethod
     def from_upload_file(cls, file: UploadFile, metadata: T = empty_blob_metadata) -> "BlobCreate[T]":
         if metadata == empty_blob_metadata:
             metadata = metadata.__class__.create(file)
@@ -124,6 +132,9 @@ class Blob[T: BaseBlobMetadata]:
             content=value_create.content,
             metadata=value_create.metadata,
         )
+    @classmethod
+    def from_file(cls, path: Path, metadata: T = empty_blob_metadata) -> "Blob[T]":
+        return cls.create(BlobCreate.from_file(path, metadata))
 
     @classmethod
     def from_upload_file(cls, file: UploadFile, metadata: T = empty_blob_metadata) -> "Blob[T]":
