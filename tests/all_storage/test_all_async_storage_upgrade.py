@@ -34,7 +34,6 @@ config = AppConfig()
 
 # There are two versions of stored data
 class D_v1(BaseModel):
-    v: int = 1
     name: str
     value1: str
 
@@ -51,7 +50,7 @@ class D_v2(VersionedBaseModel):
             return cls.model_validate(data)
         except ValidationError:
             v1 = D_v1.model_validate(data)
-            return cls(v=v1.v, name=v1.name, value2=v1.value1)
+            return cls(v=1, name=v1.name, value2=v1.value1)
 
     def to_storage(self):
         if self.FORMAT_FLAGS.save_new_format:
@@ -59,6 +58,7 @@ class D_v2(VersionedBaseModel):
         else:
             return D_v1(name=self.name, value1=self.value2).model_dump(by_alias=True, exclude_none=True)
 
+D = D_v2
 
 @pytest.fixture(
     params=[
@@ -185,7 +185,7 @@ async def test_write_v2_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: Ba
     assert d.name == "test"
     assert d.value1 == "value"
     # And: It is stored in v1
-    assert d.v == 1
+    assert "v" not in d.model_dump().keys()
 
 
 

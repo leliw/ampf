@@ -18,7 +18,7 @@ from .collection_def import CollectionDef
 from .email_template import EmailTemplate
 from .exceptions import KeyExistsException, KeyNotExistsException
 from .smtp_email_sender import SmtpEmailSender
-from .versioned_base_model import VersionedBaseModel
+from .versioned_base_model import VersionedBaseModel, StorageFormatFlags
 
 
 __all__ = [
@@ -49,5 +49,6 @@ __all__ = [
     "BlobData",
     "BlobLocation",
     "BaseTopic",
-    "VersionedBaseModel"
+    "VersionedBaseModel",
+    "StorageFormatFlags"
 ]
