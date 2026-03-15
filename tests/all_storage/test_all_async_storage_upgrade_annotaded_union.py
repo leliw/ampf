@@ -1,8 +1,8 @@
 import logging
-from typing import Type
+from typing import Annotated, Literal, Type, Union
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ampf.base import BaseAsyncStorage, VersionedBaseModel
@@ -32,14 +32,38 @@ class AppConfig(BaseSettings):
 config = AppConfig()
 
 
-# There are two versions of stored data
+class C_v1(BaseModel):
+    type: Literal["C"] = "C"
+    name: str
+    v1: str
+
+
 class D_v1(BaseModel):
+    type: Literal["D"] = "D"
     name: str
     value1: str
 
 
+CD_v1 = Annotated[
+    Union[
+        C_v1,
+        D_v1,
+    ],
+    Field(discriminator="type"),
+]
+
+
+class C_v2(VersionedBaseModel):
+    CURRENT_VERSION = 2
+    type: Literal["C"] = "C"
+    name: str
+    v2: str
+    v3: str = ""
+
+
 class D_v2(VersionedBaseModel):
     CURRENT_VERSION = 2
+    type: Literal["D"] = "D"
     name: str
     value2: str
     value3: str = ""
@@ -61,7 +85,17 @@ class D_v2(VersionedBaseModel):
             )
 
 
+C = C_v2
 D = D_v2
+
+
+CD_v2 = Annotated[
+    Union[
+        C_v2,
+        D_v2,
+    ],
+    Field(discriminator="type"),
+]
 
 
 @pytest.fixture(
@@ -79,9 +113,9 @@ def clazz(gcp_factory, request) -> Type[BaseAsyncStorage]:
 @pytest.fixture
 async def storage_v1(clazz, tmp_path):
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v1, key="name", root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", CD_v1, key="name", root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("tests-ampf-gcp", D_v1, key="name")
+        storage = clazz("tests-ampf-gcp", CD_v1, key="name")
     yield storage
     await storage.drop()
 
@@ -89,9 +123,9 @@ async def storage_v1(clazz, tmp_path):
 @pytest.fixture
 async def storage_v2(clazz, tmp_path):
     if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v2, key="name", root_path=tmp_path)  # type: ignore
+        storage = clazz("tests-ampf-gcp", CD_v2, key="name", root_path=tmp_path)  # type: ignore
     else:
-        storage = clazz("tests-ampf-gcp", D_v2, key="name")
+        storage = clazz("tests-ampf-gcp", CD_v2, key="name")
 
     yield storage
     await storage.drop()
@@ -164,13 +198,14 @@ def test_v2_to_v2(config_v2):
 
 
 @pytest.mark.asyncio
-async def test_write_v1_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: BaseAsyncStorage[D_v2]):
+async def test_write_v1_to_v1(storage_v1: BaseAsyncStorage[CD_v1], storage_v2: BaseAsyncStorage[CD_v2]):
     # Given: A stored v1 object
     await storage_v1.create(D_v1(name="test", value1="value"))
     # When: It is read in v2 format
     d = await storage_v2.get("test")
     # Then: It is v2
     assert d.name == "test"
+    assert d.type == "D"
     assert d.value2 == "value"
     # And: It is stored in v1
     assert d.v == 1

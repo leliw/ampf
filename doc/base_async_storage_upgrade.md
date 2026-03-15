@@ -4,7 +4,7 @@
 
 ### Step 1
 
-In step 1 the appliaction uses a new data format but always store data in old format, both data format versions can be read from storage.
+In step 1 the application uses a new data format but always store data in old format, both data format versions can be read from storage.
 The application can be reverted to the previous version handling only old data format.
 
 1. Rename current version (without number) to `_v1`. **Don't use rename system of IDE, just rename manually.**
@@ -20,7 +20,7 @@ Data are stored only in new version format. It can be done by feature flag
 
 ### Step 3
 
-All data read in old version are immediately stored in new vesion format. It can be done by feature flag.
+All data read in old version are immediately stored in new version format. It can be done by feature flag.
 
 ### Step 4
 
@@ -127,18 +127,20 @@ class D_v2(VersionedBaseModel):
             return cls.model_validate(data)
         except ValidationError:
             v1 = D_v1.model_validate(data)
-            return cls(v=1, name=v1.name, value2=v1.value1)
+            return cls(v=1, value2=v1.value1, **v1.model_dump(exclude={"value1"}))
 
     def to_storage(self):
         if self.FORMAT_FLAGS.save_new_format:
             return self.model_dump(by_alias=True, exclude_none=True)
         else:
-            return D_v1(name=self.name, value1=self.value2).model_dump(by_alias=True, exclude_none=True)
+            return D_v1(value1=self.value2, **self.model_dump(exclude={"value2"})).model_dump(
+                by_alias=True, exclude_none=True
+            )
 
 D = D_v2
 ```
 
-Method `from_storage()` has to read all (previous) versions and convers them to current version.
+Method `from_storage()` has to read all (previous) versions and converts them to current version.
 Method `to_storage()` returns current or previous version - always the same. In the example above, the
 version saved depends on the configuration.
 
@@ -167,4 +169,75 @@ but in storage they can be extended, more complex and also asynchronous.
                 return ret
         else:
             return self.clazz.model_validate(data)
+```
+
+### Support for Annotated Union for Versioned Models
+
+The BaseAsyncStorage supports Annotated[Union[...]] for versioned models, enabling dynamic resolution of the correct Pydantic model based on a discriminator field during deserialization. This enhances flexibility when handling polymorphic data structures that evolve over time.
+
+```python
+class C_v1(BaseModel):
+    type: Literal["C"] = "C"
+    name: str
+    v1: str
+
+
+class D_v1(BaseModel):
+    type: Literal["D"] = "D"
+    name: str
+    value1: str
+
+
+CD_v1 = Annotated[
+    Union[
+        C_v1,
+        D_v1,
+    ],
+    Field(discriminator="type"),
+]
+
+
+class C_v2(VersionedBaseModel):
+    CURRENT_VERSION = 2
+    type: Literal["C"] = "C"
+    name: str
+    v2: str
+    v3: str = ""
+
+
+class D_v2(VersionedBaseModel):
+    CURRENT_VERSION = 2
+    type: Literal["D"] = "D"
+    name: str
+    value2: str
+    value3: str = ""
+
+    @classmethod
+    def from_storage(cls, data: dict):
+        try:
+            return cls.model_validate(data)
+        except ValidationError:
+            v1 = D_v1.model_validate(data)
+            return cls(v=1, value2=v1.value1, **v1.model_dump(exclude={"value1"}))
+
+    def to_storage(self):
+        if self.FORMAT_FLAGS.save_new_format:
+            return self.model_dump(by_alias=True, exclude_none=True)
+        else:
+            return D_v1(value1=self.value2, **self.model_dump(exclude={"value2"})).model_dump(
+                by_alias=True, exclude_none=True
+            )
+
+
+C = C_v2
+D = D_v2
+
+
+CD_v2 = Annotated[
+    Union[
+        C_v2,
+        D_v2,
+    ],
+    Field(discriminator="type"),
+]
 ```
