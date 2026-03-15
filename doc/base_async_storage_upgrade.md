@@ -170,3 +170,74 @@ but in storage they can be extended, more complex and also asynchronous.
         else:
             return self.clazz.model_validate(data)
 ```
+
+### Support for Annotated Union for Versioned Models
+
+The BaseAsyncStorage supports Annotated[Union[...]] for versioned models, enabling dynamic resolution of the correct Pydantic model based on a discriminator field during deserialization. This enhances flexibility when handling polymorphic data structures that evolve over time.
+
+```python
+class C_v1(BaseModel):
+    type: Literal["C"] = "C"
+    name: str
+    v1: str
+
+
+class D_v1(BaseModel):
+    type: Literal["D"] = "D"
+    name: str
+    value1: str
+
+
+CD_v1 = Annotated[
+    Union[
+        C_v1,
+        D_v1,
+    ],
+    Field(discriminator="type"),
+]
+
+
+class C_v2(VersionedBaseModel):
+    CURRENT_VERSION = 2
+    type: Literal["C"] = "C"
+    name: str
+    v2: str
+    v3: str = ""
+
+
+class D_v2(VersionedBaseModel):
+    CURRENT_VERSION = 2
+    type: Literal["D"] = "D"
+    name: str
+    value2: str
+    value3: str = ""
+
+    @classmethod
+    def from_storage(cls, data: dict):
+        try:
+            return cls.model_validate(data)
+        except ValidationError:
+            v1 = D_v1.model_validate(data)
+            return cls(v=1, value2=v1.value1, **v1.model_dump(exclude={"value1"}))
+
+    def to_storage(self):
+        if self.FORMAT_FLAGS.save_new_format:
+            return self.model_dump(by_alias=True, exclude_none=True)
+        else:
+            return D_v1(value1=self.value2, **self.model_dump(exclude={"value2"})).model_dump(
+                by_alias=True, exclude_none=True
+            )
+
+
+C = C_v2
+D = D_v2
+
+
+CD_v2 = Annotated[
+    Union[
+        C_v2,
+        D_v2,
+    ],
+    Field(discriminator="type"),
+]
+```
