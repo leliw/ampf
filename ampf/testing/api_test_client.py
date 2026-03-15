@@ -28,9 +28,9 @@ class ApiTestClient(TestClient):
 
     def _prepare_parameters(self, kwargs):
         if "json" in kwargs and issubclass(kwargs["json"].__class__, BaseModel):
-            kwargs["json"] = kwargs["json"].model_dump(mode="json")
+            kwargs["json"] = kwargs["json"].model_dump(mode="json", include= kwargs["json"].model_fields_set)
         if "data" in kwargs and issubclass(kwargs["data"].__class__, BaseModel):
-            kwargs["data"] = kwargs["data"].model_dump_json()
+            kwargs["data"] = kwargs["data"].model_dump_json(include= kwargs["data"].model_fields_set)
 
     def post(self, url: httpx._types.URLTypes, status_code: Optional[int] = None, **kwargs) -> httpx.Response:
         self._prepare_parameters(kwargs)

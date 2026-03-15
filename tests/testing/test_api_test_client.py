@@ -5,9 +5,19 @@ from pydantic import BaseModel
 from ampf.testing.api_test_client import ApiTestClient
 
 
+class DPatch(BaseModel):
+    name: str | None = None
+    value: str | None = None
+
+
 class D(BaseModel):
     name: str
-    value: str
+    value: str | None = None
+
+    def patch(self, value_patch: DPatch) -> None:
+        patch_dict = value_patch.model_dump(include=value_patch.model_fields_set)
+        for field, value in patch_dict.items():
+            setattr(self, field, value)
 
 
 @pytest.fixture
@@ -25,7 +35,7 @@ def app():
     @app.post("/")
     async def root_post(d: D):
         return d
-    
+
     @app.post("/list")
     async def list_post(d: D):
         return [d]
@@ -34,11 +44,12 @@ def app():
     async def root_put(d: D):
         return d
 
-
     @app.patch("/")
-    async def root_patch(d: D):
+    async def root_patch(value_patch: DPatch):
+        d = D(name="not_set", value="not_set")
+        d.patch(value_patch)
         return d
-    
+
     @app.delete("/")
     async def root_delete():
         return {"message": "deleted"}
@@ -88,6 +99,7 @@ def test_get_typed_list_err(client: ApiTestClient):
     with pytest.raises(ValueError):
         client.get_typed_list("/", 200, D)
 
+
 def test_post_status(client: ApiTestClient):
     # When: Call the post method with an expected status code
     client.post("/", status_code=200, json=D(name="foo", value="bar"))
@@ -97,6 +109,7 @@ def test_post_status(client: ApiTestClient):
         # When: Call the post method with an unexpected status code
         # Then: It is not ok
         client.post("/", status_code=400, json=D(name="foo", value="bar"))
+
 
 def test_post_data(client: ApiTestClient):
     # When: Call the post method with an expected status code
@@ -108,6 +121,7 @@ def test_post_data(client: ApiTestClient):
         # Then: It is not ok
         client.post("/", status_code=400, json=D(name="foo", value="bar"))
 
+
 def test_post_typed(client: ApiTestClient):
     # When: Call the post_typed method with a Pydantic model
     ret = client.post_typed("/", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
@@ -115,6 +129,7 @@ def test_post_typed(client: ApiTestClient):
     assert isinstance(ret, D)
     assert ret.name == "foo"
     assert ret.value == "bar"
+
 
 def test_post_typed_list(client: ApiTestClient):
     # When: Call the post_typed method with a Pydantic model
@@ -126,6 +141,7 @@ def test_post_typed_list(client: ApiTestClient):
     assert ret[0].name == "foo"
     assert ret[0].value == "bar"
 
+
 def test_put_status(client: ApiTestClient):
     # When: Call the put method with an expected status code
     client.put("/", status_code=200, json=D(name="foo", value="bar"))
@@ -136,6 +152,7 @@ def test_put_status(client: ApiTestClient):
         # Then: It is not ok
         client.put("/", status_code=400, json=D(name="foo", value="bar"))
 
+
 def test_put_typed(client: ApiTestClient):
     # When: Call the put_typed method with a Pydantic model
     ret = client.put_typed("/", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
@@ -143,6 +160,7 @@ def test_put_typed(client: ApiTestClient):
     assert isinstance(ret, D)
     assert ret.name == "foo"
     assert ret.value == "bar"
+
 
 def test_patch_status(client: ApiTestClient):
     # When: Call the put method with an expected status code
@@ -154,6 +172,7 @@ def test_patch_status(client: ApiTestClient):
         # Then: It is not ok
         client.put("/", status_code=400, json=D(name="foo", value="bar"))
 
+
 def test_patch_typed(client: ApiTestClient):
     # When: Call the put_typed method with a Pydantic model
     ret = client.patch_typed("/", status_code=200, ret_clazz=D, json=D(name="foo", value="bar"))
@@ -161,6 +180,20 @@ def test_patch_typed(client: ApiTestClient):
     assert isinstance(ret, D)
     assert ret.name == "foo"
     assert ret.value == "bar"
+
+
+def test_patch_not_set(client: ApiTestClient):
+    # When: Call the put_typed method without optional field
+    ret = client.patch_typed("/", status_code=200, ret_clazz=DPatch, json=DPatch(name="foo"))
+    # Then: value isn't changed
+    assert ret.value == "not_set"
+
+def test_patch_none_set(client: ApiTestClient):
+    # When: Call the put_typed method with optional field set to None
+    ret = client.patch_typed("/", status_code=200, ret_clazz=DPatch, json=DPatch(name="foo", value=None))
+    # Then: Value is changed to None
+    assert ret.value is None
+
 
 def test_delete_status(client: ApiTestClient):
     # When: Call the delete method with an expected status code
