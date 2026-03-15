@@ -100,7 +100,7 @@ def test_post_status(client: ApiTestClient):
 
 def test_post_data(client: ApiTestClient):
     # When: Call the post method with an expected status code
-    client.post("/", status_code=200, data=D(name="foo", value="bar"))
+    client.post("/", status_code=200, json=D(name="foo", value="bar"))
     # Then: It is ok
     assert True
     with pytest.raises(AssertionError):
