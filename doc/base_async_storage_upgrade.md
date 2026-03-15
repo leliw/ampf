@@ -4,7 +4,7 @@
 
 ### Step 1
 
-In step 1 the appliaction uses a new data format but always store data in old format, both data format versions can be read from storage.
+In step 1 the application uses a new data format but always store data in old format, both data format versions can be read from storage.
 The application can be reverted to the previous version handling only old data format.
 
 1. Rename current version (without number) to `_v1`. **Don't use rename system of IDE, just rename manually.**
@@ -20,7 +20,7 @@ Data are stored only in new version format. It can be done by feature flag
 
 ### Step 3
 
-All data read in old version are immediately stored in new vesion format. It can be done by feature flag.
+All data read in old version are immediately stored in new version format. It can be done by feature flag.
 
 ### Step 4
 
@@ -127,18 +127,20 @@ class D_v2(VersionedBaseModel):
             return cls.model_validate(data)
         except ValidationError:
             v1 = D_v1.model_validate(data)
-            return cls(v=1, name=v1.name, value2=v1.value1)
+            return cls(v=1, value2=v1.value1, **v1.model_dump(exclude={"value1"}))
 
     def to_storage(self):
         if self.FORMAT_FLAGS.save_new_format:
             return self.model_dump(by_alias=True, exclude_none=True)
         else:
-            return D_v1(name=self.name, value1=self.value2).model_dump(by_alias=True, exclude_none=True)
+            return D_v1(value1=self.value2, **self.model_dump(exclude={"value2"})).model_dump(
+                by_alias=True, exclude_none=True
+            )
 
 D = D_v2
 ```
 
-Method `from_storage()` has to read all (previous) versions and convers them to current version.
+Method `from_storage()` has to read all (previous) versions and converts them to current version.
 Method `to_storage()` returns current or previous version - always the same. In the example above, the
 version saved depends on the configuration.
 

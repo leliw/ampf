@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Type
+from typing import Type
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -50,15 +50,19 @@ class D_v2(VersionedBaseModel):
             return cls.model_validate(data)
         except ValidationError:
             v1 = D_v1.model_validate(data)
-            return cls(v=1, name=v1.name, value2=v1.value1)
+            return cls(v=1, value2=v1.value1, **v1.model_dump(exclude={"value1"}))
 
     def to_storage(self):
         if self.FORMAT_FLAGS.save_new_format:
             return self.model_dump(by_alias=True, exclude_none=True)
         else:
-            return D_v1(name=self.name, value1=self.value2).model_dump(by_alias=True, exclude_none=True)
+            return D_v1(value1=self.value2, **self.model_dump(exclude={"value2"})).model_dump(
+                by_alias=True, exclude_none=True
+            )
+
 
 D = D_v2
+
 
 @pytest.fixture(
     params=[
@@ -88,7 +92,6 @@ async def storage_v2(clazz, tmp_path):
         storage = clazz("tests-ampf-gcp", D_v2, key="name", root_path=tmp_path)  # type: ignore
     else:
         storage = clazz("tests-ampf-gcp", D_v2, key="name")
-    
 
     yield storage
     await storage.drop()
@@ -108,6 +111,7 @@ def config_v2():
         migrate_legacy_on_read=config.feature_flags.d_v2_migrate,
     )
 
+
 @pytest.fixture
 def config_v3():
     config.feature_flags.d_v2_storage = True
@@ -123,6 +127,7 @@ def config_v3():
         migrate_legacy_on_read=config.feature_flags.d_v2_migrate,
     )
 
+
 def test_v1_to_v2():
     # Given: An v1 object
     v1 = D_v1(name="test", value1="value1")
@@ -134,7 +139,6 @@ def test_v1_to_v2():
     assert v2.value2 == "value1"
     # And: It is stored in v1
     assert v2.v == 1
-
 
 
 def test_v2_to_v1():
@@ -172,7 +176,6 @@ async def test_write_v1_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: Ba
     assert d.v == 1
 
 
-
 @pytest.mark.asyncio
 async def test_write_v2_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: BaseAsyncStorage[D_v2]):
     # Given: A given v2 object
@@ -186,7 +189,6 @@ async def test_write_v2_to_v1(storage_v1: BaseAsyncStorage[D_v1], storage_v2: Ba
     assert d.value1 == "value"
     # And: It is stored in v1
     assert "v" not in d.model_dump().keys()
-
 
 
 @pytest.mark.asyncio
@@ -218,4 +220,3 @@ async def test_migrate_v1_to_v2(storage_v1: BaseAsyncStorage[D_v1], storage_v2: 
     assert d.value2 == "value"
     # And: It is stored in v2
     assert d.v == 2
-    
