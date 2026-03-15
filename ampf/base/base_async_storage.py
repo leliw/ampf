@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from typing import (
+    Annotated,
     Any,
     AsyncGenerator,
     AsyncIterable,
@@ -17,6 +18,9 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    Union,
+    get_args,
+    get_origin,
 )
 
 from pydantic import BaseModel
@@ -27,11 +31,11 @@ from ampf.base.versioned_base_model import VersionedBaseModel
 
 from .exceptions import KeyExistsException, KeyNotExistsException
 
+_log = logging.getLogger(__name__)
+
 
 class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
     """Base class for storage implementations which store Pydantic objects"""
-
-    _log = logging.getLogger(__name__)
 
     def __init__(
         self,
@@ -138,11 +142,10 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             An iterator of the nearest items.
         """
         try:
-            self._log
             from sentence_transformers.util import cos_sim
 
-            self._log.warning("Embedding search is not optimized for performance.")
-            self._log.warning("Consider using a vector database for production.")
+            _log.warning("Embedding search is not optimized for performance.")
+            _log.warning("Consider using a vector database for production.")
 
             limit = limit or self.embedding_search_limit
             ret: List[Tuple[T, float]] = []
@@ -155,8 +158,8 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             for item in ret[:limit]:
                 yield item[0]
         except ImportError:
-            self._log.error("The package `sentence_transformers` is not installed ")
-            self._log.error("Try: pip install ampf[huggingface]")
+            _log.error("The package `sentence_transformers` is not installed ")
+            _log.error("Try: pip install ampf[huggingface]")
 
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
         raise NotImplementedError
@@ -168,15 +171,52 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             return data.model_dump(by_alias=True, exclude_none=True)
 
     def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
-        if issubclass(self.clazz, VersionedBaseModel):
-            ret = self.clazz.from_storage(data)
+        real_cls = self.resolve_versioned_class(data)
+        _log.debug("Real class: %s", real_cls.__name__ if real_cls else "None")
+        if issubclass(real_cls, VersionedBaseModel):
+            ret = real_cls.from_storage(data)
+
             if ret.FORMAT_FLAGS.migrate_legacy_on_read and ret.CURRENT_VERSION != ret.v:
+
                 async def save_and_return():
                     ret.v = ret.CURRENT_VERSION
                     await self.save(ret)
                     return ret
+
                 return save_and_return()
-            else:
-                return ret
+            return ret
+        return real_cls.model_validate(data)
+
+    def resolve_versioned_class(self, data: Dict[str, Any]) -> Type[T]:
+        origin = get_origin(self.clazz)
+
+        # unwrap Annotated
+        if origin is Annotated:
+            base_type, *metadata = get_args(self.clazz)
+
+            discriminator = None
+            for m in metadata:
+                if hasattr(m, "discriminator"):
+                    discriminator = m.discriminator
+                    break
         else:
-            return self.clazz.model_validate(data)
+            base_type = self.clazz
+            discriminator = None
+
+        if get_origin(base_type) is not Union:
+            return base_type
+
+        if not discriminator:
+            raise ValueError("Discriminator not defined")
+
+        discriminator_value = data.get(discriminator)
+        if discriminator_value is None:
+            raise ValueError(f"Missing discriminator field '{discriminator}'")
+
+        for cls in get_args(base_type):
+            field = cls.model_fields.get(discriminator)
+            if field and get_origin(field.annotation) is Literal:
+                if discriminator_value in get_args(field.annotation):
+                    return cls
+
+        raise ValueError("No matching class found")
