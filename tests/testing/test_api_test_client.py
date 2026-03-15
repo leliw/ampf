@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -54,6 +56,10 @@ def app():
     async def root_delete():
         return {"message": "deleted"}
 
+    @app.get("/topic/message")
+    async def get_topic_message():
+        return D(name="topic", value="message")
+    
     return app
 
 
@@ -204,3 +210,20 @@ def test_delete_status(client: ApiTestClient):
         # When: Call the delete method with an unexpected status code
         # Then: It is not ok
         client.delete("/", status_code=400)
+
+
+def test_get_path_str(client: ApiTestClient):
+    # When: Call the get_typed method with a str patch
+    ret = client.get_typed("/topic/message", 200, D)
+    # Then: The response is correctly typed and contains the expected data
+    assert isinstance(ret, D)
+    assert ret.name == "topic"
+    assert ret.value == "message"
+
+def test_get_path(client: ApiTestClient):
+    # When: Call the get_typed method with a Path patch
+    ret = client.get_typed(Path("/topic/message"), 200, D)
+    # Then: The response is correctly typed and contains the expected data
+    assert isinstance(ret, D)
+    assert ret.name == "topic"
+    assert ret.value == "message"

@@ -49,3 +49,9 @@ def test_post_typed(client: ApiTestClient):
     # Then: The response is correctly typed and contains the expected data
     assert isinstance(ret, D)
 ```
+
+Path as a url parameter is supported as well.
+
+```python
+ret = client.get_typed(Path("/topic/message"), 200, D)
+```
