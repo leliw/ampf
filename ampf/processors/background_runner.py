@@ -8,11 +8,11 @@ class BackgroundRunner(TaskRunner):
         self.background_tasks = background_tasks
 
     def run(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name]
+        processor = TaskRegistry._tasks[name].processor
         self.background_tasks.add_task(processor, *args, **kwargs)  # type: ignore
 
     async def run_async(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name]
+        processor = TaskRegistry._tasks[name].processor
         self.background_tasks.add_task(processor, *args, **kwargs)  # type: ignore
 
     @classmethod

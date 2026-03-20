@@ -5,7 +5,7 @@ from .task_model import TaskRegistry, TaskRunner
 
 class DirectRunner(TaskRunner):
     def run(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name]
+        processor = TaskRegistry._tasks[name].processor
         if callable(processor):
             ret = processor(*args, **kwargs)
             if asyncio.iscoroutine(ret):
@@ -14,7 +14,7 @@ class DirectRunner(TaskRunner):
             raise ValueError(f"Processor {name} is not callable")
 
     async def run_async(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name]
+        processor = TaskRegistry._tasks[name].processor
         if callable(processor):
             ret = processor(*args, **kwargs)
             if asyncio.iscoroutine(ret):

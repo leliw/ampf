@@ -1,20 +1,29 @@
-from abc import ABC, abstractmethod
 import logging
-from typing import Any, Awaitable, Callable
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Type
+
+from pydantic import BaseModel
 
 Processor = Callable[[Any], None] | Callable[[Any], Awaitable[None]]
 
 _log = logging.getLogger(__name__)
 
 
+@dataclass
+class ProcessorDefinition:
+    processor: Processor
+    payload_type: Type[BaseModel] | None = None
+
+
 class TaskRegistry:
-    _tasks: dict[str, Processor] = {}
+    _tasks: dict[str, ProcessorDefinition] = {}
 
     @classmethod
-    def register(cls, name: str):
+    def register(cls, name: str, payload_type: Type[BaseModel] | None = None):
         def decorator(processor: Processor):
             _log.debug(f"Registering processor: {name}")
-            cls._tasks[name] = processor
+            cls._tasks[name] = ProcessorDefinition(processor, payload_type)
             return processor
 
         return decorator
