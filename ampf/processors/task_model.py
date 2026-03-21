@@ -1,41 +1,36 @@
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Type
 
 from pydantic import BaseModel
 
-Processor = Callable[[Any], None] | Callable[[Any], Awaitable[None]]
+type SyncOrAsyncCallable[T] = Callable[..., T] | Callable[..., Awaitable[T]]
+
 
 _log = logging.getLogger(__name__)
 
 
 @dataclass
 class ProcessorDefinition:
-    processor: Processor
+    processor: SyncOrAsyncCallable
     payload_type: Type[BaseModel] | None = None
+    params: dict[str, Type[Any]] = field(default_factory=dict)
 
 
-class TaskRegistry:
-    _tasks: dict[str, ProcessorDefinition] = {}
-
-    @classmethod
-    def register(cls, name: str, payload_type: Type[BaseModel] | None = None):
-        def decorator(processor: Processor):
-            _log.debug(f"Registering processor: {name}")
-            cls._tasks[name] = ProcessorDefinition(processor, payload_type)
-            return processor
-
-        return decorator
+@dataclass
+class DependencyDefinition:
+    callable: SyncOrAsyncCallable
+    params: dict[str, Type[Any]] = field(default_factory=dict)
 
 
 class TaskRunner(ABC):
     @abstractmethod
-    def run(self, name: str, *args, **kwargs):
+    def run(self, name: str, payload: BaseModel):
         pass
 
     @abstractmethod
-    async def run_async(self, name: str, *args, **kwargs):
+    async def run_async(self, name: str, payload: BaseModel):
         pass
 
     @classmethod

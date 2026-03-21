@@ -5,8 +5,9 @@ from pydantic import BaseModel
 
 from ampf.gcp import GcpAsyncFactory, GcpSubscriptionPull, SubscriptionProcessor
 from ampf.gcp.gcp_topic import GcpTopic
+from ampf.processors.task_registry import TaskRegistry
 
-from .task_model import TaskRegistry, TaskRunner
+from .task_model import TaskRunner
 
 _log = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class PubsubPullRunner(TaskRunner):
                 if processor_definition.payload_type is None:
                     raise ValueError("Payload type is required for task processor %s", task_name)
                 s_processor = SubscriptionProcessor(self.factory, processor_definition.payload_type)
-                s_processor.process_payload = processor_definition.processor # type: ignore
+                s_processor.process_payload = lambda payload: TaskRegistry.run_task_async(task_name, payload)
                 subscription = GcpSubscriptionPull(subscription_name, s_processor, loop=loop)
                 subscription.run()
                 self.subscriptions[subscription_name] = subscription

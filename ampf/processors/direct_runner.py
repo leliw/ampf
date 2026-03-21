@@ -1,26 +1,21 @@
-import asyncio
+from typing import override
 
-from .task_model import TaskRegistry, TaskRunner
+from pydantic import BaseModel
+
+from ampf.processors.task_registry import TaskRegistry
+
+from .task_model import TaskRunner
 
 
 class DirectRunner(TaskRunner):
-    def run(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name].processor
-        if callable(processor):
-            ret = processor(*args, **kwargs)
-            if asyncio.iscoroutine(ret):
-                raise TypeError(f"Processor '{name}' is an asynchronous task. Use 'run_async' for asynchronous execution.")
-        else:
-            raise ValueError(f"Processor {name} is not callable")
+    
+    @override
+    def run(self, name: str, payload: BaseModel):
+        TaskRegistry.run_task(name, payload)
 
-    async def run_async(self, name: str, *args, **kwargs):
-        processor = TaskRegistry._tasks[name].processor
-        if callable(processor):
-            ret = processor(*args, **kwargs)
-            if asyncio.iscoroutine(ret):
-                await ret
-        else:
-            raise ValueError(f"Processor {name} is not callable")
+    @override
+    async def run_async(self, name: str, payload: BaseModel):
+        await TaskRegistry.run_task_async(name, payload)
 
     @classmethod
     def create(cls) -> "DirectRunner":

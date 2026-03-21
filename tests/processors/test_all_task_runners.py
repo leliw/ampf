@@ -3,14 +3,16 @@ from typing import Annotated, Literal, Type
 from uuid import UUID, uuid4
 
 import pytest
-from ampf.in_memory import InMemoryFactory
-from ampf.testing import ApiTestClient
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
+from ampf.base.base_storage import BaseStorage
+from ampf.in_memory import InMemoryFactory
 from ampf.processors.background_runner import BackgroundRunner
 from ampf.processors.direct_runner import DirectRunner
-from ampf.processors.task_model import TaskRegistry, TaskRunner
+from ampf.processors.task_model import TaskRunner
+from ampf.processors.task_registry import TaskRegistry
+from ampf.testing import ApiTestClient
 
 
 class TaskCreate(BaseModel):
@@ -35,7 +37,7 @@ class Task(BaseModel):
 async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
     # Given: A registerd processor
     @TaskRegistry.register("processor")
-    async def processor(payload: Task) -> None:
+    async def processor(storage: BaseStorage[Task], payload: Task) -> None:
         await asyncio.sleep(1)
         payload.value = (payload.value or 0) + 1
         payload.status = "done"
@@ -45,13 +47,18 @@ async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
     TaskRunnerDep = Annotated[TaskRunner, Depends(runner_type.create)]
     # And: An application with endpoints POST and GET
     app = FastAPI()
+
+    @TaskRegistry.auto_register_dependency
+    def get_storage() -> BaseStorage[Task]:
+        return InMemoryFactory().create_storage("jobs", Task)
+
     storage = InMemoryFactory().create_storage("jobs", Task)
 
     @app.post("/api/jobs", status_code=201)
     async def post(data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
         task = Task.create(data)
         storage.create(task)
-        await task_runner.run_async("processor", task) # <--- Runs processor in background
+        await task_runner.run_async("processor", task)  # <--- Runs processor in background
         return task
 
     @app.get("/api/jobs/{id}")

@@ -3,17 +3,18 @@ from dataclasses import dataclass
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from ampf.base import BaseAsyncFactory
-from ampf.gcp import GcpAsyncFactory
-from fastapi.concurrency import asynccontextmanager
 import pytest
-from ampf.in_memory import InMemoryFactory
-from ampf.testing import ApiTestClient
 from fastapi import Depends, FastAPI, Request
+from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
 
+from ampf.base import BaseAsyncFactory
+from ampf.base.base_async_storage import BaseAsyncStorage
+from ampf.gcp import GcpAsyncFactory
 from ampf.processors.pubsub_pull_runner import PubsubPullRunner
-from ampf.processors.task_model import TaskRegistry, TaskRunner
+from ampf.processors.task_model import TaskRunner
+from ampf.processors.task_registry import TaskRegistry
+from ampf.testing import ApiTestClient
 
 
 class TaskCreate(BaseModel):
@@ -39,11 +40,11 @@ class Task(BaseModel):
 async def test_run_process_by_endpoint():
     # Given: A registerd processor
     @TaskRegistry.register("processor", Task)
-    async def processor(payload: Task) -> None:
+    async def processor(storage: BaseAsyncStorage[Task], payload: Task) -> None:
         await asyncio.sleep(1)
         payload.value = (payload.value or 0) + 1
         payload.status = "done"
-        storage.save(payload)
+        await storage.save(payload)
 
     # And: An AppConfig with a topic and subscription names for this processor
     class AppConfig(BaseModel):
@@ -66,34 +67,41 @@ async def test_run_process_by_endpoint():
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app_state = AppState.create(config = AppConfig())
+        app_state = AppState.create(config=AppConfig())
+        TaskRegistry.register_dependency(AppState)(lambda: app_state)
         app.state.app_state = app_state
         async with app_state.task_runner:
             yield
 
     def get_app_state(request: Request) -> AppState:
         return request.app.state.app_state
+
     AppStateDep = Annotated[AppState, Depends(get_app_state)]
-    
-    def get_task_runner(app_state: AppStateDep) -> TaskRunner: # type: ignore
+
+    def get_task_runner(app_state: AppStateDep) -> TaskRunner:  # type: ignore
         return app_state.task_runner
 
     # And: A defined TaskRunnerDep
     TaskRunnerDep = Annotated[TaskRunner, Depends(get_task_runner)]
     # And: An application with endpoints POST and GET
     app = FastAPI(lifespan=lifespan)
-    storage = InMemoryFactory().create_storage("jobs", Task)
+
+    @TaskRegistry.auto_register_dependency
+    def get_storage(app_state: AppStateDep) -> BaseAsyncStorage[Task]:  # type: ignore
+        return app_state.factory.create_storage("jobs", Task)
+
+    StorageTaskDep = Annotated[BaseAsyncStorage[Task], Depends(get_storage)]
 
     @app.post("/api/jobs", status_code=201)
-    async def post(data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
+    async def post(storage: StorageTaskDep, data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
         task = Task.create(data)
-        storage.create(task)
+        await storage.create(task)
         await task_runner.run_async("processor", task)  # <--- Runs processor in background
         return task
 
     @app.get("/api/jobs/{id}")
-    async def get(id: UUID) -> Task:
-        job = storage.get(id)
+    async def get(storage: StorageTaskDep, id: UUID) -> Task:  # type: ignore
+        job = await storage.get(id)
         return job
 
     with ApiTestClient(app) as client:
