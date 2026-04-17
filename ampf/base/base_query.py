@@ -7,7 +7,8 @@ from typing import Any, Callable, Iterator, List, Optional, Tuple
 from pydantic import BaseModel
 from typing_extensions import Literal
 
-OP = Literal["==", "!=", "<", "<=", ">", ">=", "in"]
+OP = Literal["==", "!=", "<", "<=", ">", ">=", "in", "array_contains_any"]
+
 
 class BaseQuery[T: BaseModel](ABC):
     """Base query with defalt, brute force implementation."""
@@ -43,6 +44,8 @@ class BaseQuery[T: BaseModel](ABC):
                     return (o for o in src() if o.__getattribute__(field) >= value)
                 case "in":
                     return (o for o in src() if o.__getattribute__(field) in value)
+                case "array_contains_any":
+                    return (o for o in src() if any(e in value for e in o.__getattribute__(field)))
                 case _:
                     raise ValueError(f"Unknown operator {op}")
 
