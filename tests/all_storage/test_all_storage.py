@@ -5,7 +5,6 @@ import pytest
 from pydantic import BaseModel, Field
 
 from ampf.base import BaseStorage, KeyExistsException, KeyNotExistsException
-from ampf.base.base_query_storage import BaseQueryStorage
 from ampf.gcp import GcpStorage
 from ampf.in_memory import InMemoryStorage
 from ampf.local import JsonMultiFilesStorage, JsonOneFileStorage

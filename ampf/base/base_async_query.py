@@ -59,7 +59,9 @@ class BaseAsyncQuery[T: BaseModel | VersionedBaseModel](ABC):
                     case "in":
                         if attr in value:
                             yield o
-
+                    case "array_contains_any":
+                        if any(item in value for item in attr):
+                            yield o
         return BaseAsyncQuery(it)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterable[T]:
