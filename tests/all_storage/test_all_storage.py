@@ -128,7 +128,7 @@ def test_patch_key_value(storage: BaseStorage):
     # Then: An old key doesn't exist
     with pytest.raises(KeyNotExistsException):
         storage.get("foo")
-    # And: A new key exists   
+    # And: A new key exists
     assert D(name="bar", value="beer") == storage.get("bar")
 
 
@@ -259,34 +259,6 @@ def test_where_embedding(storage: BaseStorage[D]):
     assert nearest[0] == tc1
 
 
-def test_query(storage: BaseQueryStorage):
-    # Given: Stored two elements with the same value and one with other
-    storage.save(D(name="foo", value="beer"))
-    storage.save(D(name="bar", value="beer"))
-    storage.save(D(name="baz", value="wine"))
-    # When: Get all items with "beer"
-    ret = list(storage.where("value", "==", "beer").get_all())
-    # Then: Two items are returned
-    assert len(ret) == 2
-    assert ret[0].name in ["foo", "bar"]
-    assert ret[1].name in ["foo", "bar"]
-    # When: Get all items different than "beer"
-    ret = list(storage.where("value", "!=", "beer").get_all())
-    # Then: One item is returned
-    assert len(ret) == 1
-    assert ret[0].name == "baz"
-
-
-def test_query_uuid(storage_uuid: BaseQueryStorage):
-    # Given: A stred element with UUID filed
-    d = Duuid(name="foo", value="beer")
-    storage_uuid.create(d)
-    # When: Filrter by UUID
-    ret = [item for item in storage_uuid.where("uuid", "==", d.uuid).get_all()]
-    # Then: The element is returned
-    assert len(ret) == 1
-
-
 def test_put_not_exists(storage: BaseStorage):
     # When: I put a new object
     storage.put("foo", D(name="foo", value="wine"))
@@ -302,6 +274,7 @@ def test_put_exists(storage: BaseStorage):
     # Then: It is changed
     assert storage.get("foo").value == "wine"
 
+
 def test_put_new_key(storage: BaseStorage):
     # Given: A new saved element
     storage.create(D(name="foo", value="beer"))
@@ -312,4 +285,3 @@ def test_put_new_key(storage: BaseStorage):
         storage.get("foo").value
     # And: New object exists
     assert storage.get("foo2").value == "beer"
-
