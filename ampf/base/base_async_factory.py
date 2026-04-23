@@ -20,6 +20,7 @@ class BaseAsyncFactory(ABC):
 
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
+        self._type_to_collection_defs: dict[Type[BaseModel], CollectionDef] = {}
 
     @abstractmethod
     def create_storage[T: BaseModel](
@@ -79,7 +80,6 @@ class BaseAsyncFactory(ABC):
             Blob storage object.
         """
 
-    # deprecated
     def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseAsyncCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
@@ -110,18 +110,26 @@ class BaseAsyncFactory(ABC):
         """
         for definition in definitions:
             self._collection_defs[definition.collection_name] = definition
+            if definition.clazz:
+                self._type_to_collection_defs[definition.clazz] = definition
 
-    def get_collection[T: BaseModel](self, collection_name: str) -> BaseAsyncCollectionStorage[T]:
-        """Retrieves a collection by its name from the registered definitions.
+    def get_collection[T: BaseModel](self, collection_name_or_type: str | Type[T]) -> BaseAsyncCollectionStorage[T]:
+        """Retrieves a collection by its name or type from the registered definitions.
 
         Args:
-            collection_name: The name of the collection.
+            collection_name_or_type: The name or type of the collection.
         Returns:
             The collection object.
         """
-        if collection_name not in self._collection_defs:
-            raise KeyNotExistsException(f"Collection {collection_name} not registered")
-        return self.create_collection(self._collection_defs[collection_name])
+        if isinstance(collection_name_or_type, type):
+            if collection_name_or_type not in self._type_to_collection_defs:
+                raise KeyNotExistsException(f"Collection for type {collection_name_or_type.__name__} not registered")
+            definition = self._type_to_collection_defs[collection_name_or_type]
+        else:
+            if collection_name_or_type not in self._collection_defs:
+                raise KeyNotExistsException(f"Collection {collection_name_or_type} not registered")
+            definition = self._collection_defs[collection_name_or_type]
+        return self.create_collection(definition)
 
     async def download_blob(self, blob_location: BlobLocation) -> Blob:
         """Downloads a blob from the specified file location.
@@ -132,8 +140,12 @@ class BaseAsyncFactory(ABC):
         Returns:
             Blob: The loaded blob.
         """
-        bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
-        return await bs.download_async(blob_location.name)
+        try:
+            bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+            return await bs.download_async(blob_location.name)
+        except KeyNotExistsException as e:
+            _log.warning("Error downloading blob: %s", blob_location.name)
+            raise e
 
     async def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
         """Uploads a blob to the specified file location.

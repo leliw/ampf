@@ -109,10 +109,15 @@ async def test_register_and_get_collection(factory: BaseAsyncFactory):
     # When: The collection is registered
     factory.register_collections([storage_def])
 
-    # Then: The collection can be retrieved
+    # Then: The collection can be retrieved by name
     storage = factory.get_collection("my_async_collection")
     assert storage is not None
     assert storage.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(D)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_async_collection"
 
     # And: Saving data works
     await storage.save(D(name="test", value="val"))
@@ -121,3 +126,10 @@ async def test_register_and_get_collection(factory: BaseAsyncFactory):
     # And: Getting an unregistered collection raises an exception
     with pytest.raises(KeyNotExistsException):
         factory.get_collection("non_existent")
+
+    # And: Getting an unregistered type raises an exception
+    class UnregisteredModel(BaseModel):
+        pass
+
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection(UnregisteredModel)

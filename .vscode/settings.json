@@ -7,10 +7,12 @@
         "--log-date-format=%H:%M:%S.%f",
         // "--color=yes",
         "--force-short-summary",
+        "-rfE",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "workbench.preferredLightColorTheme": "Solarized Light",
     "workbench.preferredDarkColorTheme": "Solarized Dark",
-    "window.autoDetectColorScheme": true
+    "window.autoDetectColorScheme": true,
+    "ruff.lineLength": 120,
 }

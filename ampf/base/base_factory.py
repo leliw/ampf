@@ -1,15 +1,14 @@
-from __future__ import annotations
-
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
+from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
 
 from .base_blob_storage import BaseBlobStorage
-from .base_collection_storage import BaseCollectionStorage, CollectionDef
+from .base_collection_storage import BaseCollectionStorage
 from .base_query_storage import BaseQueryStorage
 from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 
@@ -21,6 +20,7 @@ class BaseFactory(ABC):
 
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
+        self._type_to_collection_defs: dict[Type[BaseModel], CollectionDef] = {}
 
     @abstractmethod
     def create_storage[T: BaseModel](
@@ -80,9 +80,7 @@ class BaseFactory(ABC):
             Blob storage object.
         """
 
-    def create_collection[T: BaseModel](
-        self, definition: CollectionDef[T] | dict
-    ) -> BaseCollectionStorage[T]:
+    def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
         Args:
@@ -94,9 +92,7 @@ class BaseFactory(ABC):
             definition = CollectionDef.model_validate(definition)
         return BaseCollectionStorage(self.create_storage, definition)
 
-    def create_storage_tree[T: BaseModel](
-        self, root: CollectionDef[T]
-    ) -> BaseCollectionStorage[T]:
+    def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseCollectionStorage[T]:
         """Creates storage tree from its definition.
 
         Args:
@@ -114,24 +110,28 @@ class BaseFactory(ABC):
         """
         for definition in definitions:
             self._collection_defs[definition.collection_name] = definition
+            if definition.clazz:
+                self._type_to_collection_defs[definition.clazz] = definition
 
-    def get_collection[T: BaseModel](
-        self, collection_name: str
-    ) -> BaseCollectionStorage[T]:
-        """Retrieves a collection by its name from the registered definitions.
+    def get_collection[T: BaseModel](self, collection_name_or_type: str | Type[T]) -> BaseCollectionStorage[T]:
+        """Retrieves a collection by its name or type from the registered definitions.
 
         Args:
-            collection_name: The name of the collection.
+            collection_name_or_type: The name or type of the collection.
         Returns:
             The collection object.
         """
-        if collection_name not in self._collection_defs:
-            raise KeyNotExistsException(f"Collection {collection_name} not registered")
-        return self.create_collection(self._collection_defs[collection_name])
+        if isinstance(collection_name_or_type, type):
+            if collection_name_or_type not in self._type_to_collection_defs:
+                raise KeyNotExistsException(f"Collection for type {collection_name_or_type.__name__} not registered")
+            definition = self._type_to_collection_defs[collection_name_or_type]
+        else:
+            if collection_name_or_type not in self._collection_defs:
+                raise KeyNotExistsException(f"Collection {collection_name_or_type} not registered")
+            definition = self._collection_defs[collection_name_or_type]
+        return self.create_collection(definition)
 
-    def create_blob_location(
-        self, name: str, bucket: Optional[str] = None
-    ) -> BlobLocation:
+    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
         """Creates a BlobLocation object.
 
         Args:
@@ -155,7 +155,7 @@ class BaseFactory(ABC):
             bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
             return bs.download(blob_location.name)
         except KeyNotExistsException as e:
-            _log.warning("Error translating file: %s", blob_location.name)
+            _log.warning("Error downloading blob: %s", blob_location.name)
             raise e
 
     def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
