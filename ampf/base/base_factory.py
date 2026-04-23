@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -11,7 +11,7 @@ from ampf.base.exceptions import KeyNotExistsException
 from .base_blob_storage import BaseBlobStorage
 from .base_collection_storage import BaseCollectionStorage, CollectionDef
 from .base_query_storage import BaseQueryStorage
-from .blob_model import Blob, BlobLocation
+from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 
 _log = logging.getLogger(__name__)
 
@@ -19,20 +19,22 @@ _log = logging.getLogger(__name__)
 class BaseFactory(ABC):
     """Factory creating storage objects"""
 
+    def __init__(self):
+        self._collection_defs: dict[str, CollectionDef] = {}
+
     @abstractmethod
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
-        key_name: Optional[str] = None,
     ) -> BaseQueryStorage[T]:
         """Creates standard key-value storage for items of given class.
 
         Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key: name of item's property which is used as a key
+            key: name of item's property which is used as a key or a function to extract key
 
         Returns:
             Storage object.
@@ -43,27 +45,26 @@ class BaseFactory(ABC):
         collection_name: str,
         clazz: Type[T],
         key: Optional[str | Callable[[T], str]] = None,
-        key_name: Optional[str] = None,
     ) -> BaseQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
-        It should be used fro smaller collections.
+        It should be used for smaller collections.
         It creates standard storage by default.
 
         Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key: name of item's property which is used as a key
+            key: name of item's property which is used as a key or a function to extract key
 
         Returns:
             Storage object.
         """
-        return self.create_storage(collection_name, clazz, key or key_name)
+        return self.create_storage(collection_name, clazz, key)
 
     @abstractmethod
-    def create_blob_storage[T: BaseModel](
+    def create_blob_storage[T: BaseBlobMetadata](
         self,
-        collection_name: str,
+        collection_name: Optional[str] = None,
         clazz: Optional[Type[T]] = None,
         content_type: Optional[str] = None,
         bucket_name: Optional[str] = None,
@@ -74,11 +75,14 @@ class BaseFactory(ABC):
             collection_name: name of the collection where blobs are stored
             clazz: class of metadata
             content_type: content type of blobs
+            bucket_name: name of the bucket where blobs are stored
         Returns:
             Blob storage object.
         """
 
-    def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseCollectionStorage[T]:
+    def create_collection[T: BaseModel](
+        self, definition: CollectionDef[T] | dict
+    ) -> BaseCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
         Args:
@@ -87,10 +91,12 @@ class BaseFactory(ABC):
             Collection object.
         """
         if isinstance(definition, dict):
-            definition = CollectionDef.model_validate(dict)
+            definition = CollectionDef.model_validate(definition)
         return BaseCollectionStorage(self.create_storage, definition)
 
-    def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseCollectionStorage[T]:
+    def create_storage_tree[T: BaseModel](
+        self, root: CollectionDef[T]
+    ) -> BaseCollectionStorage[T]:
         """Creates storage tree from its definition.
 
         Args:
@@ -99,6 +105,29 @@ class BaseFactory(ABC):
             Collection object.
         """
         return self.create_collection(root)
+
+    def register_collections(self, definitions: list[CollectionDef[Any]]):
+        """Registers a list of collection definitions.
+
+        Args:
+            definitions: List of collection definitions.
+        """
+        for definition in definitions:
+            self._collection_defs[definition.collection_name] = definition
+
+    def get_collection[T: BaseModel](
+        self, collection_name: str
+    ) -> BaseCollectionStorage[T]:
+        """Retrieves a collection by its name from the registered definitions.
+
+        Args:
+            collection_name: The name of the collection.
+        Returns:
+            The collection object.
+        """
+        if collection_name not in self._collection_defs:
+            raise KeyNotExistsException(f"Collection {collection_name} not registered")
+        return self.create_collection(self._collection_defs[collection_name])
 
     def create_blob_location(
         self, name: str, bucket: Optional[str] = None
@@ -117,7 +146,7 @@ class BaseFactory(ABC):
         """Downloads a blob from the specified file location.
 
         Args:
-            file_location (FileLocation): The location of the file to load.
+            blob_location (BlobLocation): The location of the file to load.
 
         Returns:
             Blob: The loaded blob.
@@ -133,9 +162,8 @@ class BaseFactory(ABC):
         """Uploads a blob to the specified file location.
 
         Args:
-            file_location (FileLocation): The location to save the blob.
+            blob_location (BlobLocation): The location to save the blob.
             blob (Blob): The blob to save.
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
         bs.upload(blob)
-

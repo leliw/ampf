@@ -19,7 +19,7 @@ def factory():
     return InMemoryAsyncFactory()
 
 
-def test_crete_compact_storage(factory: BaseAsyncFactory):
+def test_create_compact_storage(factory: BaseAsyncFactory):
     # When: A compact storage is created
     s1 = factory.create_compact_storage("xxx", D)
     # Then: A storage is created
@@ -27,7 +27,7 @@ def test_crete_compact_storage(factory: BaseAsyncFactory):
     assert issubclass(s1.__class__, BaseAsyncStorage)
 
 
-def test_crete_storage_with_key(factory: BaseAsyncFactory):
+def test_create_storage_with_key(factory: BaseAsyncFactory):
     # When: A compact storage is created
     s1 = factory.create_storage("xxx", D, key=lambda d: d.name)
     # Then: A storage is created
@@ -97,3 +97,27 @@ async def test_create_storage_tree(tmp_path: Path):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+@pytest.mark.asyncio
+async def test_register_and_get_collection(factory: BaseAsyncFactory):
+    from ampf.base.exceptions import KeyNotExistsException
+
+    # Given: A collection definition
+    storage_def = CollectionDef("my_async_collection", D, "name")
+
+    # When: The collection is registered
+    factory.register_collections([storage_def])
+
+    # Then: The collection can be retrieved
+    storage = factory.get_collection("my_async_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_async_collection"
+
+    # And: Saving data works
+    await storage.save(D(name="test", value="val"))
+    assert (await storage.get("test")).value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")

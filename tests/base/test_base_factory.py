@@ -20,7 +20,7 @@ def factory():
     return InMemoryFactory()
 
 
-def test_crete_compact_storage(factory: BaseFactory):
+def test_create_compact_storage(factory: BaseFactory):
     # When: A compact storage is created
     s1 = factory.create_compact_storage("xxx", D)
     # Then: A storage is created
@@ -28,7 +28,7 @@ def test_crete_compact_storage(factory: BaseFactory):
     assert issubclass(s1.__class__, BaseStorage)
 
 
-def test_crete_storage_with_key(factory: BaseFactory):
+def test_create_storage_with_key(factory: BaseFactory):
     # When: A compact storage is created
     s1 = factory.create_storage("xxx", D, key=lambda d: d.name)
     # Then: A storage is created
@@ -53,16 +53,24 @@ class D3(BaseModel):
 
 def test_create_storage_tree(tmp_path: Path):
     factory = LocalFactory(tmp_path)
-    
+
     # Given: A storage tree definition
-    storage_def = CollectionDef("collections", D1, "id", [
-            CollectionDef("documents", D2, "id", [
+    storage_def = CollectionDef(
+        "collections",
+        D1,
+        "id",
+        [
+            CollectionDef(
+                "documents",
+                D2,
+                "id",
+                [
                     CollectionDef("markdowns", D3, "id"),
                 ],
             )
         ],
     )
-    
+
     # When: The storage tree is created
     storage = factory.create_storage_tree(storage_def)
     # And: Storage saves data
@@ -89,3 +97,26 @@ def test_create_storage_tree(tmp_path: Path):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_register_and_get_collection(factory: BaseFactory):
+    from ampf.base.exceptions import KeyNotExistsException
+
+    # Given: A collection definition
+    storage_def = CollectionDef("my_collection", D, "name")
+
+    # When: The collection is registered
+    factory.register_collections([storage_def])
+
+    # Then: The collection can be retrieved
+    storage = factory.get_collection("my_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_collection"
+
+    # And: Saving data works
+    storage.save(D(name="test", value="val"))
+    assert storage.get("test").value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")
