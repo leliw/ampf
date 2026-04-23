@@ -12,6 +12,7 @@ from .local_blob_async_storage import LocalAsyncBlobStorage
 
 class LocalAsyncFactory(BaseAsyncFactory):
     def __init__(self, root_path: StrPath):
+        super().__init__()
         self._root_path = Path(root_path)
 
     def create_storage[T: BaseModel](

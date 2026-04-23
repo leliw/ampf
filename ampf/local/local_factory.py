@@ -15,6 +15,7 @@ from .local_blob_storage import LocalBlobStorage
 
 class LocalFactory(BaseFactory):
     def __init__(self, root_path: StrPath):
+        super().__init__()
         self._root_path = Path(os.path.abspath(root_path))
 
     def create_storage[T: BaseModel](
@@ -55,7 +56,7 @@ class LocalFactory(BaseFactory):
         bucket_name: Optional[str] = None,
     ) -> LocalBlobStorage[T]:
         root_path = Path(bucket_name) if bucket_name else self._root_path
-        return LocalBlobStorage(
+        return LocalBlobStorage[T](
             collection_name, clazz, content_type, root_path=root_path / "blobs"
         )
 

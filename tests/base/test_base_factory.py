@@ -95,10 +95,6 @@ def test_create_storage_tree(tmp_path: Path):
     assert substorage3 is not None
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
-
-
 def test_register_and_get_collection(factory: BaseFactory):
     from ampf.base.exceptions import KeyNotExistsException
 
