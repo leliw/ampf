@@ -1,5 +1,5 @@
 import logging
-from typing import AsyncGenerator, AsyncIterable, AsyncIterator, Generator, Iterator, List, Mapping, Optional
+from typing import AsyncGenerator, AsyncIterable, AsyncIterator, Generator, Iterator, Mapping
 
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -9,19 +9,14 @@ _log = logging.getLogger(__name__)
 
 
 class StreamedException(BaseModel):
-    """Data streamed to client when any exception occured"""
+    """Data streamed to client when any exception occurred"""
 
     error: str
-    args: Optional[List[str]] = None
+    args: list[str] | None = None
 
     @classmethod
     def from_exception(cls, e: Exception):
-        args = []
-        for a in e.args:
-            if isinstance(a, str):
-                args.append(a)
-            else:
-                args.append(str(a))
+        args = [a if isinstance(a, str) else str(a) for a in e.args]
         return StreamedException(error=type(e).__name__, args=args)
 
 
@@ -36,9 +31,9 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         self,
         content: Iterator[T] | AsyncIterator[T] | Generator[T] | AsyncGenerator[T],
         status_code: int = 200,
-        headers: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
         media_type: str = "application/json",
-        background: Optional[BackgroundTask] = None,
+        background: BackgroundTask | None = None,
     ):
         super().__init__(self.objects_to_text(content), status_code, headers, media_type, background)
         self.media_type = media_type
@@ -48,11 +43,7 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
         yield "[\n"
         try:
             i = 0
-            if (
-                isinstance(responses, AsyncGenerator)
-                or isinstance(responses, AsyncIterator)
-                or isinstance(responses, AsyncIterable)
-            ):
+            if isinstance(responses, (AsyncIterable, AsyncIterator)):
                 async for r in responses:
                     yield self.object_to_text(i, r)
                     i += 1
@@ -65,6 +56,10 @@ class JsonStreamingResponse[T: BaseModel](StreamingResponse):
             yield self.object_to_text(i, StreamedException.from_exception(e))
         yield "]\n"
 
-    def object_to_text(self, i: int, o: BaseModel) -> str:
+    def object_to_text(self, i: int, o: BaseModel | str) -> str:
         """Converts object to JSON string."""
-        return f"{',' if i > 0 else ''}{o.model_dump_json()}\n"
+        if isinstance(o, str):
+            s = f'"{o}"'
+        else:
+            s = o.model_dump_json()
+        return f"{',' if i > 0 else ''}{s}\n"
