@@ -22,13 +22,11 @@ class LocalFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[Callable[[T], str] | str] = None,
     ) -> BaseStorage[T]:
         return JsonMultiFilesStorage(
             collection_name=collection_name,
             clazz=clazz,
-            key_name=key_name,
             key=key,
             root_path=self._root_path,
         )

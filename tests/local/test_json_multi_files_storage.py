@@ -15,7 +15,7 @@ def storage(tmp_path):
     return JsonMultiFilesStorage[D](
         collection_name="test",
         clazz=D,
-        key_name="name",
+        key="name",
         subfolder_characters=2,
         root_path=tmp_path,
     )
