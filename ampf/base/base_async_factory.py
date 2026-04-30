@@ -89,7 +89,7 @@ class BaseAsyncFactory(ABC):
             Collection object.
         """
         if isinstance(definition, dict):
-            definition = CollectionDef.model_validate(definition)
+            definition = CollectionDef(**definition)
         return BaseAsyncCollectionStorage(self.create_storage, definition)
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseAsyncCollectionStorage[T]:
@@ -113,7 +113,9 @@ class BaseAsyncFactory(ABC):
             if definition.clazz:
                 self._type_to_collection_defs[definition.clazz] = definition
 
-    def get_collection[T: BaseModel](self, collection_name_or_type: str | Type[T]) -> BaseAsyncCollectionStorage[T]:
+    def get_collection[T: BaseModel](
+        self, collection_name_or_type: str | Type[T] | Any
+    ) -> BaseAsyncCollectionStorage[T]:
         """Retrieves a collection by its name or type from the registered definitions.
 
         Args:
@@ -121,14 +123,14 @@ class BaseAsyncFactory(ABC):
         Returns:
             The collection object.
         """
-        if isinstance(collection_name_or_type, type):
-            if collection_name_or_type not in self._type_to_collection_defs:
-                raise KeyNotExistsException(f"Collection for type {collection_name_or_type.__name__} not registered")
-            definition = self._type_to_collection_defs[collection_name_or_type]
-        else:
+        if isinstance(collection_name_or_type, str):
             if collection_name_or_type not in self._collection_defs:
                 raise KeyNotExistsException(f"Collection {collection_name_or_type} not registered")
             definition = self._collection_defs[collection_name_or_type]
+        else:
+            if collection_name_or_type not in self._type_to_collection_defs:
+                raise KeyNotExistsException(f"Collection for type {collection_name_or_type.__name__} not registered")
+            definition = self._type_to_collection_defs[collection_name_or_type]
         return self.create_collection(definition)
 
     async def download_blob(self, blob_location: BlobLocation) -> Blob:
