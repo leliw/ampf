@@ -79,6 +79,27 @@ async def get_async_data() -> str:
 data = await DependencyRegistry.get_async(str)
 ```
 
+### 4. Class Registration
+
+You can also register a class directly. The registry will inspect its `__init__` method to resolve dependencies.
+
+```python
+class Database:
+    pass
+
+@DependencyRegistry.register_class
+class MyService:
+    def __init__(self, db: Database):
+        self.db = db
+
+@DependencyRegistry.register
+def get_db() -> Database:
+    return Database()
+
+# Retrieve the dependency
+service = DependencyRegistry.get(MyService)
+```
+
 ## API Reference
 
 ### `DependencyRegistry`
@@ -89,6 +110,7 @@ The main class for managing dependencies. All methods are `@classmethod`.
 | :--- | :--- |
 | `register(fn)` | Decorator: Registers a function based on its return type hint. |
 | `register_for_type(type)(fn)` | Decorator: Registers a function as a provider for a specific type. |
+| `register_class(cls)` | Decorator: Registers a class as a dependency provider. |
 | `get(type)` | Synchronously retrieves an instance of the requested type. |
 | `get_async(type)` | Asynchronously retrieves an instance of the requested type. |
 | `add(obj, type=None)` | Manually adds an existing instance to the registry. |

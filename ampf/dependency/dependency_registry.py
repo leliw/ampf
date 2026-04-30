@@ -102,6 +102,21 @@ class DependencyRegistry:
         return decorator
 
     @classmethod
+    def register_class[T](cls, dependency_class: Type[T]) -> Type[T]:
+        """
+        Decorator to register a class as a dependency provider.
+
+        Args:
+            dependency_class: The class to register.
+
+        Returns:
+            The original class.
+        """
+        params = cls.get_parameters(dependency_class)
+        cls._dependencies[dependency_class] = DependencyDefinition(dependency_class, params)
+        return dependency_class
+
+    @classmethod
     def get_parameters(cls, func: SyncOrAsyncCallable) -> dict[str, Type[Any]]:
         """
         Inspects a callable to extract its parameter names and types.

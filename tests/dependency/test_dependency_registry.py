@@ -203,3 +203,23 @@ async def test_circular_async_err(registry: DependencyRegistry):
         await registry.get_async(A)
     # Then: An error is raised
     assert "Cycle detected" in str(e.value)
+
+
+def test_register_class(registry: DependencyRegistry):
+    # Given: Registered class dependency
+    @DependencyRegistry.register_class
+    class C:
+        def __init__(self, a: A):
+            self.a = a
+
+    def get_a() -> A:
+        return A()
+
+    registry.register_for_type(A)(get_a)
+
+    # When: Get dependency
+    c = registry.get(C)
+
+    # Then: Dependency is returned
+    assert isinstance(c, C)
+    assert c.a.value == "A"
