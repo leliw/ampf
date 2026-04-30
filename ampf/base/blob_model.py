@@ -67,11 +67,11 @@ class BlobCreate[T: BaseBlobMetadata]:
         self.metadata = metadata
 
     @classmethod
-    def from_file(cls, path: Path, metadata: T = empty_blob_metadata) -> "BlobCreate[T]":
+    def from_file(cls, path: Path, metadata: T = empty_blob_metadata, name: str | None = None) -> "BlobCreate[T]":
         if metadata == empty_blob_metadata:
             metadata = metadata.__class__.from_filename(path.name)
         file = open(path, "rb")
-        return cls(name=path.name, data=file, metadata=metadata)
+        return cls(name=name or path.name, data=file, metadata=metadata)
 
     @classmethod
     def from_upload_file(cls, file: UploadFile, metadata: T = empty_blob_metadata) -> "BlobCreate[T]":

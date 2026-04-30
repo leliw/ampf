@@ -15,19 +15,18 @@ from .local_blob_storage import LocalBlobStorage
 
 class LocalFactory(BaseFactory):
     def __init__(self, root_path: StrPath):
+        super().__init__()
         self._root_path = Path(os.path.abspath(root_path))
 
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key: Optional[Callable[[T], str] | str] = None,
     ) -> BaseStorage[T]:
         return JsonMultiFilesStorage(
             collection_name=collection_name,
             clazz=clazz,
-            key_name=key_name,
             key=key,
             root_path=self._root_path,
         )
@@ -55,7 +54,7 @@ class LocalFactory(BaseFactory):
         bucket_name: Optional[str] = None,
     ) -> LocalBlobStorage[T]:
         root_path = Path(bucket_name) if bucket_name else self._root_path
-        return LocalBlobStorage(
+        return LocalBlobStorage[T](
             collection_name, clazz, content_type, root_path=root_path / "blobs"
         )
 

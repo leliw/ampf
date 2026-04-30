@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar, get_origin
 
 from pydantic import BaseModel
 
@@ -9,15 +9,27 @@ from .base_decorator import BaseDecorator
 from .collection_def import CollectionDef
 
 
-class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncQueryStorage[T]]):
+TModel = TypeVar("TModel", bound=BaseModel)
+
+if TYPE_CHECKING:
+    # Only for IDE
+    class _StorageProxy(BaseDecorator, BaseAsyncQueryStorage[TModel]): 
+        pass
+else:
+    # For Runtime 
+    class _StorageProxy(BaseDecorator[BaseAsyncQueryStorage[TModel]]): 
+        pass
+
+
+class BaseAsyncCollectionStorage(_StorageProxy[TModel]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
     """
 
     def __init__(
         self,
-        create_storage: Callable[[str, Type[T], Optional[str | Callable[[T], str]]], BaseAsyncQueryStorage[T]],
-        definition: CollectionDef[T],
+        create_storage: Callable[[str, Type[TModel], Optional[str | Callable[[TModel], str]]], BaseAsyncQueryStorage[TModel]],
+        definition: CollectionDef[TModel],
     ):
         self.create_storage = create_storage
         storage = self.create_storage(definition.collection_name, definition.clazz, definition.key)
@@ -27,23 +39,33 @@ class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncQueryStora
         self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
     def get_collection[Y: BaseModel](
-        self, parent_key: Any, subcollection_name_or_class: str | Type[Y]
+        self, parent_key: Any, subcollection_name_or_class: str | Type[Y] | Any
     ) -> BaseAsyncCollectionStorage[Y]:
         """Returns subcollection for given key.
 
         Subcollection can be identified by its name or class.
 
         Args:
-            key (str): Main collection key
-            subcollection_name_or_class (str | Type[Y]): Subcollection name or its class
+            parent_key (Any): Main collection key
+            subcollection_name_or_class (str | Type[Y] | Any): Subcollection name or its class
         Returns:
-            (BaseCollectionStorage[Y]): Subcollection object
+            (BaseAsyncCollectionStorage[Y]): Subcollection object
         """
-        if not isinstance(subcollection_name_or_class, str):
-            subcollection_name = self.sub_classes[subcollection_name_or_class]
-        else:
+        if isinstance(subcollection_name_or_class, str):
             subcollection_name = subcollection_name_or_class
+        else:
+            try:
+                subcollection_name = self.sub_classes[subcollection_name_or_class]
+            except KeyError:
+                # Fallback: if it's Annotated, try to look up by the origin type (e.g. Union)
+                origin = get_origin(subcollection_name_or_class)
+                if origin is not None:
+                    subcollection_name = self.sub_classes[origin]
+                else:
+                    raise
+
         sub = self.subcollections[subcollection_name]
+
         return BaseAsyncCollectionStorage(
             self.create_storage,
             CollectionDef(
@@ -52,4 +74,4 @@ class BaseAsyncCollectionStorage[T: BaseModel](BaseDecorator[BaseAsyncQueryStora
                 key=sub.key,
                 subcollections=sub.subcollections,
             ),
-        ) # type: ignore
+        )  # type: ignore

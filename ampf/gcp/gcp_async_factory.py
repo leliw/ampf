@@ -14,6 +14,7 @@ from .gcp_base_factory import GcpBaseFactory
 class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
         super().__init__(root_storage, bucket_name)
+        BaseAsyncFactory.__init__(self)
         self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
 
@@ -34,7 +35,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
 
     def create_blob_storage[T: BaseBlobMetadata](
         self,
-        collection_name: Optional[str] = None,
+        collection_name: str,
         clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         bucket_name: Optional[str] = None,
@@ -42,7 +43,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         bucket_name = bucket_name or self.bucket_name
         if not bucket_name:
             raise ValueError(
-                "Bucket name must be provided either during factory initialization or when calling create_blob_async_storage."
+                "Bucket name must be provided either during factory initialization or when calling create_blob_storage."
             )
         return GcpAsyncBlobStorage(
             bucket_name=bucket_name,

@@ -18,6 +18,7 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
 
     def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
         super().__init__(root_storage, bucket_name)
+        BaseFactory.__init__(self)
         self._db = firestore.Client()
         self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
@@ -52,7 +53,7 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
         bucket_name = bucket_name or self.bucket_name
         if not bucket_name:
             raise ValueError(
-                "Bucket name must be provided either during factory initialization or when calling create_blob_async_storage."
+                "Bucket name must be provided either during factory initialization or when calling create_blob_storage."
             )
         return GcpBlobStorage(
             bucket_name=bucket_name,

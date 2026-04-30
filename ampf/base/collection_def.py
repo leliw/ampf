@@ -1,29 +1,14 @@
-from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Any, Callable, Type
 
-from typing import Callable, List, Optional, Type
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
-class CollectionDef[T: BaseModel](BaseModel):
+@dataclass
+class CollectionDef[T: BaseModel]:
     """Parameters defining CollectionStorage"""
 
     collection_name: str
-    clazz: Type[T]
-    key: Optional[str | Callable[[T], str]] = None
-    subcollections: Optional[List[CollectionDef]] = Field(default_factory=list)
-
-    def __init__(
-        self,
-        collection_name: str,
-        clazz: Type,
-        key: Optional[str | Callable[[T], str]] = None,
-        subcollections: Optional[List[CollectionDef]] = None,
-    ):
-        """It is required to initialise class without parameter names."""
-        super().__init__(
-            collection_name=collection_name,
-            clazz=clazz,
-            key=key,
-            subcollections=subcollections or list(),
-        )
+    clazz: Type[T] | Any
+    key: str | Callable[[T], str] | None = None
+    subcollections: list["CollectionDef"] = field(default_factory=list)

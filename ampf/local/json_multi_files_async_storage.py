@@ -1,10 +1,11 @@
 """Stores data on disk in json files"""
 
+import inspect
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Coroutine, Optional, Type
+from typing import Any, AsyncIterator, Callable, Optional, Type
 
 import aiofiles
 import aiofiles.os
@@ -16,7 +17,7 @@ from ampf.base.exceptions import KeyNotExistsException
 from .file_async_storage import FileAsyncStorage, StrPath
 
 
-class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyncStorage):
+class JsonMultiFilesAsyncStorage[T: BaseModel](BaseAsyncQueryStorage[T], FileAsyncStorage):
     """Stores data on disk in json files. Each item is stored in its own file"""
 
     def __init__(
@@ -50,9 +51,9 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
 
         full_path = self._key_to_full_path(key)
         data = self.to_storage(value)
-        if isinstance(data, Coroutine):
+        if inspect.iscoroutine(data):
             data = await data
-        json_str = json.dumps(data,  default=str)
+        json_str = json.dumps(data, indent=2, ensure_ascii=False, default=str)
         await self._async_write_to_file(full_path, json_str)
 
     async def get(self, key: Any) -> T:
@@ -61,9 +62,9 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
         try:
             data = await self._async_read_from_file(full_path)
             ret = self.from_storage(json.loads(data))
-            if isinstance(ret, Coroutine):
+            if inspect.iscoroutine(ret):
                 ret = await ret
-            return ret
+            return ret # type: ignore
         except FileNotFoundError:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
@@ -80,17 +81,16 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
                 # and it's not root folder
                 # - skip it - it's subcollection
                 subcollections.append(root)
-                pass
-            if any([root.startswith(sc) for sc in subcollections]):
+                continue
+
+            if any(root.startswith(sc) for sc in subcollections):
                 # - skip it - it's subcollection
-                pass
-            else:
-                folder = (
-                    root[start_index:-end_index] if end_index else root[start_index:]
-                )
-                for file in files:
-                    k = f"{folder}/{file}" if folder else file
-                    yield k[:-5] if k.endswith(".json") else k
+                continue
+
+            folder = root[start_index:-end_index] if end_index else root[start_index:]
+            for file in files:
+                k = f"{folder}/{file}" if folder else file
+                yield k[:-5] if k.endswith(".json") else k
 
     async def delete(self, key: Any) -> None:
         full_path = self._key_to_full_path(str(key))
@@ -101,3 +101,20 @@ class JsonMultiFilesAsyncStorage[T:BaseModel](BaseAsyncQueryStorage[T], FileAsyn
 
     def _key_to_full_path(self, key: Any) -> Path:
         return self._create_file_path(str(key))
+
+    def create_collection(
+        self,
+        parent_key: str,
+        collection_name: str,
+        clazz: Type[T],
+        key: Optional[str | Callable[[T], str]] = None,
+    ) -> "JsonMultiFilesAsyncStorage[T]":
+        new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
+        return self.__class__(
+            new_collection_name,
+            clazz,
+            key=key,
+            root_path=self._root_path,
+            embedding_field_name=self.embedding_field_name,
+            embedding_search_limit=self.embedding_search_limit,
+        )

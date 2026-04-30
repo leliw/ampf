@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
 
@@ -18,6 +18,10 @@ _log = logging.getLogger(__name__)
 class BaseAsyncFactory(ABC):
     """Factory creating async storage objects"""
 
+    def __init__(self):
+        self._collection_defs: dict[str, CollectionDef] = {}
+        self._type_to_collection_defs: dict[Type[BaseModel], CollectionDef] = {}
+
     @abstractmethod
     def create_storage[T: BaseModel](
         self,
@@ -30,7 +34,7 @@ class BaseAsyncFactory(ABC):
         Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key_name: name of item's property which is used as a key
+            key: name of item's property which is used as a key or a function to extract key
 
         Returns:
             Storage object.
@@ -44,13 +48,13 @@ class BaseAsyncFactory(ABC):
     ) -> BaseAsyncQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
-        It should be used fro smaller collections.
+        It should be used for smaller collections.
         It creates standard storage by default.
 
-                Args:
+        Args:
             collection_name: name of collection where items are stored
             clazz: class of items
-            key_name: name of item's property which is used as a key
+            key: name of item's property which is used as a key or a function to extract key
 
         Returns:
             Storage object.
@@ -76,7 +80,6 @@ class BaseAsyncFactory(ABC):
             Blob storage object.
         """
 
-    # deprecated
     def create_collection[T: BaseModel](self, definition: CollectionDef[T] | dict) -> BaseAsyncCollectionStorage[T]:
         """Creates collection from its definition. Definition can contain also subcollections definitions.
 
@@ -86,7 +89,7 @@ class BaseAsyncFactory(ABC):
             Collection object.
         """
         if isinstance(definition, dict):
-            definition = CollectionDef.model_validate(dict)
+            definition = CollectionDef(**definition)
         return BaseAsyncCollectionStorage(self.create_storage, definition)
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseAsyncCollectionStorage[T]:
@@ -99,11 +102,42 @@ class BaseAsyncFactory(ABC):
         """
         return self.create_collection(root)
 
+    def register_collections(self, definitions: list[CollectionDef[Any]]):
+        """Registers a list of collection definitions.
+
+        Args:
+            definitions: List of collection definitions.
+        """
+        for definition in definitions:
+            self._collection_defs[definition.collection_name] = definition
+            if definition.clazz:
+                self._type_to_collection_defs[definition.clazz] = definition
+
+    def get_collection[T: BaseModel](
+        self, collection_name_or_type: str | Type[T] | Any
+    ) -> BaseAsyncCollectionStorage[T]:
+        """Retrieves a collection by its name or type from the registered definitions.
+
+        Args:
+            collection_name_or_type: The name or type of the collection.
+        Returns:
+            The collection object.
+        """
+        if isinstance(collection_name_or_type, str):
+            if collection_name_or_type not in self._collection_defs:
+                raise KeyNotExistsException(f"Collection {collection_name_or_type} not registered")
+            definition = self._collection_defs[collection_name_or_type]
+        else:
+            if collection_name_or_type not in self._type_to_collection_defs:
+                raise KeyNotExistsException(f"Collection for type {collection_name_or_type.__name__} not registered")
+            definition = self._type_to_collection_defs[collection_name_or_type]
+        return self.create_collection(definition)
+
     async def download_blob(self, blob_location: BlobLocation) -> Blob:
         """Downloads a blob from the specified file location.
 
         Args:
-            file_location (FileLocation): The location of the file to load.
+            blob_location (BlobLocation): The location of the file to load.
 
         Returns:
             Blob: The loaded blob.
@@ -112,13 +146,14 @@ class BaseAsyncFactory(ABC):
             bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
             return await bs.download_async(blob_location.name)
         except KeyNotExistsException as e:
+            _log.warning("Error downloading blob: %s", blob_location.name)
             raise e
 
     async def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
         """Uploads a blob to the specified file location.
 
         Args:
-            file_location (FileLocation): The location to save the blob.
+            blob_location (BlobLocation): The location to save the blob.
             blob (Blob): The blob to save.
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)

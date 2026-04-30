@@ -37,10 +37,19 @@ def test_blob_create_from_content_with_content_type():
     assert blob_create.metadata.content_type == "text/plain"
 
 
-def test_blob_create_from_file():
+def test_blob_from_file():
     # When: Create from file
     blob = Blob.from_file(Path("./tests/data/test.txt"))
     # Then: Content type is correct
     assert blob.name == "test.txt"
+    assert blob.content == b"This is the test file."
+    assert blob.metadata.content_type == "text/plain"
+
+
+def test_blob_from_blob_create_from_file_with_name():
+    # When: Create from file
+    blob = Blob.create(BlobCreate.from_file(Path("./tests/data/test.txt"), name="test2.txt"))
+    # Then: Content type is correct
+    assert blob.name == "test2.txt"
     assert blob.content == b"This is the test file."
     assert blob.metadata.content_type == "text/plain"
