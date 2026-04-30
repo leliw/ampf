@@ -1,4 +1,4 @@
-from .dependency_model import SyncOrAsyncCallable, DependencyDefinition
-from .dependency_registry import DependencyRegistry
+from .dependency_model import DependencyDefinition, SyncOrAsyncCallable
+from .dependency_registry import DependencyRegistry, get_dependency
 
-__all__ = ["DependencyRegistry", "SyncOrAsyncCallable", "DependencyDefinition"]
+__all__ = ["DependencyRegistry", "SyncOrAsyncCallable", "DependencyDefinition", "get_dependency"]

@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional, Union
 
 import pytest
 from pydantic_settings import BaseSettings
 
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_factory import BaseFactory
-from ampf.dependency import DependencyRegistry
+from ampf.dependency import DependencyRegistry, get_dependency
 from ampf.gcp.gcp_subscription_pull import GcpSubscriptionPull
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.in_memory.in_memory_factory import InMemoryFactory
@@ -21,10 +21,12 @@ def registry():
 class A:
     value: str = "A"
 
+class C:
+    pass
 
 @dataclass
 class B:
-    a: A
+    a: A | C | None = None
     value: str = "B"
 
 
@@ -113,6 +115,7 @@ def test_get_dependent_dependency(registry: DependencyRegistry):
     # When: Get dependency
     b = registry.get(B)
     # Then: Dependency is returned
+    assert isinstance(b.a, A)
     assert b.a.value == "A"
     assert b.value == "B"
 
@@ -133,6 +136,7 @@ async def test_get_async_dependent_dependency(registry: DependencyRegistry):
     # When: Get dependency
     b = await registry.get_async(B)
     # Then: Dependency is returned
+    assert isinstance(b.a, A)
     assert b.a.value == "A"
     assert b.value == "B"
 
@@ -159,7 +163,11 @@ def test_add_all(registry: DependencyRegistry):
         subscriptions: dict[str, GcpSubscriptionPull] = field(default_factory=dict)
         ai_model: Any = None
 
-    app_state = AppState(config=AppConfig(), factory=InMemoryFactory(), async_factory=InMemoryAsyncFactory())
+    app_state = AppState(
+        config=AppConfig(),
+        factory=InMemoryFactory(),
+        async_factory=InMemoryAsyncFactory(),
+    )
     # When: All object properties are added
     registry.add_all(app_state)
     # Then: The object is added
@@ -223,3 +231,140 @@ def test_register_class(registry: DependencyRegistry):
     # Then: Dependency is returned
     assert isinstance(c, C)
     assert c.a.value == "A"
+
+
+def test_optional_dependency_missing(registry: DependencyRegistry):
+    # Given: A function that depends on an Optional dependency that is not registered
+    def get_b(a: Optional[A]) -> B:
+        return B(a)
+
+    registry.register_for_type(B)(get_b)
+
+    # When: Get dependency
+    b = registry.get(B)
+
+    # Then: Dependency is returned with None for the optional parameter
+    assert b.a is None
+    assert b.value == "B"
+
+
+@pytest.mark.asyncio
+async def test_optional_dependency_missing_async(registry: DependencyRegistry):
+    # Given: An async function that depends on an Optional dependency that is not registered
+    async def get_b(a: Optional[A]) -> B:
+        return B(a)
+
+    registry.register_for_type(B)(get_b)
+
+    # When: Get dependency
+    b = await registry.get_async(B)
+
+    # Then: Dependency is returned with None for the optional parameter
+    assert b.a is None
+    assert b.value == "B"
+
+
+def test_complex_union_dependency_err(registry: DependencyRegistry):
+    # Given: A function that depends on a complex Union dependency
+    def get_b(a: Union[A, C, None]) -> B:
+        return B(a)
+
+    registry.register_for_type(B)(get_b)
+
+    # When: Get dependency
+    with pytest.raises(TypeError) as e:
+        registry.get(B)
+
+    # Then: An error is raised
+    assert "Complex Union types are not supported" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_complex_union_dependency_async_err(registry: DependencyRegistry):
+    # Given: An async function that depends on a complex Union dependency
+    async def get_b(a: Union[A, C, None]) -> B:
+        return B(a)
+
+    registry.register_for_type(B)(get_b)
+
+    # When: Get dependency
+    with pytest.raises(TypeError) as e:
+        await registry.get_async(B)
+
+    # Then: An error is raised
+    assert "Complex Union types are not supported" in str(e.value)
+
+
+def test_optional_dependency_no_cycle_false_positive(registry: DependencyRegistry):
+    # Given: A tree where the same optional dependency is missing multiple times
+    @dataclass
+    class C:
+        a: Optional[A]
+
+    @dataclass
+    class D:
+        c: C
+        a: Optional[A]
+
+    registry.register_class(C)
+    registry.register_class(D)
+
+    # When: Get dependency
+    d = registry.get(D)
+
+    # Then: No cycle error is raised, and both optional dependencies are None
+    assert d.a is None
+    assert d.c.a is None
+
+
+@pytest.mark.asyncio
+async def test_optional_dependency_no_cycle_false_positive_async(
+    registry: DependencyRegistry,
+):
+    # Given: A tree where the same optional dependency is missing multiple times
+    @dataclass
+    class C:
+        a: Optional[A]
+
+    @dataclass
+    class D:
+        c: C
+        a: Optional[A]
+
+    async def get_c(a: Optional[A]) -> C:
+        return C(a)
+
+    async def get_d(c: C, a: Optional[A]) -> D:
+        return D(c, a)
+
+    registry.register_for_type(C)(get_c)
+    registry.register_for_type(D)(get_d)
+
+    # When: Get dependency
+    d = await registry.get_async(D)
+
+    # Then: No cycle error is raised, and both optional dependencies are None
+    assert d.a is None
+    assert d.c.a is None
+
+
+def test_get_dependency_function(registry: DependencyRegistry):
+    # Given: Registered functional dependency
+    def get_a() -> A:
+        return A()
+
+    registry.register_for_type(A)(get_a)
+
+    # When: Create dependency getter
+    dep_getter = get_dependency(A)
+
+    # And: Call getter with registry
+    a1 = dep_getter(registry)
+
+    # And: Call getter without registry (uses global DependencyRegistry)
+    a2 = dep_getter()
+
+    # Then: Dependencies are returned and are the same instance
+    assert a1.value == "A"
+    assert a2.value == "A"
+    assert a1 is a2

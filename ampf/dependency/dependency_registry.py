@@ -1,7 +1,9 @@
 import inspect
 import logging
 from dataclasses import fields, is_dataclass
-from typing import Annotated, Any, Callable, Type, get_args, get_origin, get_type_hints
+import types
+from typing import Annotated, Any, Callable, Protocol, Type, get_args, get_origin, get_type_hints
+import typing
 
 from pydantic import BaseModel
 
@@ -226,12 +228,35 @@ class DependencyRegistry:
         """
         parameters = {}
         for param_name, param_type in params.items():
-            parameters[param_name] = cls.get(param_type, stack)
+            origin = typing.get_origin(param_type)
+            args = typing.get_args(param_type)
+            is_optional = False
+            actual_type = param_type
+
+            if origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType):
+                if type(None) in args:
+                    is_optional = True
+                    non_none_args = [arg for arg in args if arg is not type(None)]
+                    if len(non_none_args) > 1:
+                        raise TypeError(f"Complex Union types are not supported for dependency injection: {param_type}")
+                    actual_type = non_none_args[0]
+            try:
+                parameters[param_name] = cls.get(actual_type, stack)
+            except ValueError:
+                if is_optional:
+                    parameters[param_name] = None
+                    if actual_type in stack:
+                        stack.remove(actual_type)
+                else:
+                    raise
         return parameters
 
     @classmethod
     async def get_call_parameters_async(
-        cls, params: dict[str, Type[Any]], stack: set[Type], payload: BaseModel | None = None
+        cls,
+        params: dict[str, Type[Any]],
+        stack: set[Type],
+        payload: BaseModel | None = None,
     ) -> dict[str, Any]:
         """
         Resolves a dictionary of parameter types into their corresponding instances asynchronously.
@@ -246,5 +271,48 @@ class DependencyRegistry:
         """
         parameters = {}
         for param_name, param_type in params.items():
-            parameters[param_name] = await cls.get_async(param_type, stack)
+            origin = typing.get_origin(param_type)
+            args = typing.get_args(param_type)
+            is_optional = False
+            actual_type = param_type
+
+            if origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType):
+                if type(None) in args:
+                    is_optional = True
+                    non_none_args = [arg for arg in args if arg is not type(None)]
+                    if len(non_none_args) > 1:
+                        raise TypeError(f"Complex Union types are not supported for dependency injection: {param_type}")
+                    actual_type = non_none_args[0]
+            try:
+                parameters[param_name] = await cls.get_async(actual_type, stack)
+            except ValueError:
+                if is_optional:
+                    parameters[param_name] = None
+                    if actual_type in stack:
+                        stack.remove(actual_type)
+                else:
+                    raise
         return parameters
+
+class GetDependency[T](Protocol):
+    def __call__(self, dependency_registry: DependencyRegistry | None = None) -> T:
+        ...
+
+
+def get_dependency[T](clazz: Type[T]) -> GetDependency[T]:
+    """Returns a function that retrieves a dependency of the specified type from the DependencyRegistry.
+
+    Args:
+        clazz (Type[T]): The type of the dependency to retrieve.
+
+    Returns:
+        Callable[[DependencyRegistry | None], T]: A function that retrieves the dependency.
+    """
+
+    def ret_dep(dependency_registry: DependencyRegistry | None = None) -> T:
+        if dependency_registry:
+            return dependency_registry.get(clazz)
+        else:
+            return DependencyRegistry.get(clazz)
+
+    return ret_dep

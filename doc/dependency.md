@@ -100,6 +100,43 @@ def get_db() -> Database:
 service = DependencyRegistry.get(MyService)
 ```
 
+### 5. Optional Dependencies
+
+The registry supports `Optional` dependencies (e.g., `Optional[MyService]` or `MyService | None`). If an optional dependency is not registered, the registry will inject `None` instead of raising an error.
+
+```python
+from typing import Optional
+
+class Logger:
+    pass
+
+class Service:
+    def __init__(self, logger: Optional[Logger] = None):
+        self.logger = logger
+
+@DependencyRegistry.register
+def get_service(logger: Optional[Logger]) -> Service:
+    # logger will be None if Logger is not registered
+    return Service(logger)
+```
+
+*Note: Complex Union types (e.g., `Union[ServiceA, ServiceB, None]`) are not supported and will raise a `TypeError`.*
+
+### 6. Integration with FastAPI (`get_dependency`)
+
+The `get_dependency` helper function creates a callable that retrieves a specific dependency from the registry. This is particularly useful for integrating with frameworks like FastAPI using `Depends`.
+
+```python
+from fastapi import APIRouter, Depends
+from ampf.dependency import get_dependency
+
+router = APIRouter()
+
+@router.get("/items")
+def read_items(service: MyService = Depends(get_dependency(MyService))):
+    return service.get_items()
+```
+
 ## API Reference
 
 ### `DependencyRegistry`
@@ -117,8 +154,14 @@ The main class for managing dependencies. All methods are `@classmethod`.
 | `add_all(obj)` | Adds an object and its dataclass fields to the registry. |
 | `clear()` | Clears all registered dependencies and cached instances. |
 
+### Helper Functions
+
+| Function | Description |
+| :--- | :--- |
+| `get_dependency(clazz)` | Returns a callable that retrieves the specified dependency type from the registry. Ideal for use with FastAPI's `Depends`. |
+
 ## Error Handling
 
 * **`ValueError`**: Raised if a registered function lacks a return type annotation or if a requested type is not registered.
-* **`TypeError`**: Raised if you attempt to use `get()` for a dependency that is defined as an asynchronous function.
+* **`TypeError`**: Raised if you attempt to use `get()` for a dependency that is defined as an asynchronous function, or if a complex `Union` type is used for a dependency.
 * **`RuntimeError`**: Raised when a circular dependency (e.g., A depends on B, B depends on A) is detected.
