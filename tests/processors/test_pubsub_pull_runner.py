@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory
 from ampf.base.base_async_storage import BaseAsyncStorage
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.gcp import GcpAsyncFactory
 from ampf.processors.pubsub_pull_runner import PubsubPullRunner
 from ampf.processors.task_model import TaskRunner
@@ -68,7 +69,7 @@ async def test_run_process_by_endpoint():
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app_state = AppState.create(config=AppConfig())
-        TaskRegistry.register_dependency(AppState)(lambda: app_state)
+        DependencyRegistry.add(app_state)
         app.state.app_state = app_state
         async with app_state.task_runner:
             yield
@@ -86,7 +87,7 @@ async def test_run_process_by_endpoint():
     # And: An application with endpoints POST and GET
     app = FastAPI(lifespan=lifespan)
 
-    @TaskRegistry.auto_register_dependency
+    @DependencyRegistry.register
     def get_storage(app_state: AppStateDep) -> BaseAsyncStorage[Task]:  # type: ignore
         return app_state.factory.create_storage("jobs", Task)
 
@@ -105,7 +106,7 @@ async def test_run_process_by_endpoint():
         return job
 
     with ApiTestClient(app) as client:
-        # When: Call POST endpoint
+        # When: Call POST endpoint with initial Task value
         task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
         # And: Wait for end of the process
         while task.status == "processing":

@@ -18,11 +18,6 @@ class ProcessorDefinition:
     params: dict[str, Type[Any]] = field(default_factory=dict)
 
 
-@dataclass
-class DependencyDefinition:
-    callable: SyncOrAsyncCallable
-    params: dict[str, Type[Any]] = field(default_factory=dict)
-
 
 class TaskRunner(ABC):
     @abstractmethod

@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_factory import BaseFactory
-from ampf.dependency import DependencyRegistry, get_dependency
+from ampf.dependency import DependencyRegistry
 from ampf.gcp.gcp_subscription_pull import GcpSubscriptionPull
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.in_memory.in_memory_factory import InMemoryFactory
@@ -50,7 +50,7 @@ def test_get_functional_dependency_async_err(registry: DependencyRegistry):
     registry.register(get_a)
     # When: Get dependency
     with pytest.raises(TypeError):
-        a = registry.get(A)
+        _ = registry.get(A)
     # Then: Error is raised
 
 
@@ -356,15 +356,15 @@ def test_get_dependency_function(registry: DependencyRegistry):
     registry.register_for_type(A)(get_a)
 
     # When: Create dependency getter
-    dep_getter = get_dependency(A)
+    dep_getter = registry.get_dependency(A)
 
     # And: Call getter with registry
-    a1 = dep_getter(registry)
+    a1 = dep_getter()
 
     # And: Call getter without registry (uses global DependencyRegistry)
     a2 = dep_getter()
 
     # Then: Dependencies are returned and are the same instance
-    assert a1.value == "A"
-    assert a2.value == "A"
+    assert a1.value == "A" # pyright: ignore[reportAttributeAccessIssue]
+    assert a2.value == "A" # pyright: ignore[reportAttributeAccessIssue]
     assert a1 is a2

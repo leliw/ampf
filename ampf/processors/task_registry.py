@@ -1,28 +1,31 @@
 import asyncio
 import inspect
 import logging
-from typing import Annotated, Any, Callable, Type, get_args, get_origin
+from typing import Annotated, Any, Type, get_args, get_origin
 
 from pydantic import BaseModel
 
-from ampf.processors.task_model import DependencyDefinition, ProcessorDefinition, SyncOrAsyncCallable
+from ampf.dependency.dependency_registry import DependencyRegistry
+from ampf.processors.task_model import ProcessorDefinition, SyncOrAsyncCallable
 
 _log = logging.getLogger(__name__)
 
 
 class TaskRegistry:
     _tasks: dict[str, ProcessorDefinition] = {}
-    _dependencies: dict[Type[Any], DependencyDefinition] = {}
 
     @classmethod
     def register(cls, processor_name: str, payload_type: Type[BaseModel] | None = None):
         def decorator(processor: SyncOrAsyncCallable):
             params = cls.get_parameters(processor)
-            for n, t in params.items():
-                if isinstance(t, type) and issubclass(t, BaseModel):
-                    payload_type = t
+            if not payload_type:
+                for n, t in params.items():
+                    if isinstance(t, type) and issubclass(t, BaseModel):
+                        payload_type_param = t
+            else:
+                payload_type_param = payload_type
             _log.debug(f"Registering processor: {processor_name}")
-            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type, params)
+            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type_param, params)
             return processor
 
         return decorator
@@ -44,27 +47,7 @@ class TaskRegistry:
         return params
 
     @classmethod
-    def register_dependency[T](cls, dependency_type: Type[T]) -> Callable[[SyncOrAsyncCallable], SyncOrAsyncCallable]:
-        def decorator(fn: SyncOrAsyncCallable) -> SyncOrAsyncCallable:
-            params = cls.get_parameters(fn)
-            cls._dependencies[dependency_type] = DependencyDefinition(fn, params)
-            return fn
-
-        return decorator
-
-    @classmethod
-    def auto_register_dependency[T](cls, fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
-        # Pobieramy typ zwracany z type hints
-        dependency_type = inspect.getfullargspec(fn).annotations.get("return")
-
-        if dependency_type is None or dependency_type is inspect.Parameter.empty:
-            raise ValueError(f"Function {fn.__name__} must have return type annotation")
-        params = cls.get_parameters(fn)
-        cls._dependencies[dependency_type] = DependencyDefinition(fn, params)
-        return fn
-
-    @classmethod
-    def get_dependency[T](cls, dependency_type: Type[T]) -> SyncOrAsyncCallable[T]:
+    def get_dependency[T](cls, dependency_type: Type[T]) -> T:
         """
         Retrieves an instance of a registered dependency.
 
@@ -77,10 +60,7 @@ class TaskRegistry:
         Raises:
             ValueError: If the dependency type is not registered.
         """
-        if dependency_type not in cls._dependencies:
-            raise ValueError(f"Dependency of type {dependency_type} is not registered in TaskRegistry.")
-        parameters = cls.get_call_parameters(cls._dependencies[dependency_type].params)
-        return cls._dependencies[dependency_type].callable(**parameters)  # type: ignore
+        return DependencyRegistry.get(dependency_type)
 
     @classmethod
     def get_task_parameters(cls, name: str, payload: BaseModel) -> dict[str, Any]:

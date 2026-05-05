@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
 from ampf.base.base_storage import BaseStorage
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.in_memory import InMemoryFactory
 from ampf.processors.background_runner import BackgroundRunner
 from ampf.processors.direct_runner import DirectRunner
@@ -43,16 +44,16 @@ async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
         payload.status = "done"
         storage.save(payload)
 
+    # And: A registered processor dependency
+    @DependencyRegistry.register
+    def get_storage() -> BaseStorage[Task]:
+        return InMemoryFactory().create_storage("jobs", Task)
+
     # And: A defined TaskRunner
     TaskRunnerDep = Annotated[TaskRunner, Depends(runner_type.create)]
     # And: An application with endpoints POST and GET
     app = FastAPI()
-
-    @TaskRegistry.auto_register_dependency
-    def get_storage() -> BaseStorage[Task]:
-        return InMemoryFactory().create_storage("jobs", Task)
-
-    storage = InMemoryFactory().create_storage("jobs", Task)
+    storage: BaseStorage[Task] = get_storage()  # pyright: ignore[reportAssignmentType]
 
     @app.post("/api/jobs", status_code=201)
     async def post(data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
@@ -67,6 +68,7 @@ async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
         return job
 
     client = ApiTestClient(app)
+
     # When: Call POST endpoint
     task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
     # And: Wait for end of the process

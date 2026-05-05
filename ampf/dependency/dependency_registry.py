@@ -1,9 +1,9 @@
 import inspect
 import logging
-from dataclasses import fields, is_dataclass
 import types
-from typing import Annotated, Any, Callable, Protocol, Type, get_args, get_origin, get_type_hints
 import typing
+from dataclasses import fields, is_dataclass
+from typing import Annotated, Any, Callable, Type, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel
 
@@ -246,7 +246,7 @@ class DependencyRegistry:
                 if is_optional:
                     parameters[param_name] = None
                     if actual_type in stack:
-                        stack.remove(actual_type)
+                        stack.discard(actual_type)
                 else:
                     raise
         return parameters
@@ -289,30 +289,37 @@ class DependencyRegistry:
                 if is_optional:
                     parameters[param_name] = None
                     if actual_type in stack:
-                        stack.remove(actual_type)
+                        stack.discard(actual_type)
                 else:
                     raise
         return parameters
 
-class GetDependency[T](Protocol):
-    def __call__(self, dependency_registry: DependencyRegistry | None = None) -> T:
-        ...
+    def get_dependency[T](self, clazz: Type[T]) -> SyncOrAsyncCallable[T]:
+        """Returns a function that retrieves a dependency of the specified type from the DependencyRegistry.
+
+        Args:
+            clazz (Type[T]): The type of the dependency to retrieve.
+        Returns:
+            A callable that returns an instance of the requested dependency when called.
+        """
+
+        def ret_dep() -> T:
+            return self.get(clazz)
+
+        return ret_dep
 
 
-def get_dependency[T](clazz: Type[T]) -> GetDependency[T]:
+def get_dependency[T](clazz: Type[T]) -> SyncOrAsyncCallable[T]:
     """Returns a function that retrieves a dependency of the specified type from the DependencyRegistry.
 
     Args:
         clazz (Type[T]): The type of the dependency to retrieve.
 
     Returns:
-        Callable[[DependencyRegistry | None], T]: A function that retrieves the dependency.
+        A callable that returns an instance of the requested dependency when called.
     """
 
-    def ret_dep(dependency_registry: DependencyRegistry | None = None) -> T:
-        if dependency_registry:
-            return dependency_registry.get(clazz)
-        else:
-            return DependencyRegistry.get(clazz)
+    def ret_dep() -> T:
+        return DependencyRegistry.get(clazz)
 
     return ret_dep
