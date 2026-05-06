@@ -12,10 +12,13 @@ from ampf.base import BaseAsyncFactory
 from ampf.base.base_async_storage import BaseAsyncStorage
 from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.gcp import GcpAsyncFactory
+from ampf.gcp.gcp_topic import GcpTopic
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.processors.background_runner import BackgroundRunner
 from ampf.processors.direct_runner import DirectRunner
 from ampf.processors.pubsub_pull_runner import PubsubPullRunner
+from ampf.processors.pubsub_push_runner import PubsubPushRunner
+from ampf.processors.pubsub_runner import PubsubRunner
 from ampf.processors.task_model import ManagedTaskRunner, TaskRunner
 from ampf.processors.task_registry import TaskRegistry
 from ampf.testing import ApiTestClient
@@ -42,9 +45,9 @@ class AppState:
 
     @classmethod
     def create(cls, config: AppConfig):
-        if config.task_runner_type == PubsubPullRunner:
-            factory = GcpAsyncFactory()  # Required by PubsubPullRunner
-            task_runner = PubsubPullRunner.create(factory, config)
+        if issubclass(config.task_runner_type, PubsubRunner):
+            factory = GcpAsyncFactory()  # Required by PubsubRunner
+            task_runner = config.task_runner_type.create(factory, config)
         else:
             factory = InMemoryAsyncFactory()
             task_runner = config.task_runner_type
@@ -75,7 +78,7 @@ class Task(BaseModel):
         return Task(id=uuid4(), status="processing", **value_create.model_dump())
 
 
-@pytest.fixture(params=[DirectRunner, BackgroundRunner, PubsubPullRunner])
+@pytest.fixture(params=[DirectRunner, BackgroundRunner, PubsubPullRunner, PubsubPushRunner])
 def app_config(request) -> AppConfig:
     return AppConfig(task_runner_type=request.param)
 
@@ -104,7 +107,7 @@ def app(app_config: AppConfig) -> FastAPI:
     # * if it is BackgroundRunner then it uses BackgroundTasks dependency
     # * otherwise just create from given class
     def get_task_runner(app_state: AppStateDep, background_tasks: BackgroundTasks) -> TaskRunner:  # type: ignore
-        if isinstance(app_state.task_runner, TaskRunner):
+        if isinstance(app_state.task_runner, ManagedTaskRunner):
             return app_state.task_runner
         elif app_state.task_runner == BackgroundRunner:
             return BackgroundRunner(background_tasks)
@@ -148,18 +151,31 @@ def app(app_config: AppConfig) -> FastAPI:
     return app
 
 
+@pytest.fixture
+def client(app: FastAPI) -> ApiTestClient:  # type: ignore
+    with ApiTestClient(app) as client:
+        if isinstance(app.state.app_state.task_runner, PubsubPushRunner):
+            # PubsubPush requires extra emulator for test
+            topic: GcpTopic = app.state.app_state.task_runner.get_topic("processor")
+            processor_endpoint = '/pub-sub/task-processors/processor'
+            subscription = topic.create_subscription(exist_ok=True)
+            subscription.clear()
+            with subscription.run_push_emulator(client, processor_endpoint):
+                yield client # type: ignore
+        else:
+            yield client # type: ignore
+
 @pytest.mark.timeout(10)
 @pytest.mark.asyncio
-async def test_run_process_by_endpoint(app: FastAPI):
+async def test_run_process_by_endpoint(client: ApiTestClient):
     # Given: An application with processor
-    with ApiTestClient(app) as client:
-        # When: Call POST endpoint with initial Task value
-        task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
-        # And: Wait for end of the process
-        while task.status == "processing":
-            await asyncio.sleep(0.1)
-            task = client.get_typed(f"/api/jobs/{task.id}", 200, Task)
-        # Then: Job is processed
-        assert task.status == "done"
-        assert task.name == "test"
-        assert task.value == 1
+    # When: Call POST endpoint with initial Task value
+    task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
+    # And: Wait for end of the process
+    while task.status == "processing":
+        await asyncio.sleep(0.1)
+        task = client.get_typed(f"/api/jobs/{task.id}", 200, Task)
+    # Then: Job is processed
+    assert task.status == "done"
+    assert task.name == "test"
+    assert task.value == 1
