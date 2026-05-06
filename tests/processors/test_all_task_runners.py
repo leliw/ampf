@@ -1,11 +1,11 @@
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Annotated, Literal, Type
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
-from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory
@@ -16,7 +16,7 @@ from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.processors.background_runner import BackgroundRunner
 from ampf.processors.direct_runner import DirectRunner
 from ampf.processors.pubsub_pull_runner import PubsubPullRunner
-from ampf.processors.task_model import TaskRunner
+from ampf.processors.task_model import ManagedTaskRunner, TaskRunner
 from ampf.processors.task_registry import TaskRegistry
 from ampf.testing import ApiTestClient
 
@@ -49,6 +49,14 @@ class AppState:
             factory = InMemoryAsyncFactory()
             task_runner = config.task_runner_type
         return cls(config=config, factory=factory, task_runner=task_runner)
+
+    @asynccontextmanager
+    async def manage_lifecycle(self, app: FastAPI):
+        if isinstance(self.task_runner, ManagedTaskRunner):
+            async with self.task_runner.manage_lifecycle(app):
+                yield self
+        else:
+            yield self
 
 
 class TaskCreate(BaseModel):
@@ -83,10 +91,7 @@ def app(app_config: AppConfig) -> FastAPI:
         app_state = AppState.create(config=app_config)
         DependencyRegistry.add(app_state)
         app.state.app_state = app_state
-        if isinstance(app_state.task_runner, PubsubPullRunner):
-            async with app_state.task_runner:
-                yield
-        else:
+        async with app_state.manage_lifecycle(app):
             yield
 
     def get_app_state(request: Request) -> AppState:

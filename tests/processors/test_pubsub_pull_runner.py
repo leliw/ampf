@@ -1,11 +1,11 @@
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import Depends, FastAPI, Request
-from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory
@@ -68,7 +68,7 @@ async def test_run_process_by_endpoint():
         app_state = AppState.create(config=AppConfig())
         DependencyRegistry.add(app_state)
         app.state.app_state = app_state
-        async with app_state.task_runner:
+        async with app_state.task_runner.manage_lifecycle(app):
             yield
 
     def get_app_state(request: Request) -> AppState:

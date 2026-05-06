@@ -1,8 +1,10 @@
+from contextlib import asynccontextmanager
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Type
 
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 type SyncOrAsyncCallable[T] = Callable[..., T] | Callable[..., Awaitable[T]]
@@ -18,7 +20,6 @@ class ProcessorDefinition:
     params: dict[str, Type[Any]] = field(default_factory=dict)
 
 
-
 class TaskRunner(ABC):
     @abstractmethod
     def run(self, name: str, payload: BaseModel):
@@ -29,5 +30,11 @@ class TaskRunner(ABC):
         pass
 
     @classmethod
-    def create(cls) -> "TaskRunner":
+    def create(cls, *args, **kwargs) -> "TaskRunner":
         raise NotImplementedError()
+
+
+class ManagedTaskRunner(TaskRunner):
+    @asynccontextmanager
+    async def manage_lifecycle(self, app: FastAPI):
+        yield self
