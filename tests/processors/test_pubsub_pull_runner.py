@@ -36,10 +36,8 @@ class Task(BaseModel):
 
 @pytest.mark.timeout(10)
 @pytest.mark.asyncio
-# @pytest.mark.parametrize("runner_type", [DirectRunner, BackgroundRunner])
-# async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
 async def test_run_process_by_endpoint():
-    # Given: A registerd processor
+    # Given: A registered processor
     @TaskRegistry.register("processor", Task)
     async def processor(storage: BaseAsyncStorage[Task], payload: Task) -> None:
         await asyncio.sleep(1)
@@ -61,7 +59,6 @@ async def test_run_process_by_endpoint():
 
         @classmethod
         def create(cls, config: AppConfig):
-            config = AppConfig()
             factory = GcpAsyncFactory()
             task_runner = PubsubPullRunner.create(factory, config)
             return cls(config=config, factory=factory, task_runner=task_runner)

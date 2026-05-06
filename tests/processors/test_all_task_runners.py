@@ -1,19 +1,54 @@
 import asyncio
+from dataclasses import dataclass
 from typing import Annotated, Literal, Type
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi.concurrency import asynccontextmanager
 from pydantic import BaseModel
 
-from ampf.base.base_storage import BaseStorage
+from ampf.base import BaseAsyncFactory
+from ampf.base.base_async_storage import BaseAsyncStorage
 from ampf.dependency.dependency_registry import DependencyRegistry
-from ampf.in_memory import InMemoryFactory
+from ampf.gcp import GcpAsyncFactory
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.processors.background_runner import BackgroundRunner
 from ampf.processors.direct_runner import DirectRunner
+from ampf.processors.pubsub_pull_runner import PubsubPullRunner
 from ampf.processors.task_model import TaskRunner
 from ampf.processors.task_registry import TaskRegistry
 from ampf.testing import ApiTestClient
+
+
+# AppConfig has properties:
+# * task_runner_type - which runner is used
+# * processor_topic, processor_subscription - for PubsubPullRunner - which topic and subscription are used.
+#   The prefix `processor` is the name of used processor
+class AppConfig(BaseModel):
+    task_runner_type: Type[TaskRunner] = DirectRunner
+
+    processor_topic: str = "processor"
+    processor_subscription: str = "processor-sub"
+
+
+# AppState has a property:
+# * task_runner - if TaskRunner is AsyncContextManager it is an object, otherwise it is a class
+@dataclass
+class AppState:
+    config: AppConfig
+    factory: BaseAsyncFactory
+    task_runner: TaskRunner | Type[TaskRunner]
+
+    @classmethod
+    def create(cls, config: AppConfig):
+        if config.task_runner_type == PubsubPullRunner:
+            factory = GcpAsyncFactory()  # Required by PubsubPullRunner
+            task_runner = PubsubPullRunner.create(factory, config)
+        else:
+            factory = InMemoryAsyncFactory()
+            task_runner = config.task_runner_type
+        return cls(config=config, factory=factory, task_runner=task_runner)
 
 
 class TaskCreate(BaseModel):
@@ -32,50 +67,94 @@ class Task(BaseModel):
         return Task(id=uuid4(), status="processing", **value_create.model_dump())
 
 
-@pytest.mark.timeout(10)
-@pytest.mark.asyncio
-@pytest.mark.parametrize("runner_type", [DirectRunner, BackgroundRunner])
-async def test_run_process_by_endpoint(runner_type: Type[TaskRunner]):
-    # Given: A registerd processor
-    @TaskRegistry.register("processor")
-    async def processor(storage: BaseStorage[Task], payload: Task) -> None:
+@pytest.fixture(params=[DirectRunner, BackgroundRunner, PubsubPullRunner])
+def app_config(request) -> AppConfig:
+    return AppConfig(task_runner_type=request.param)
+
+
+@pytest.fixture
+def app(app_config: AppConfig) -> FastAPI:
+
+    DependencyRegistry.clear()
+
+    # Lifespan has to start TaskRunner if it is an object
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app_state = AppState.create(config=app_config)
+        DependencyRegistry.add(app_state)
+        app.state.app_state = app_state
+        if isinstance(app_state.task_runner, PubsubPullRunner):
+            async with app_state.task_runner:
+                yield
+        else:
+            yield
+
+    def get_app_state(request: Request) -> AppState:
+        return request.app.state.app_state
+
+    AppStateDep = Annotated[AppState, Depends(get_app_state)]
+
+    # TaskRunner FastAPI dependency provides an object to run task
+    # * it can be got from AppState if it is an object
+    # * if it is BackgroundRunner then it uses BackgroundTasks dependency
+    # * otherwise just create from given class
+    def get_task_runner(app_state: AppStateDep, background_tasks: BackgroundTasks) -> TaskRunner:  # type: ignore
+        if isinstance(app_state.task_runner, TaskRunner):
+            return app_state.task_runner
+        elif app_state.task_runner == BackgroundRunner:
+            return BackgroundRunner(background_tasks)
+        else:
+            return app_state.task_runner.create()
+
+    TaskRunnerDep = Annotated[TaskRunner, Depends(get_task_runner)]
+
+    # Register non FastAPI dependency used by processor
+    @DependencyRegistry.register
+    def get_storage(app_state: AppStateDep) -> BaseAsyncStorage[Task]:  # type: ignore
+        return app_state.factory.create_storage("jobs", Task)
+
+    StorageTaskDep = Annotated[BaseAsyncStorage[Task], Depends(get_storage)]
+
+    # Register processor of name `processor`
+    # Allowed parameters:
+    # * Non FastApi dependencies
+    # * payload inheriting Pydantic BaseModel
+    @TaskRegistry.register("processor", Task)
+    async def processor(storage: BaseAsyncStorage[Task], payload: Task) -> None:
         await asyncio.sleep(1)
         payload.value = (payload.value or 0) + 1
         payload.status = "done"
-        storage.save(payload)
+        await storage.save(payload)
 
-    # And: A registered processor dependency
-    @DependencyRegistry.register
-    def get_storage() -> BaseStorage[Task]:
-        return InMemoryFactory().create_storage("jobs", Task)
-
-    # And: A defined TaskRunner
-    TaskRunnerDep = Annotated[TaskRunner, Depends(runner_type.create)]
-    # And: An application with endpoints POST and GET
-    app = FastAPI()
-    storage: BaseStorage[Task] = get_storage()  # pyright: ignore[reportAssignmentType]
+    app = FastAPI(lifespan=lifespan)
 
     @app.post("/api/jobs", status_code=201)
-    async def post(data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
+    async def post(storage: StorageTaskDep, data: TaskCreate, task_runner: TaskRunnerDep) -> Task:  # type: ignore
         task = Task.create(data)
-        storage.create(task)
+        await storage.create(task)
         await task_runner.run_async("processor", task)  # <--- Runs processor in background
         return task
 
     @app.get("/api/jobs/{id}")
-    async def get(id: UUID) -> Task:
-        job = storage.get(id)
+    async def get(storage: StorageTaskDep, id: UUID) -> Task:  # type: ignore
+        job = await storage.get(id)
         return job
 
-    client = ApiTestClient(app)
+    return app
 
-    # When: Call POST endpoint
-    task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
-    # And: Wait for end of the process
-    while task.status == "processing":
-        await asyncio.sleep(0.1)
-        task = client.get_typed(f"/api/jobs/{task.id}", 200, Task)
-    # Then: Job is processed
-    assert task.status == "done"
-    assert task.name == "test"
-    assert task.value == 1
+
+@pytest.mark.timeout(10)
+@pytest.mark.asyncio
+async def test_run_process_by_endpoint(app: FastAPI):
+    # Given: An application with processor
+    with ApiTestClient(app) as client:
+        # When: Call POST endpoint with initial Task value
+        task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))
+        # And: Wait for end of the process
+        while task.status == "processing":
+            await asyncio.sleep(0.1)
+            task = client.get_typed(f"/api/jobs/{task.id}", 200, Task)
+        # Then: Job is processed
+        assert task.status == "done"
+        assert task.name == "test"
+        assert task.value == 1
