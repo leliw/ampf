@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Annotated, Literal, Type
 from uuid import UUID, uuid4
 
@@ -25,15 +26,29 @@ from ampf.testing import ApiTestClient
 
 
 # AppConfig has properties:
-# * task_runner_type - which runner is used
+# * task_runner - which runner is used (as string) - Direct, Background, PubsubPull, PubsubPush
+# * task_runner_type - which runner class is used, it is derived from task_runner string
 # * processor_topic, processor_subscription - for PubsubPullRunner - which topic and subscription are used.
 #   The prefix `processor` is the name of used processor
 class AppConfig(BaseModel):
-    task_runner_type: Type[TaskRunner] = DirectRunner
+    task_runner: Literal["Direct", "Background", "PubsubPull", "PubsubPush"]
 
     processor_topic: str = "processor"
     processor_subscription: str = "processor-sub"
 
+    @cached_property
+    def task_runner_type(self) -> Type[TaskRunner]:
+        match self.task_runner:
+            case "Direct":
+                return DirectRunner
+            case "Background":
+                return BackgroundRunner
+            case "PubsubPush":
+                return PubsubPushRunner
+            case "PubsubPull":
+                return PubsubPullRunner
+            case _:
+                raise ValueError(f"Unknown task runner type: {self.task_runner}")
 
 # AppState has a property:
 # * task_runner - if TaskRunner is AsyncContextManager it is an object, otherwise it is a class
@@ -78,9 +93,9 @@ class Task(BaseModel):
         return Task(id=uuid4(), status="processing", **value_create.model_dump())
 
 
-@pytest.fixture(params=[DirectRunner, BackgroundRunner, PubsubPullRunner, PubsubPushRunner])
+@pytest.fixture(params=["Direct", "Background", "PubsubPull", "PubsubPush"])
 def app_config(request) -> AppConfig:
-    return AppConfig(task_runner_type=request.param)
+    return AppConfig(task_runner=request.param)
 
 
 @pytest.fixture
