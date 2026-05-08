@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 
 from ampf.gcp import gcp_pubsub_push_handler
-from ampf.processors.pubsub_runner import PubsubRunner
-from ampf.processors.task_registry import TaskRegistry
+
+from .pubsub_runner import PubsubRunner
+from .task_registry import TaskRegistry
 
 _log = logging.getLogger(__name__)
 

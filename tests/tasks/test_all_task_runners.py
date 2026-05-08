@@ -15,14 +15,12 @@ from ampf.dependency.dependency_registry import DependencyRegistry, get_dependen
 from ampf.gcp import GcpAsyncFactory
 from ampf.gcp.gcp_topic import GcpTopic
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
-from ampf.processors.background_runner import BackgroundRunner
-from ampf.processors.base_task import BaseTask, TaskStatus
-from ampf.processors.direct_runner import DirectRunner
-from ampf.processors.pubsub_pull_runner import PubsubPullRunner
-from ampf.processors.pubsub_push_runner import PubsubPushRunner
-from ampf.processors.pubsub_runner import PubsubRunner
-from ampf.processors.task_model import ManagedTaskRunner, TaskRunner
-from ampf.processors.task_registry import TaskRegistry
+from ampf.tasks.background_runner import BackgroundRunner
+from ampf.tasks.direct_runner import DirectRunner
+from ampf.tasks.pubsub_pull_runner import PubsubPullRunner
+from ampf.tasks.pubsub_push_runner import PubsubPushRunner
+from ampf.tasks.pubsub_runner import PubsubRunner
+from ampf.tasks import BaseTask, TaskStatus, ManagedTaskRunner, TaskRunner, TaskRegistry
 from ampf.testing import ApiTestClient
 
 ### Models ###

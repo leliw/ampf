@@ -6,7 +6,8 @@ from typing import Annotated, Any, Type, get_args, get_origin
 from pydantic import BaseModel
 
 from ampf.dependency.dependency_registry import DependencyRegistry
-from ampf.processors.task_model import ProcessorDefinition, SyncOrAsyncCallable
+
+from .task_model import ProcessorDefinition, SyncOrAsyncCallable
 
 _log = logging.getLogger(__name__)
 

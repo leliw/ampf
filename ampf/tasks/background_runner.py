@@ -3,9 +3,8 @@ from typing import override
 from fastapi import BackgroundTasks
 from pydantic import BaseModel
 
-from ampf.processors.task_registry import TaskRegistry
-
 from .task_model import TaskRunner
+from .task_registry import TaskRegistry
 
 
 class BackgroundRunner(TaskRunner):

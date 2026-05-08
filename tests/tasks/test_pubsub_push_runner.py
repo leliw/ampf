@@ -1,8 +1,8 @@
 import asyncio
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
 import json
 import logging
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
@@ -15,14 +15,14 @@ from ampf.base.base_async_storage import BaseAsyncStorage
 from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.gcp import GcpAsyncFactory
 from ampf.gcp.gcp_topic import GcpTopic
-from ampf.processors.pubsub_push_runner import PubsubPushRunner
-from ampf.processors.task_model import TaskRunner
-from ampf.processors.task_registry import TaskRegistry
+from ampf.tasks import TaskRegistry, TaskRunner
+from ampf.tasks.pubsub_push_runner import PubsubPushRunner
 from ampf.testing import ApiTestClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 _log = logging.getLogger()
 _log.setLevel(logging.DEBUG)
+
 
 class TaskCreate(BaseModel):
     name: str | None = None
@@ -38,8 +38,6 @@ class Task(BaseModel):
     @classmethod
     def create(cls, value_create: TaskCreate) -> "Task":
         return Task(id=uuid4(), status="processing", **value_create.model_dump())
-
-
 
 
 @pytest.mark.timeout(10)
@@ -83,7 +81,7 @@ async def test_run_process_by_endpoint():
 
     AppStateDep = Annotated[AppState, Depends(get_app_state)]
 
-    def get_task_runner(app_state: AppStateDep) -> TaskRunner:   # pyright: ignore[reportInvalidTypeForm]
+    def get_task_runner(app_state: AppStateDep) -> TaskRunner:  # pyright: ignore[reportInvalidTypeForm]
         return app_state.task_runner
 
     # And: A defined TaskRunnerDep
@@ -92,7 +90,7 @@ async def test_run_process_by_endpoint():
     app = FastAPI(lifespan=lifespan)
 
     @DependencyRegistry.register
-    def get_storage(app_state: AppStateDep) -> BaseAsyncStorage[Task]:   # pyright: ignore[reportInvalidTypeForm]
+    def get_storage(app_state: AppStateDep) -> BaseAsyncStorage[Task]:  # pyright: ignore[reportInvalidTypeForm]
         return app_state.factory.create_storage("jobs", Task)
 
     StorageTaskDep = Annotated[BaseAsyncStorage[Task], Depends(get_storage)]
@@ -113,10 +111,10 @@ async def test_run_process_by_endpoint():
         topic: GcpTopic = app.state.app_state.task_runner.get_topic("processor")
         subscription = topic.create_subscription(exist_ok=True)
         subscription.clear()
-        processor_endpoint = '/pub-sub/task-processors/processor'
+        processor_endpoint = "/pub-sub/task-processors/processor"
         response = client.get("/openapi.json", 200)
         open_api = json.loads(response.text)
-        assert processor_endpoint in open_api['paths']
+        assert processor_endpoint in open_api["paths"]
         with subscription.run_push_emulator(client, processor_endpoint):
             # When: Call POST endpoint with initial Task value
             task = client.post_typed("/api/jobs", 201, Task, json=TaskCreate(name="test"))

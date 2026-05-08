@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ampf.gcp import GcpSubscriptionPull, SubscriptionProcessor
-from ampf.processors.task_registry import TaskRegistry
 
 from .pubsub_runner import PubsubRunner
+from .task_registry import TaskRegistry
 
 _log = logging.getLogger(__name__)
 
