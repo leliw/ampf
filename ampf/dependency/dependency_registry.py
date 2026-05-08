@@ -29,6 +29,14 @@ class DependencyRegistry:
         cls._objects = {}
 
     @classmethod
+    def clear_objects(cls) -> None:
+        """
+        Clears all cached object instances.
+        """
+        cls._objects = {}
+        _log.debug("All objects cleared in registry")
+
+    @classmethod
     def add(cls, instance: Any, instance_type: Type[Any] | None = None) -> None:
         """
         Manually adds an object instance to the registry.
@@ -54,9 +62,9 @@ class DependencyRegistry:
                 declared_type = field.type
                 value = getattr(instance, field.name)
                 if (
-                    declared_type.__module__ != "builtins"
-                    and not isinstance(value, type)
+                    not isinstance(value, type)
                     and isinstance(declared_type, type)
+                    and declared_type.__module__ != "builtins"
                 ):
                     cls.add(value, declared_type)
 
@@ -135,10 +143,10 @@ class DependencyRegistry:
         sig = inspect.signature(func)
         params = {}
         for name, param in sig.parameters.items():
-            if name == "self":
+            if name in ["cls", "self"]:
                 continue
-            if param.annotation is inspect._empty:
-                raise TypeError(f"Parameter '{name}' in {func.__name__} must have a type annotation")
+            if param.annotation is inspect.Parameter.empty:
+                raise TypeError(f"Parameter '{name}' in {getattr(func, "__name__", str(func))} must have a type annotation")
             if get_origin(param.annotation) is Annotated:
                 param_type = get_args(param.annotation)[0]
             else:
