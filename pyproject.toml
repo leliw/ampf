@@ -75,6 +75,7 @@ dev = [
     "python-multipart>=0.0.20",
     "sentence-transformers>=4.1.0",
     "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.4.0",
 ]
 
 [[tool.uv.index]]

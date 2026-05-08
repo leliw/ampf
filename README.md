@@ -1,20 +1,22 @@
 # AMPF - Angular + Material + Python + FastAPI
 
-![Python](https://img.shields.io/badge/python-3.12-blue)
+![Python](https://img.shields.io/badge/python-3.13-blue)
 
 Set of helper classes:
 
-* [Base] - package with base classes (mostly abstract)
-  * [BaseAsyncFactory](doc/base_async_factory.md) - base class for factory implementations which create other **asynchrous** objects.
+* Base - package with base classes (mostly abstract)
+  * [BaseAsyncFactory](doc/base_async_factory.md) - base class for factory implementations which create other **asynchronous** objects.
   * [BaseStorage](doc/base_storage.md) - base class for storage implementations which store Pydantic objects.
-  * [BaseAsyncStorage](doc/base_async_storage_upgrade.md) - base class for asynchrous storage implementations which store Pydantic objects.
+  * [BaseAsyncStorage](doc/base_async_storage_upgrade.md) - base class for asynchronous storage implementations which store Pydantic objects.
   * [Blob Model](doc/blob_model.md) - blob classes
   * [BaseBlobStorage](doc/base_blob_storage.md) - base class for storage implementations which store binary objects (blobs).
   * [BaseFactory](doc/base_factory.md) - base class for factory implementations which create other objects.
-  * [BaseQueryStorage](doc/base__query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
-  * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** patern.
+  * [BaseQueryStorage](doc/base_query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
+  * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** pattern.
   * [SubscriptionProcessor](doc/base_subscription_processor.md) - base class for processing messages from a subscription.
-* FastAPI - helper classes for FatAPI framework
+* [Dependency](doc/dependency.md) - simple dependency registry for managing dependencies in your application.
+* [Tasks](doc/tasks.md) - helper for running background tasks
+* FastAPI - helper classes for FastAPI framework
   * [StaticFileResponse](doc/fastapi/static_file_response.md) - return static files or index.html (Angular files)
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
@@ -45,7 +47,7 @@ source ./build.sh
 pip install ampf
 ```
 
-Optionall dependecies:
+Optional dependencies:
 
 ```bash
 pip install ampf[fastapi]
