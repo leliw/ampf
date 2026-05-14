@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from typing import (
-    Annotated,
     Any,
     AsyncGenerator,
     AsyncIterable,
@@ -18,16 +17,13 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    Union,
-    get_args,
-    get_origin,
 )
 
 from pydantic import BaseModel
 
 from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_storage import BaseStorage
-from ampf.base.versioned_base_model import VersionedBaseModel
+from ampf.base.versioned_base_model import VersionedBaseModel, resolve_versioned_class
 
 from .exceptions import KeyExistsException, KeyNotExistsException
 
@@ -71,7 +67,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
         """Delete the value with the key"""
 
     async def create(self, value: T) -> None:
-        """Adds to collection a new element but only if such key doesn't already exists"""
+        """Adds to collection a new element but only if such key doesn't already exist"""
         key = self.get_key(value)
         if await self.key_exists(key):
             raise KeyExistsException
@@ -171,7 +167,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             return data.model_dump(by_alias=True, exclude_none=True)
 
     def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
-        real_cls = self.resolve_versioned_class(data)
+        real_cls = resolve_versioned_class(self.clazz, data)
         _log.debug("Real class: %s", real_cls.__name__ if real_cls else "None")
         if issubclass(real_cls, VersionedBaseModel):
             ret = real_cls.from_storage(data)
@@ -187,36 +183,3 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             return ret
         return real_cls.model_validate(data)
 
-    def resolve_versioned_class(self, data: Dict[str, Any]) -> Type[T]:
-        origin = get_origin(self.clazz)
-
-        # unwrap Annotated
-        if origin is Annotated:
-            base_type, *metadata = get_args(self.clazz)
-
-            discriminator = None
-            for m in metadata:
-                if hasattr(m, "discriminator"):
-                    discriminator = m.discriminator
-                    break
-        else:
-            base_type = self.clazz
-            discriminator = None
-
-        if get_origin(base_type) is not Union:
-            return base_type
-
-        if not discriminator:
-            raise ValueError("Discriminator not defined")
-
-        discriminator_value = data.get(discriminator)
-        if discriminator_value is None:
-            raise ValueError(f"Missing discriminator field '{discriminator}'")
-
-        for cls in get_args(base_type):
-            field = cls.model_fields.get(discriminator)
-            if field and get_origin(field.annotation) is Literal:
-                if discriminator_value in get_args(field.annotation):
-                    return cls
-
-        raise ValueError("No matching class found")

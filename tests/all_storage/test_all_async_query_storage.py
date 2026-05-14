@@ -81,13 +81,14 @@ async def test_query(storage: BaseAsyncQueryStorage):
 
 @pytest.mark.asyncio
 async def test_query_uuid(storage_uuid: BaseAsyncQueryStorage):
-    # Given: A stred element with UUID filed
+    # Given: A stored element with UUID field
     d = Duuid(name="foo", value="beer")
     await storage_uuid.create(d)
     # When: Filter by UUID
     ret = [item async for item in storage_uuid.where("uuid", "==", d.uuid).get_all()]
     # Then: The element is returned
     assert len(ret) == 1
+
 
 @pytest.mark.asyncio
 async def test_query_array_contains_any(storage: BaseAsyncQueryStorage):
@@ -101,3 +102,20 @@ async def test_query_array_contains_any(storage: BaseAsyncQueryStorage):
 
     result = [item async for item in storage.where("tags", "array_contains_any", ["tag5"]).get_all()]
     assert len(result) == 0
+
+
+@pytest.mark.asyncio
+async def test_query_equal_and_array_contains_any(storage: BaseAsyncQueryStorage):
+    # Test two subsequent wheres
+    await storage.save(D(name="d1", value="v1", tags=["tag1", "tag2"]))
+    await storage.save(D(name="d2", value="v2", tags=["tag2", "tag3"]))
+    await storage.save(D(name="d3", value="v3", tags=["tag4"]))
+
+    result = [
+        item
+        async for item in storage.where("value", "==", "v1")
+        .where("tags", "array_contains_any", ["tag1", "tag4"])
+        .get_all()
+    ]
+    assert len(result) == 1
+    assert {r.name for r in result} == {"d1"}

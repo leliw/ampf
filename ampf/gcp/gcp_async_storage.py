@@ -12,7 +12,7 @@ from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
 from ampf.base.exceptions import KeyExistsException
-from ampf.base.versioned_base_model import VersionedBaseModel
+from ampf.base.versioned_base_model import VersionedBaseModel, resolve_versioned_class
 
 from .gcp_storage import convert_uuids
 
@@ -42,7 +42,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
         return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
-        """Finds the nearest knowledge base items to the given vector."
+        """Finds the nearest knowledge base items to the given vector.
 
         Args:
             embedding: The vector to search for.
@@ -83,6 +83,12 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
             if isinstance(ret, Coroutine):
                 ret = await ret
             yield ret
+
+    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+        real_cls = resolve_versioned_class(self.clazz, data)
+        if issubclass(real_cls, VersionedBaseModel):
+            return real_cls.from_storage(data)
+        return real_cls.model_validate(data)
 
 
 class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T]):
@@ -218,7 +224,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
                 yield ret
 
     async def create(self, value: T) -> None:
-        """Adds to collection a new element but only if such key doesn't already exists"""
+        """Adds to collection a new element but only if such key doesn't already exist"""
         key = self.get_key(value)
 
         @firestore.async_transactional
@@ -236,7 +242,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
             await create_in_transaction(transaction)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
-        """Finds the nearest knowledge base items to the given vector."
+        """Finds the nearest knowledge base items to the given vector.
 
         Args:
             embedding: The vector to search for.
