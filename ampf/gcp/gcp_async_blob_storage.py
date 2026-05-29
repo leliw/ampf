@@ -3,6 +3,8 @@ import logging
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
 import aiohttp
+import google.auth.exceptions
+import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
 
@@ -31,6 +33,9 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         self.clazz: Type[T] = clazz
         self.max_retries_per_transaction = 5
 
+        self._creds, _ = google.auth.default()
+        self._auth_request = google.auth.transport.requests.Request()
+
     def _get_signed_url(
         self,
         name: str,
@@ -53,6 +58,14 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         Returns:
             The signed URL.
         """
+        if not self._creds.valid:
+            try:
+                self._creds.refresh(self._auth_request)
+            except google.auth.exceptions.RefreshError:
+                _log.error("Failed to refresh GCP credentials")
+        service_account_email = getattr(self._creds, "service_account_email", None)
+        access_token = self._creds.token
+
         blob = self._get_blob(name)
         signed_url = blob.generate_signed_url(
             version="v4",
@@ -61,6 +74,8 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             content_type=content_type,
             headers=headers,
             query_parameters=query_parameters,
+            service_account_email=service_account_email,
+            access_token=access_token,
         )
         return signed_url
 
