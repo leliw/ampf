@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 
 import httpx
 
@@ -17,9 +16,10 @@ class BaseService:
     def __init__(
         self,
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: int = 60,
-        token_manager: Optional[MultiServiceTokenManager] = None,
+        token_manager: MultiServiceTokenManager | None = None,
+        httpx_async_client: httpx.AsyncClient | None = None,
     ):
         """
         Initializes the BaseService with common configuration for API interactions.
@@ -32,11 +32,15 @@ class BaseService:
             token_manager: An optional MultiServiceTokenManager instance for
                            managing authentication tokens. If None, a new instance
                            will be created.
+            httpx_async_client: An optional httpx.AsyncClient instance for making
+                                asynchronous HTTP requests. If None, a new instance
+                                will be created.
         """
         self.base_url = base_url
         self.api_key = api_key
         self.timeout = timeout
         self.token_manager = token_manager
+        self._httpx_async_client = httpx_async_client or httpx.AsyncClient()
 
     def _get_headers(self) -> dict:
         """
@@ -76,7 +80,6 @@ class BaseService:
             return {"Authorization": f"Bearer {token}"}
         return {}
 
-
     async def ping(self) -> None:
         """
         Pings the service's health endpoint to check its availability.
@@ -89,22 +92,27 @@ class BaseService:
         headers = await self._get_headers_async()
         timeout = httpx.Timeout(timeout=3.0, connect=1.0, read=2.0)
         _log.debug("Pinging service at %s", self.base_url)
-        async with httpx.AsyncClient() as client:
-            max_retries = 10
-            for attempt in range(max_retries):
-                try:
-                    _log.debug("Attempt %d to ping...", attempt + 1)
-                    wait = 5 * (attempt + 1)
-                    await client.get(url=f"{self.base_url}/api/ping", headers=headers, timeout=timeout)
-                    break
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code >= 500:
-                        _log.debug("Retry %d after %ds...", attempt + 1, wait)
-                        await asyncio.sleep(wait)
-                        continue
-                except httpx.RequestError:
-                    if attempt == max_retries - 1:
-                        _log.debug("Final ping attempt failed.")
-                        raise TimeoutError("Ping to knowledge base service timed out.")
+        max_retries = 10
+        for attempt in range(max_retries):
+            wait = 5 * (attempt + 1)
+            try:
+                _log.debug("Attempt %d to ping...", attempt + 1)
+                response = await self._httpx_async_client.get(
+                    url=f"{self.base_url}/api/ping", headers=headers, timeout=timeout
+                )
+                response.raise_for_status()
+                _log.debug(f"Ping to {self.base_url} successful.")
+                break
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code >= 500:
                     _log.debug("Retry %d after %ds...", attempt + 1, wait)
                     await asyncio.sleep(wait)
+                    continue
+                if e.response.status_code >= 400:
+                    raise e
+            except httpx.RequestError:
+                if attempt == max_retries - 1:
+                    _log.debug("Final ping attempt failed.")
+                    raise TimeoutError(f"Service at {self.base_url} timed out.")
+                _log.debug("Retry %d after %ds...", attempt + 1, wait)
+                await asyncio.sleep(wait)
