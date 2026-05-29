@@ -2,6 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
+import httpx
 import pytest
 import pytest_asyncio
 
@@ -21,6 +22,12 @@ class MyMetadata(BaseBlobMetadata):
     age: int
 
 
+@pytest_asyncio.fixture
+async def httpx_async_client():
+    async with httpx.AsyncClient() as client:
+        yield client
+
+
 @pytest.fixture
 def temp_storage_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -28,12 +35,16 @@ def temp_storage_dir():
 
 
 @pytest_asyncio.fixture(params=[InMemoryAsyncBlobStorage, LocalAsyncBlobStorage, GcpAsyncBlobStorage])
-async def storage(gcp_factory, request, temp_storage_dir):
+async def storage(gcp_factory, request, temp_storage_dir, httpx_async_client):
     if request.param == LocalAsyncBlobStorage:
         storage = request.param(temp_storage_dir, MyMetadata, content_type="text/plain")
     elif request.param == GcpAsyncBlobStorage:
         storage = request.param(
-            "unit-tests-001", collection_name="test_all_async_blob_storage", clazz=MyMetadata, content_type="text/plain"
+            "unit-tests-001",
+            collection_name="test_all_async_blob_storage",
+            clazz=MyMetadata,
+            content_type="text/plain",
+            httpx_async_client=httpx_async_client,
         )
     else:
         storage = request.param(
@@ -118,6 +129,7 @@ async def test_get_metadata(storage: BaseAsyncBlobStorage):
     assert retrieved_metadata
     assert retrieved_metadata.name == blob.metadata.name
     assert retrieved_metadata.age == blob.metadata.age
+
 
 @pytest.mark.asyncio
 async def test_get_nonexistent_metadata(storage: BaseAsyncBlobStorage):

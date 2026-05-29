@@ -1,6 +1,7 @@
 from typing import Callable, Optional, Type, override
 
 from google.cloud import firestore, storage
+import httpx
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
@@ -12,11 +13,17 @@ from .gcp_base_factory import GcpBaseFactory
 
 
 class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
-    def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
+    def __init__(
+        self,
+        root_storage: str | None = None,
+        bucket_name: str | None = None,
+        httpx_async_client: httpx.AsyncClient | None = None,
+    ):
         super().__init__(root_storage, bucket_name)
         BaseAsyncFactory.__init__(self)
         self._async_db = firestore.AsyncClient()
         self._storage_client = storage.Client()
+        self._httpx_async_client = httpx_async_client
 
     @override
     def get_project_id(self) -> str:
@@ -51,6 +58,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
             clazz=clazz,
             content_type=content_type,
             storage_client=self._storage_client,
+            httpx_async_client=self._httpx_async_client,
         )
 
     def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:

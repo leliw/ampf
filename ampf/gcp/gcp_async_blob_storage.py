@@ -2,11 +2,11 @@ import asyncio
 import logging
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
-import aiohttp
 import google.auth.exceptions
 import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
+import httpx
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
@@ -23,20 +23,22 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
     def __init__(
         self,
         bucket_name: str,
-        collection_name: Optional[str] = None,
+        collection_name: str | None = None,
         clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
-        storage_client: Optional[storage.Client] = None,
+        storage_client: storage.Client | None = None,
+        httpx_async_client: httpx.AsyncClient | None = None,
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
         self.clazz: Type[T] = clazz
+        self._httpx_async_client = httpx_async_client or httpx.AsyncClient()
         self.max_retries_per_transaction = 5
 
         self._creds, _ = google.auth.default()
         self._auth_request = google.auth.transport.requests.Request()
 
-    def _get_signed_url(
+    async def _get_signed_url(
         self,
         name: str,
         method: str,
@@ -60,7 +62,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         """
         if not self._creds.valid:
             try:
-                self._creds.refresh(self._auth_request)
+                await asyncio.to_thread(self._creds.refresh, self._auth_request)
             except google.auth.exceptions.RefreshError:
                 _log.error("Failed to refresh GCP credentials")
         service_account_email = getattr(self._creds, "service_account_email", None)
@@ -87,10 +89,9 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             blob: The blob object containing data and metadata to upload.
         """
         headers = self._prepare_metadata_headers(blob.metadata)
-        signed_url = self._get_signed_url(blob.name, "PUT", headers=headers)
-        async with aiohttp.ClientSession() as session:
-            async with session.put(signed_url, data=blob.stream(), headers=headers) as response:
-                response.raise_for_status()
+        signed_url = await self._get_signed_url(blob.name, "PUT", headers=headers)
+        response = await self._httpx_async_client.put(signed_url, content=blob.stream(), headers=headers)
+        response.raise_for_status()
 
     @override
     async def download_async(self, name: str) -> Blob[T]:
@@ -102,15 +103,13 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         Returns:
             The downloaded blob object.
         """
-        signed_url = self._get_signed_url(name, "GET")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(signed_url) as response:
-                if response.status == 404:
-                    raise KeyNotExistsException(self.collection_name, self.clazz, name)
-                response.raise_for_status()
-                content = await response.read()
-                metadata = self._parse_metadata(response)
-                return Blob[T](name=name, content=content, metadata=metadata)
+        signed_url = await self._get_signed_url(name, "GET")
+        response = await self._httpx_async_client.get(signed_url)
+        if response.status_code == 404:
+            raise KeyNotExistsException(self.collection_name, self.clazz, name)
+        response.raise_for_status()
+        metadata = self._parse_metadata(response)
+        return Blob[T](name=name, content=response.content, metadata=metadata)
 
     @override
     async def delete_async(self, name: str) -> None:
@@ -119,12 +118,11 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         Args:
             name: The name of the blob to delete.
         """
-        signed_url = self._get_signed_url(name, "DELETE")
-        async with aiohttp.ClientSession() as session:
-            async with session.delete(signed_url) as response:
-                if response.status == 404:
-                    raise KeyNotExistsException(self.collection_name, self.clazz, name)
-                response.raise_for_status()
+        signed_url = await self._get_signed_url(name, "DELETE")
+        response = await self._httpx_async_client.delete(signed_url)
+        if response.status_code == 404:
+            raise KeyNotExistsException(self.collection_name, self.clazz, name)
+        response.raise_for_status()
 
     @override
     async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
@@ -185,14 +183,13 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 query_parameters = {"ifGenerationMatch": str(generation_to_match)}
                 # According to documentation it should be query parameter but header works !!!
                 headers["x-goog-if-generation-match"] = str(generation_to_match)
-                signed_url = self._get_signed_url(
+                signed_url = await self._get_signed_url(
                     new_blob.name, "PUT", headers=headers, query_parameters=query_parameters
                 )
-                async with aiohttp.ClientSession() as session:
-                    async with session.put(signed_url, data=new_blob.stream(), headers=headers) as response:
-                        if response.status == 412:
-                            raise exceptions.PreconditionFailed(response.reason)
-                        response.raise_for_status()
+                response = await self._httpx_async_client.put(signed_url, content=new_blob.stream(), headers=headers)
+                if response.status_code == 412:
+                    raise exceptions.PreconditionFailed(response.reason_phrase)
+                response.raise_for_status()
 
                 return  # Success
 
@@ -224,15 +221,14 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         Returns:
             The metadata of the blob.
         """
-        signed_url = self._get_signed_url(name, "GET")
-        async with aiohttp.ClientSession() as session:
-            async with session.head(signed_url) as response:
-                if response.status == 404:
-                    raise KeyNotExistsException(self.collection_name, self.clazz, name)
-                response.raise_for_status()
-                return self._parse_metadata(response)
+        signed_url = await self._get_signed_url(name, "GET")
+        response = await self._httpx_async_client.head(signed_url)
+        if response.status_code == 404:
+            raise KeyNotExistsException(self.collection_name, self.clazz, name)
+        response.raise_for_status()
+        return self._parse_metadata(response)
 
-    def _parse_metadata(self, response: aiohttp.ClientResponse) -> T:
+    def _parse_metadata(self, response: httpx.Response) -> T:
         headers_dict = dict(response.headers)
         metadata = {}
         for key, value in headers_dict.items():
@@ -240,7 +236,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 metadata[key.replace("x-goog-meta-", "")] = value
             else:
                 match key:
-                    case "Content-Type":
+                    case "content-type":
                         metadata["content_type"] = value
                     case "x-goog-generation":
                         metadata["generation"] = int(value)
@@ -254,7 +250,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             for key, value in metadata.model_dump(exclude_unset=True, by_alias=False).items():
                 match key:
                     case "content_type":
-                        headers["Content-Type"] = str(value)
+                        headers["content-type"] = str(value)
                     case "generation":
                         headers["x-goog-generation"] = str(value)
                     case _:
