@@ -4,6 +4,8 @@ import uuid
 from typing import Any, Callable, Dict, Iterator, List, Optional, Type, override
 
 from google.cloud import exceptions, firestore
+from google.cloud.firestore import DocumentReference
+from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.vector_query import VectorQuery
@@ -47,7 +49,7 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpQuery[T]:
         coll_ref = self.decorated
-        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
         return GcpQuery(coll_ref, self.clazz)
 
     def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
@@ -168,7 +170,7 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
             patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
         else:
             patch_dict = patch_data
-        doc_ref = self._coll_ref.document(str(key))
+        doc_ref: DocumentReference = self._coll_ref.document(str(key)) # type: ignore
         if doc_ref.get().exists:
             doc_ref.update(patch_dict)
         else:
@@ -183,7 +185,7 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
 
     def get(self, key: Any) -> T:
         """Get a document from the collection."""
-        data = self._coll_ref.document(str(key)).get().to_dict()
+        data = self._coll_ref.document(str(key)).get().to_dict() # type: ignore
         if not data:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         return self.clazz.model_validate(data)

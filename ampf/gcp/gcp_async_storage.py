@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Type, override
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from pydantic import BaseModel
@@ -38,7 +39,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         coll_ref = self.decorated
-        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
         return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
