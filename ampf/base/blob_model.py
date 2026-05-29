@@ -30,7 +30,8 @@ class BlobLocation(BaseModel):
 
 class BaseBlobMetadata(BaseModel):
     content_type: str = "application/octet-stream"
-    filename: Optional[str] = None
+    filename: str | None = None
+    generation: int | None = None
 
     @classmethod
     def create(cls, file: UploadFile) -> Self:

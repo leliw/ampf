@@ -202,7 +202,8 @@ async def test_list_blobs(storage: BaseAsyncBlobStorage):
     # Then: The file is listed
     assert len(blobs) == 1
     assert blobs[0].name == "test/file.txt"
-    assert blobs[0].metadata == blob.metadata
+    assert blobs[0].metadata.name == blob.metadata.name
+    assert blobs[0].metadata.age == blob.metadata.age
 
 
 @pytest.mark.asyncio

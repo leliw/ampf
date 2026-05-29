@@ -40,12 +40,17 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         content_type: str | None = None,
         expiration: int = 3600,
         headers: dict | None = None,
+        query_parameters: dict | None = None,
     ) -> str:
         """Generates a signed URL for the given key.
 
         Args:
-            key: The key for which to generate the signed URL.
-            expiration: The expiration time in seconds.
+            name: The name identifying the blob.
+            method: The HTTP method for which the URL will be used (e.g., "GET", "PUT", "DELETE").
+            content_type: The content type of the blob (optional, used for PUT requests).
+            expiration: The expiration time of the signed URL in seconds (default is 3600 seconds, or 1 hour).
+            headers: Additional headers to include in the signed URL (optional).
+            query_parameters: Additional query parameters to include in the signed URL (optional).
 
         Returns:
             The signed URL.
@@ -63,6 +68,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             method=method,
             content_type=content_type,
             headers=headers,
+            query_parameters=query_parameters,
             service_account_email=creds.service_account_email if creds else None,  # type: ignore
             access_token=creds.token if creds else None,  # type: ignore
         )
@@ -136,9 +142,10 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
         for blob in self._bucket.list_blobs(prefix=prefix):
             try:
-                yield BlobHeader(
-                    name=blob.name[col_name_len:], metadata=self.clazz.model_validate(blob.metadata, extra="ignore")
-                )
+                metadata = self.clazz.model_validate(blob.metadata, extra="ignore")
+                metadata.content_type = blob.content_type
+                metadata.generation = blob.generation
+                yield BlobHeader(name=blob.name[col_name_len:], metadata=metadata)
             except Exception as e:
                 _log.warning("Failed to parse metadata for blob '%s': %s", blob.name, e)
 
@@ -151,20 +158,17 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
     ) -> None:
         for attempt in range(self.max_retries_per_transaction):
             try:
-                # Try to get the blob to see if it exists and get its generation
-                storage_blob = self._get_blob(name)
                 try:
-                    storage_blob.reload()  # Get the latest metadata, including generation
-                    content = storage_blob.download_as_bytes()
-                    generation_to_match = storage_blob.generation
-                    metadata =  self.clazz(**storage_blob.metadata) # type: ignore
-                    blob = Blob(name=name, content=content, metadata=metadata)
+                    blob = await self.download_async(name)
+                    generation_to_match = blob.metadata.generation
+                    if generation_to_match is None:
+                        raise RuntimeError("Generation not found in metadata")
                     if update_func:
                         # Apply the user-defined update/creation logic
                         new_blob = await update_func(blob)
                     else:
                         raise KeyExistsException(self.collection_name, self.clazz, name)
-                except exceptions.NotFound:
+                except (exceptions.NotFound, KeyNotExistsException):
                     if not create_func:
                         raise KeyNotExistsException(self.collection_name, self.clazz, name)
                     # Blob does not exist, prepare to create it
@@ -172,20 +176,25 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                     new_blob = await create_func(name)
 
                 # Perform the conditional upload
-                storage_blob.upload_from_string(
-                    new_blob.content,
-                    content_type=new_blob.content_type or self.content_type,
-                    if_generation_match=generation_to_match,
+                headers = self._prepare_metadata_headers(new_blob.metadata)
+                query_parameters = {"ifGenerationMatch": str(generation_to_match)}
+                # According to documentation it should be query parameter but header works !!!
+                headers["x-goog-if-generation-match"] = str(generation_to_match)
+                signed_url = self._get_signed_url(
+                    new_blob.name, "PUT", headers=headers, query_parameters=query_parameters
                 )
-
-                if new_blob.metadata:
-                    storage_blob.metadata = new_blob.metadata.model_dump()
-                    storage_blob.patch()
+                async with aiohttp.ClientSession() as session:
+                    async with session.put(signed_url, data=new_blob.stream(), headers=headers) as response:
+                        if response.status == 412:
+                            raise exceptions.PreconditionFailed(response.reason)
+                        response.raise_for_status()
 
                 return  # Success
 
             except exceptions.PreconditionFailed as e:
-                _log.warning(f"Precondition failed on attempt {attempt + 1} for blob '{name}'. Retrying...")
+                _log.warning(
+                    f"Precondition failed on attempt {attempt + 1} for blob '{name}', generation: {generation_to_match}. Retrying..."
+                )
                 if attempt == self.max_retries_per_transaction - 1:
                     raise e  # Re-raise after the last attempt
                 await asyncio.sleep(0.1 * (2**attempt))  # Exponential backoff
@@ -229,7 +238,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                     case "Content-Type":
                         metadata["content_type"] = value
                     case "x-goog-generation":
-                        metadata["generation"] = value
+                        metadata["generation"] = int(value)
                     case _:
                         pass
         return self.clazz.model_validate(metadata, extra="ignore")
@@ -241,6 +250,8 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 match key:
                     case "content_type":
                         headers["Content-Type"] = str(value)
+                    case "generation":
+                        headers["x-goog-generation"] = str(value)
                     case _:
                         headers[f"x-goog-meta-{key}"] = str(value)
         else:
