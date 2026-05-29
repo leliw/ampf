@@ -3,8 +3,6 @@ import logging
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
 
 import aiohttp
-import google.auth.exceptions
-import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
 
@@ -55,12 +53,6 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         Returns:
             The signed URL.
         """
-        try:
-            creds, _ = google.auth.default()
-            creds.refresh(google.auth.transport.requests.Request())  # type: ignore
-        except google.auth.exceptions.RefreshError:
-            creds = None
-
         blob = self._get_blob(name)
         signed_url = blob.generate_signed_url(
             version="v4",
@@ -69,8 +61,6 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             content_type=content_type,
             headers=headers,
             query_parameters=query_parameters,
-            service_account_email=creds.service_account_email if creds else None,  # type: ignore
-            access_token=creds.token if creds else None,  # type: ignore
         )
         return signed_url
 
