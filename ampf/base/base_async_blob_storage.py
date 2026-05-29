@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import AsyncGenerator, Awaitable, Callable, Optional, Type
+from warnings import deprecated
 
 from .blob_model import BaseBlobMetadata, Blob, BlobHeader
 
@@ -50,6 +51,7 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         pass
 
     @abstractmethod
+    @deprecated("Use delete_async instead")
     def delete(self, name: str) -> None:
         """
         Deletes a blob with the given name.
@@ -58,6 +60,9 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
             name: The name of the blob to delete.
         """
         pass
+
+    async def delete_async(self, name: str) -> None:
+        self.delete(name)
 
     @abstractmethod
     def exists(self, name: str) -> bool:
@@ -84,12 +89,12 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     async def drop(self) -> None:
         names = [name async for name in self.names()]
         for name in names:
-            self.delete(name)
+            await self.delete_async(name)
 
     async def delete_folder(self, folder_name: str) -> None:
         names = [name async for name in self.names() if name.startswith(folder_name)]
         for name in names:
-            self.delete(name)
+            await self.delete_async(name)
 
     async def insert_transactional(self, name: str, create_func: Callable[[str], Awaitable[Blob[T]]]) -> None:
         await self._upsert_transactional(name, create_func, None)

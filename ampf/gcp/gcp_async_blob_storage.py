@@ -102,6 +102,20 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                 return Blob[T](name=name, content=content, metadata=metadata)
 
     @override
+    async def delete_async(self, name: str) -> None:
+        """Deletes a blob with the given name.
+
+        Args:
+            name: The name of the blob to delete.
+        """
+        signed_url = self._get_signed_url(name, "DELETE")
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(signed_url) as response:
+                if response.status == 404:
+                    raise KeyNotExistsException(self.collection_name, self.clazz, name)
+                response.raise_for_status()
+
+    @override
     async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
         prefix = self.get_full_name(prefix or "")
         col_name_len = len(self.collection_name) + 1 if self.collection_name else 0

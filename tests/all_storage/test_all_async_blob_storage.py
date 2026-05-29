@@ -164,7 +164,7 @@ async def test_delete(storage: BaseAsyncBlobStorage):
     names = list([n async for n in storage.names()])
     assert blob.name in names
     # When: I delete the file
-    storage.delete(blob.name)
+    await storage.delete_async(blob.name)
     # Then: The file is deleted
     names = list([n async for n in storage.names()])
     assert blob.name not in names
@@ -174,7 +174,7 @@ async def test_delete(storage: BaseAsyncBlobStorage):
 async def test_delete_not_existing(storage: BaseAsyncBlobStorage):
     # When: I delete the file
     with pytest.raises(KeyNotExistsException) as e:
-        storage.delete("not_existing")
+        await storage.delete_async("not_existing")
     # Then: The file is deleted
     assert e.value.key == "not_existing"
 
@@ -187,7 +187,7 @@ async def test_exists(storage: BaseAsyncBlobStorage):
     # Then: It exists
     assert storage.exists(blob.name)
     # When: Delete the file
-    storage.delete(blob.name)
+    await storage.delete_async(blob.name)
     # Then: It not exists
     assert not storage.exists(blob.name)
 
