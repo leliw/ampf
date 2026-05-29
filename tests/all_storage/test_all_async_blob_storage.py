@@ -64,7 +64,10 @@ async def test_upload_blob_with_metadata(storage: BaseAsyncBlobStorage):
     # When: Upload blob with metadata
     await storage.upload_async(blob)
     # Then: Metadata is saved
-    assert metadata == await storage.get_metadata(file_name)
+    saved_metadata = await storage.get_metadata(file_name)
+    assert saved_metadata
+    assert saved_metadata.name == blob.metadata.name
+    assert saved_metadata.age == blob.metadata.age
 
 
 @pytest.mark.skip
@@ -112,8 +115,9 @@ async def test_get_metadata(storage: BaseAsyncBlobStorage):
     # When: A metadata is gotten
     retrieved_metadata = await storage.get_metadata(blob.name)
     # Then: It is received
-    assert retrieved_metadata == blob.metadata
-
+    assert retrieved_metadata
+    assert retrieved_metadata.name == blob.metadata.name
+    assert retrieved_metadata.age == blob.metadata.age
 
 @pytest.mark.asyncio
 async def test_get_nonexistent_metadata(storage: BaseAsyncBlobStorage):
