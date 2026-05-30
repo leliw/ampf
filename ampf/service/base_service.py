@@ -40,7 +40,7 @@ class BaseService:
         self.api_key = api_key
         self.timeout = timeout
         self.token_manager = token_manager
-        self._httpx_async_client = httpx_async_client or httpx.AsyncClient()
+        self.httpx_async_client = httpx_async_client or httpx.AsyncClient()
 
     def _get_headers(self) -> dict:
         """
@@ -97,7 +97,7 @@ class BaseService:
             wait = 5 * (attempt + 1)
             try:
                 _log.debug("Attempt %d to ping...", attempt + 1)
-                response = await self._httpx_async_client.get(
+                response = await self.httpx_async_client.get(
                     url=f"{self.base_url}/api/ping", headers=headers, timeout=timeout
                 )
                 response.raise_for_status()
