@@ -2,13 +2,16 @@
 
 import os
 from pathlib import Path
+from warnings import deprecated
 
+from anyio import Path as AsyncPath
 from fastapi import HTTPException, Response
-from  ..mimetypes import get_content_type
+from fastapi.responses import FileResponse
+
+from ..mimetypes import get_content_type
 
 
-
-
+@deprecated("Use function get_static_file_response instead")
 class StaticFileResponse(Response):
     def __init__(self, base_dir: str, uri_path: str):
         file_path = Path(base_dir) / uri_path
@@ -21,7 +24,7 @@ class StaticFileResponse(Response):
         super().__init__(
             content=self.get_file_content(file_path),
             status_code=200,
-            media_type= get_content_type(str(file_path)),
+            media_type=get_content_type(str(file_path)),
         )
 
     def get_file_content(self, file_path: Path):
@@ -41,4 +44,19 @@ class StaticFileResponse(Response):
             return file_path.read_text()
         else:
             return file_path.read_bytes()
-        
+
+
+async def get_static_file_response(base_dir: str, uri_path: str) -> FileResponse:
+    base_path = await AsyncPath(base_dir).resolve()
+    requested_path = await (base_path / uri_path.lstrip("/")).resolve()
+    if not str(requested_path).startswith(str(base_path)):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if await requested_path.is_dir():
+        target_path = requested_path / "index.html"
+    else:
+        target_path = requested_path
+    if not await target_path.exists():
+        target_path = base_path / "index.html"
+    if not await target_path.exists():
+        raise HTTPException(status_code=404, detail="Page not found")
+    return FileResponse(path=str(target_path))
