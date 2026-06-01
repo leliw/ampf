@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Type, override
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ from ampf.base.base_async_query import BaseAsyncQuery
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
 from ampf.base.exceptions import KeyExistsException
-from ampf.base.versioned_base_model import VersionedBaseModel
+from ampf.base.versioned_base_model import VersionedBaseModel, resolve_versioned_class
 
 from .gcp_storage import convert_uuids
 
@@ -38,11 +39,11 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         coll_ref = self.decorated
-        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
         return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
-        """Finds the nearest knowledge base items to the given vector."
+        """Finds the nearest knowledge base items to the given vector.
 
         Args:
             embedding: The vector to search for.
@@ -83,6 +84,12 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
             if isinstance(ret, Coroutine):
                 ret = await ret
             yield ret
+
+    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+        real_cls = resolve_versioned_class(self.clazz, data)
+        if issubclass(real_cls, VersionedBaseModel):
+            return real_cls.from_storage(data)
+        return real_cls.model_validate(data)
 
 
 class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T]):
@@ -218,7 +225,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
                 yield ret
 
     async def create(self, value: T) -> None:
-        """Adds to collection a new element but only if such key doesn't already exists"""
+        """Adds to collection a new element but only if such key doesn't already exist"""
         key = self.get_key(value)
 
         @firestore.async_transactional
@@ -236,7 +243,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
             await create_in_transaction(transaction)
 
     async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
-        """Finds the nearest knowledge base items to the given vector."
+        """Finds the nearest knowledge base items to the given vector.
 
         Args:
             embedding: The vector to search for.

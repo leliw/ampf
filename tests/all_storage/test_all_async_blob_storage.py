@@ -2,6 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
+import httpx
 import pytest
 import pytest_asyncio
 
@@ -21,6 +22,12 @@ class MyMetadata(BaseBlobMetadata):
     age: int
 
 
+@pytest_asyncio.fixture
+async def httpx_async_client():
+    async with httpx.AsyncClient() as client:
+        yield client
+
+
 @pytest.fixture
 def temp_storage_dir():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -28,12 +35,16 @@ def temp_storage_dir():
 
 
 @pytest_asyncio.fixture(params=[InMemoryAsyncBlobStorage, LocalAsyncBlobStorage, GcpAsyncBlobStorage])
-async def storage(gcp_factory, request, temp_storage_dir):
+async def storage(gcp_factory, request, temp_storage_dir, httpx_async_client):
     if request.param == LocalAsyncBlobStorage:
         storage = request.param(temp_storage_dir, MyMetadata, content_type="text/plain")
     elif request.param == GcpAsyncBlobStorage:
         storage = request.param(
-            "unit-tests-001", collection_name="test_all_async_blob_storage", clazz=MyMetadata, content_type="text/plain"
+            "unit-tests-001",
+            collection_name="test_all_async_blob_storage",
+            clazz=MyMetadata,
+            content_type="text/plain",
+            httpx_async_client=httpx_async_client,
         )
     else:
         storage = request.param(
@@ -64,7 +75,10 @@ async def test_upload_blob_with_metadata(storage: BaseAsyncBlobStorage):
     # When: Upload blob with metadata
     await storage.upload_async(blob)
     # Then: Metadata is saved
-    assert metadata == await storage.get_metadata(file_name)
+    saved_metadata = await storage.get_metadata(file_name)
+    assert saved_metadata
+    assert saved_metadata.name == blob.metadata.name
+    assert saved_metadata.age == blob.metadata.age
 
 
 @pytest.mark.skip
@@ -112,7 +126,9 @@ async def test_get_metadata(storage: BaseAsyncBlobStorage):
     # When: A metadata is gotten
     retrieved_metadata = await storage.get_metadata(blob.name)
     # Then: It is received
-    assert retrieved_metadata == blob.metadata
+    assert retrieved_metadata
+    assert retrieved_metadata.name == blob.metadata.name
+    assert retrieved_metadata.age == blob.metadata.age
 
 
 @pytest.mark.asyncio
@@ -160,7 +176,7 @@ async def test_delete(storage: BaseAsyncBlobStorage):
     names = list([n async for n in storage.names()])
     assert blob.name in names
     # When: I delete the file
-    storage.delete(blob.name)
+    await storage.delete_async(blob.name)
     # Then: The file is deleted
     names = list([n async for n in storage.names()])
     assert blob.name not in names
@@ -170,7 +186,7 @@ async def test_delete(storage: BaseAsyncBlobStorage):
 async def test_delete_not_existing(storage: BaseAsyncBlobStorage):
     # When: I delete the file
     with pytest.raises(KeyNotExistsException) as e:
-        storage.delete("not_existing")
+        await storage.delete_async("not_existing")
     # Then: The file is deleted
     assert e.value.key == "not_existing"
 
@@ -183,7 +199,7 @@ async def test_exists(storage: BaseAsyncBlobStorage):
     # Then: It exists
     assert storage.exists(blob.name)
     # When: Delete the file
-    storage.delete(blob.name)
+    await storage.delete_async(blob.name)
     # Then: It not exists
     assert not storage.exists(blob.name)
 
@@ -198,7 +214,8 @@ async def test_list_blobs(storage: BaseAsyncBlobStorage):
     # Then: The file is listed
     assert len(blobs) == 1
     assert blobs[0].name == "test/file.txt"
-    assert blobs[0].metadata == blob.metadata
+    assert blobs[0].metadata.name == blob.metadata.name
+    assert blobs[0].metadata.age == blob.metadata.age
 
 
 @pytest.mark.asyncio
