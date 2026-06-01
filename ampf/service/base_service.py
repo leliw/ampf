@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import httpx
+from pydantic import BaseModel
+
 
 from .multi_service_token_manager import MultiServiceTokenManager
 
@@ -42,24 +44,27 @@ class BaseService:
         self.token_manager = token_manager
         self.httpx_async_client = httpx_async_client or httpx.AsyncClient()
 
-    def _get_headers(self) -> dict:
-        """
-        Constructs the appropriate HTTP headers for requests,
-        including authentication.
+    async def post(self, endpoint: str, json: dict | BaseModel) -> httpx.Response:
+        response = await self.httpx_async_client.post(
+            url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
+            headers=await self._get_headers_async(),
+            json=json if isinstance(json, dict) else json.model_dump(),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response
 
-        Returns:
-            A dictionary of HTTP headers.
-        """
-        if "localhost" in self.base_url or "127.0.0.1" in self.base_url:
-            return {}  # Application is running locally, no auth needed
-        if self.api_key:
-            return {"x-api-key": self.api_key}
-        if self.token_manager:
-            _log.debug("Getting token")
-            token = self.token_manager.get_token_for(self.base_url)
-            _log.debug("Token received %s...", token[:10])
-            return {"Authorization": f"Bearer {token}"}
-        return {}
+    async def get(
+        self, endpoint: str, params: dict | None = None, timeout: httpx.Timeout | int | None = None
+    ) -> httpx.Response:
+        response = await self.httpx_async_client.get(
+            url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
+            headers=await self._get_headers_async(),
+            params=params,
+            timeout=timeout if timeout is None else self.timeout,
+        )
+        response.raise_for_status()
+        return response
 
     async def _get_headers_async(self) -> dict:
         """
@@ -69,7 +74,7 @@ class BaseService:
         Returns:
             A dictionary of HTTP headers.
         """
-        if "localhost" in self.base_url or "127.0.0.1" in self.base_url:
+        if self.base_url.startswith("http://"):
             return {}  # Application is running locally, no auth needed
         if self.api_key:
             return {"x-api-key": self.api_key}
@@ -80,7 +85,7 @@ class BaseService:
             return {"Authorization": f"Bearer {token}"}
         return {}
 
-    async def ping(self) -> None:
+    async def ping(self, endpoint: str = "/api/ping") -> None:
         """
         Pings the service's health endpoint to check its availability.
         It retries multiple times with increasing delays if the service is
@@ -89,19 +94,15 @@ class BaseService:
         Raises:
             TimeoutError: If the service does not respond after multiple retries.
         """
-        headers = await self._get_headers_async()
         timeout = httpx.Timeout(timeout=3.0, connect=1.0, read=2.0)
         _log.debug("Pinging service at %s", self.base_url)
-        max_retries = 10
+        max_retries = 5
         for attempt in range(max_retries):
             wait = 5 * (attempt + 1)
             try:
                 _log.debug("Attempt %d to ping...", attempt + 1)
-                response = await self.httpx_async_client.get(
-                    url=f"{self.base_url}/api/ping", headers=headers, timeout=timeout
-                )
-                response.raise_for_status()
-                _log.debug(f"Ping to {self.base_url} successful.")
+                await self.get(endpoint, timeout=timeout)
+                _log.debug("Ping to %s successful.", self.base_url)
                 break
             except httpx.HTTPStatusError as e:
                 if e.response.status_code >= 500:
