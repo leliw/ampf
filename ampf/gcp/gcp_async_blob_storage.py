@@ -35,7 +35,8 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         self._httpx_async_client = httpx_async_client or httpx.AsyncClient()
         self.max_retries_per_transaction = 5
 
-        self._creds, _ = google.auth.default()
+        scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        self._creds, _ = google.auth.default(scopes=scopes)
         self._auth_request = google.auth.transport.requests.Request()
 
     async def _get_signed_url(
@@ -63,8 +64,8 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         if not self._creds.valid:
             try:
                 await asyncio.to_thread(self._creds.refresh, self._auth_request)
-            except google.auth.exceptions.RefreshError:
-                _log.error("Failed to refresh GCP credentials")
+            except google.auth.exceptions.RefreshError as e:
+                _log.error("Failed to refresh GCP credentials %s", e)
         service_account_email = getattr(self._creds, "service_account_email", None)
         access_token = self._creds.token
 
