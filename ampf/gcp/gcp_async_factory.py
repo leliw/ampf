@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Type, override
 
 from google.cloud import firestore, storage
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
@@ -17,7 +17,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         self,
         root_storage: str | None = None,
         bucket_name: str | None = None,
-        httpx_async_client: httpx.AsyncClient | None = None,
+        httpx_async_client: httpx2.AsyncClient | None = None,
     ):
         super().__init__(root_storage, bucket_name)
         BaseAsyncFactory.__init__(self)

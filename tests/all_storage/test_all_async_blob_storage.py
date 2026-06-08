@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-import httpx
+import httpx2
 import pytest
 import pytest_asyncio
 
@@ -24,7 +24,7 @@ class MyMetadata(BaseBlobMetadata):
 
 @pytest_asyncio.fixture
 async def httpx_async_client():
-    async with httpx.AsyncClient() as client:
+    async with httpx2.AsyncClient() as client:
         yield client
 
 

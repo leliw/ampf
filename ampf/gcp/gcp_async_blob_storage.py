@@ -6,7 +6,7 @@ import google.auth.exceptions
 import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
-import httpx
+import httpx2
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
@@ -27,12 +27,12 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         storage_client: storage.Client | None = None,
-        httpx_async_client: httpx.AsyncClient | None = None,
+        httpx_async_client: httpx2.AsyncClient | None = None,
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
         self.clazz: Type[T] = clazz
-        self._httpx_async_client = httpx_async_client or httpx.AsyncClient()
+        self._httpx_async_client = httpx_async_client or httpx2.AsyncClient()
         self.max_retries_per_transaction = 5
 
         scopes = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -229,7 +229,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         response.raise_for_status()
         return self._parse_metadata(response)
 
-    def _parse_metadata(self, response: httpx.Response) -> T:
+    def _parse_metadata(self, response: httpx2.Response) -> T:
         headers_dict = dict(response.headers)
         metadata = {}
         for key, value in headers_dict.items():

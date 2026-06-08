@@ -32,6 +32,7 @@ gcp = [
     "google-cloud-firestore>=2.20.1",
     "google-cloud-pubsub>=2.29.0",
     "google-cloud-storage>=3.1.0",
+    "httpx2>=2.3.0",
 ]
 huggingface = [
     "sentence-transformers>=4.0.2",
@@ -57,7 +58,7 @@ build-backend = "hatchling.build"
 dev = [
     "google-cloud-pubsub>=2.29.0",
     "docker>=7.1.0",
-    "httpx>=0.28.1",
+    "httpx2>=2.3.0",
     "pydantic-settings>=2.9.1",
     "pydantic[email]>=2.11.5",
     "pyjwt>=2.10.1",

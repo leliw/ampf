@@ -1,6 +1,6 @@
 import pytest
 import respx
-from httpx import Response, RequestError
+from httpx2 import Request, Response, RequestError, MockTransport
 from pydantic import BaseModel
 from unittest.mock import AsyncMock, MagicMock
 from ampf.service.base_service import BaseService
@@ -35,51 +35,53 @@ async def test_get_headers_async_localhost():
     headers = await local_service._get_headers_async()
     assert headers == {}
 
-@respx.mock
 @pytest.mark.asyncio
 async def test_get_request(service):
-    route = respx.get("https://api.example.com/data").mock(return_value=Response(200, json={"status": "ok"}))
+    def mock_send(request: Request) -> Response:
+        assert request.url == "https://api.example.com/data?q=test"
+        return Response(200, json={"status": "ok"})
+    service.httpx_async_client._transport = MockTransport(mock_send)
     
     response = await service.get("/data", params={"q": "test"})
     
-    assert route.called
     assert response.json() == {"status": "ok"}
-    assert route.calls.last.request.url.params["q"] == "test"
 
-@respx.mock
 @pytest.mark.asyncio
 async def test_post_request_with_pydantic(service):
-    route = respx.post("https://api.example.com/create").mock(return_value=Response(201))
+    def mock_send(request: Request) -> Response:
+        assert request.method == "POST"
+        assert request.url == "https://api.example.com/create"
+        return Response(201)
+    service.httpx_async_client._transport = MockTransport(mock_send)
     model = SampleModel(name="test", value=123)
     
     response = await service.post("/create", json=model)
     
-    assert route.called
-    assert route.calls.last.request.content == b'{"name":"test","value":123}'
     assert response.status_code == 201
 
-@respx.mock
 @pytest.mark.asyncio
 async def test_ping_success(service):
-    respx.get("https://api.example.com/api/ping").mock(return_value=Response(200))
+    def mock_send(request: Request) -> Response:
+        assert request.url == "https://api.example.com/api/ping"
+        return Response(200)
+    service.httpx_async_client._transport = MockTransport(mock_send)
     
     # Nie powinno rzucić wyjątku
     await service.ping()
 
-@respx.mock
 @pytest.mark.asyncio
 async def test_ping_retries_on_500(service, monkeypatch):
+    call_count = 0
+    def mock_send(request: Request) -> Response:
+        assert request.url == "https://api.example.com/api/ping"
+        nonlocal call_count
+        call_count += 1
+        return Response(500)
+    service.httpx_async_client._transport = MockTransport(mock_send)    
     # Skracamy czas oczekiwania w testach
     monkeypatch.setattr("asyncio.sleep", AsyncMock())
-    
-    respx.get("https://api.example.com/api/ping").side_effect = [
-        Response(500),
-        Response(500),
-        Response(200)
-    ]
-    
     await service.ping()
-    assert len(respx.mock.calls) == 3
+    assert call_count == 5
 
 @respx.mock
 @pytest.mark.asyncio

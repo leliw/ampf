@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-import httpx
+import httpx2
 from pydantic import BaseModel
 
 
@@ -21,7 +21,7 @@ class BaseService:
         api_key: str | None = None,
         timeout: int = 60,
         token_manager: MultiServiceTokenManager | None = None,
-        httpx_async_client: httpx.AsyncClient | None = None,
+        httpx_async_client: httpx2.AsyncClient | None = None,
     ):
         """
         Initializes the BaseService with common configuration for API interactions.
@@ -34,7 +34,7 @@ class BaseService:
             token_manager: An optional MultiServiceTokenManager instance for
                            managing authentication tokens. If None, a new instance
                            will be created.
-            httpx_async_client: An optional httpx.AsyncClient instance for making
+            httpx_async_client: An optional httpx2.AsyncClient instance for making
                                 asynchronous HTTP requests. If None, a new instance
                                 will be created.
         """
@@ -42,9 +42,9 @@ class BaseService:
         self.api_key = api_key
         self.timeout = timeout
         self.token_manager = token_manager
-        self.httpx_async_client = httpx_async_client or httpx.AsyncClient()
+        self.httpx_async_client = httpx_async_client or httpx2.AsyncClient()
 
-    async def post(self, endpoint: str, json: dict | BaseModel) -> httpx.Response:
+    async def post(self, endpoint: str, json: dict | BaseModel) -> httpx2.Response:
         response = await self.httpx_async_client.post(
             url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
             headers=await self._get_headers_async(),
@@ -55,8 +55,8 @@ class BaseService:
         return response
 
     async def get(
-        self, endpoint: str, params: dict | None = None, timeout: httpx.Timeout | int | None = None
-    ) -> httpx.Response:
+        self, endpoint: str, params: dict | None = None, timeout: httpx2.Timeout | int | None = None
+    ) -> httpx2.Response:
         response = await self.httpx_async_client.get(
             url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
             headers=await self._get_headers_async(),
@@ -94,7 +94,7 @@ class BaseService:
         Raises:
             TimeoutError: If the service does not respond after multiple retries.
         """
-        timeout = httpx.Timeout(timeout=3.0, connect=1.0, read=2.0)
+        timeout = httpx2.Timeout(timeout=3.0, connect=1.0, read=2.0)
         _log.debug("Pinging service at %s", self.base_url)
         max_retries = 5
         for attempt in range(max_retries):
@@ -104,14 +104,14 @@ class BaseService:
                 await self.get(endpoint, timeout=timeout)
                 _log.debug("Ping to %s successful.", self.base_url)
                 break
-            except httpx.HTTPStatusError as e:
+            except httpx2.HTTPStatusError as e:
                 if e.response.status_code >= 500:
                     _log.debug("Retry %d after %ds...", attempt + 1, wait)
                     await asyncio.sleep(wait)
                     continue
                 if e.response.status_code >= 400:
                     raise e
-            except httpx.RequestError:
+            except httpx2.RequestError:
                 if attempt == max_retries - 1:
                     _log.debug("Final ping attempt failed.")
                     raise TimeoutError(f"Service at {self.base_url} timed out.")
