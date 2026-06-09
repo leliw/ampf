@@ -14,7 +14,7 @@ from ampf.on_prem.weaviate import WeaviateDB, WeaviateStorage
 @pytest.fixture(scope="session")
 def weaviate_ports(docker_client: docker.DockerClient):
     container_name = "unittest_weaviate"
-    container_image = "cr.weaviate.io/semitechnologies/weaviate:1.31.1"
+    container_image = "semitechnologies/weaviate:stable-v1.37-75a22db"
     container_ports = ["8080/tcp", "50051/tcp"]
     try:
         existing = docker_client.containers.get(container_name)

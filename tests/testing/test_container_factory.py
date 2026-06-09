@@ -7,7 +7,7 @@ from ampf.testing import ContainerFactory
 def chunker_url(container_factory: ContainerFactory) ->str:
     """Fixture using the factory to start Chunker service."""
     return container_factory(
-        image="europe-west3-docker.pkg.dev/development-428212/docker-eu/pdf2markdown:latest",
+        image="europe-west3-docker.pkg.dev/development-428212/docker-eu/pdf2markdown:0.1.12",
         name="unittest_chunker_service",
         ports=["8080/tcp"],
         wait_for_http="/docs",
