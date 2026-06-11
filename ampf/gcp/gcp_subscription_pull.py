@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import logging
 import signal
 import threading
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from .gcp_base_subscription import GcpBaseSubscription
 from .gcp_pubsub_model import GcpPubsubRequest
 from .subscription_processor import SubscriptionProcessor
+from google.cloud.pubsub_v1.types import FlowControl
 
 _log = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         loop: Optional[asyncio.AbstractEventLoop] = None,
         project_id: Optional[str] = None,
         subscriber: Optional[SubscriberClient] = None,
+        max_concurrent_messages: int = 2,
     ):
         """Initializes the subscription.
 
@@ -36,11 +39,13 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             loop: The event loop to use for processing messages.
             project_id: The project ID.
             subscriber: The subscriber client.
+            max_concurrent_messages: The maximum number of concurrent messages to process.
         """
         super().__init__(subscription_id, project_id, subscriber)
         self.processor = processor
         self.loop = loop
         self.is_running = False
+        self.max_concurrent_messages = max_concurrent_messages
         self._previous_sigterm_handler: signal._HANDLER = None
 
     async def run_and_exit(self, processing_timeout: float = 5.0, per_message_timeout: float = 1.0):
@@ -53,7 +58,9 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
         self.is_running = True
+        _log.info("Starting GCP subscription pull for %s with processing timeout %s seconds", self.subscription_path, self.processing_timeout)
         self.end_time = time.time() + self.processing_timeout if self.processing_timeout else None
+        _log.debug("Subscription will stop at %s", self.end_time)
         signal.signal(signal.SIGTERM, self._handle_sigterm)
         await self._run()
 
@@ -81,7 +88,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         Returns:
             True if the message was processed successfully, False otherwise.
         """
-        self._log.debug("Processing message %s", request.message.messageId)
+        _log.debug("Processing message %s", request.message.messageId)
         try:
             if self.loop:
                 future = asyncio.run_coroutine_threadsafe(self.callback_async(request), self.loop)
@@ -89,13 +96,13 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
             else:
                 return asyncio.run(self.callback_async(request))
         except TimeoutError:
-            self._log.warning("Timeout while processing message %s", request.message.messageId)
+            _log.warning("Timeout while processing message %s", request.message.messageId)
             return True
         except asyncio.CancelledError:
-            self._log.warning("Message processing cancelled %s", request.message.messageId)
+            _log.warning("Message processing cancelled %s", request.message.messageId)
             return True
         except Exception as e:
-            self._log.exception(e)
+            _log.exception(e)
             return True
 
     async def callback_async(self, request: GcpPubsubRequest) -> bool:
@@ -135,17 +142,28 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         """
         _log.debug("Received message %s", message.message_id)
         req = GcpPubsubRequest.create_from_message(message, self.subscription_id)
-        if self.callback(req):
-            message.ack()
-        else:
-            message.nack()
         if self.processing_timeout:
             self.end_time = time.time() + self.processing_timeout
+            _log.debug("Subscription will stop at %s", self.end_time)
+        if self.callback(req):
+            message.ack()
+            _log.debug("Message processed successfully %s", message.message_id)
+        else:
+            message.nack()
+            _log.debug("Message processing failed %s", message.message_id)
+        if self.processing_timeout:
+            self.end_time = time.time() + self.processing_timeout
+            _log.debug("Subscription will stop at %s", datetime.fromtimestamp(self.end_time))
+
 
     async def _run(self):
         """Runs the subscription, listening for messages and invoking the callback."""
+        if self.loop is None:
+            self.loop = asyncio.get_running_loop()
         _log.info("Starting GCP subscription pull for %s", self.subscription_path)
-        self.future = self.subscriber.subscribe(self.subscription_path, callback=self._callback)
+        flow_control = FlowControl(max_messages=self.max_concurrent_messages)
+        self.future = self.subscriber.subscribe(self.subscription_path, callback=self._callback, flow_control=flow_control)
+
         try:
             while not self.end_time or time.time() < self.end_time:
                 if self.future.done():
@@ -153,7 +171,7 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
                     if e:
                         _log.error("Subscription %s pull failed.", self.subscription_path, exc_info=e)
                         raise e
-                _log.debug("Waiting for messages...")
+                # _log.debug("Waiting for messages...")
                 await asyncio.sleep(self.per_message_timeout)
                 if not self.is_running:
                     break
