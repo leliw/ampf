@@ -6,17 +6,15 @@ from pydantic_settings import BaseSettings
 
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_factory import BaseFactory
-from ampf.dependency import DependencyRegistry
-from ampf.dependency.dependency_registry import get_dependency
+from ampf.dependency.dependency_container import DependencyContainer
 from ampf.gcp.gcp_subscription_pull import GcpSubscriptionPull
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.in_memory.in_memory_factory import InMemoryFactory
 
 
 @pytest.fixture
-def registry():
-    yield DependencyRegistry()
-    DependencyRegistry.clear()
+def container():
+    return DependencyContainer()
 
 
 class A:
@@ -33,90 +31,90 @@ class B:
     value: str = "B"
 
 
-def test_get_functional_dependency(registry: DependencyRegistry):
+def test_get_functional_dependency(container: DependencyContainer):
     # Given: Registered functional dependency
     def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
     # When: Get dependency
-    a = registry.get(A)
+    a = container.get(A)
     # Then: Dependency is returned
     assert a.value == "A"
 
 
-def test_get_functional_dependency_async_err(registry: DependencyRegistry):
+def test_get_functional_dependency_async_err(container: DependencyContainer):
     # Given: Registered async functional dependency
     async def get_a() -> A:
         return A()
 
-    registry.register(get_a)
+    container.register(get_a)
     # When: Get dependency
     with pytest.raises(TypeError):
-        _ = registry.get(A)
+        _ = container.get(A)
     # Then: Error is raised
 
 
 @pytest.mark.asyncio
-async def test_get_async_functional_dependency_ok(registry: DependencyRegistry):
+async def test_get_async_functional_dependency_ok(container: DependencyContainer):
     # Given: Registered async functional dependency
     async def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
     # When: Get dependency
-    a = await registry.get_async(A)
+    a = await container.get_async(A)
     # Then: Dependency is returned
     assert a.value == "A"
 
 
-def test_get_dependency_twice(registry: DependencyRegistry):
+def test_get_dependency_twice(container: DependencyContainer):
     # Given: Registered functional dependency
     def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
     # When: Get dependency
-    a1 = registry.get(A)
+    a1 = container.get(A)
     # And: Change value
     a1.value = "A1"
     # And: Get dependency again
-    a2 = registry.get(A)
+    a2 = container.get(A)
     # Then: The same object is returned
     assert a2.value == "A1"
 
 
 @pytest.mark.asyncio
-async def test_get_async_dependency_twice(registry: DependencyRegistry):
+async def test_get_async_dependency_twice(container: DependencyContainer):
     # Given: Registered functional dependency
     def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
     # When: Get dependency
-    a1 = await registry.get_async(A)
+    a1 = await container.get_async(A)
     # And: Change value
     a1.value = "A1"
     # And: Get dependency again
-    a2 = await registry.get_async(A)
+    a2 = await container.get_async(A)
     # Then: The same object is returned
     assert a2.value == "A1"
 
 
-def test_get_dependent_dependency(registry: DependencyRegistry):
+def test_get_dependent_dependency(container: DependencyContainer):
     # Given: Registered functional dependency
     def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
 
     # And: Registered functional dependent dependency
     def get_b(a: A) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
     # When: Get dependency
-    b = registry.get(B)
+    b = container.get(B)
     # Then: Dependency is returned
     assert isinstance(b.a, A)
     assert b.a.value == "A"
@@ -124,36 +122,36 @@ def test_get_dependent_dependency(registry: DependencyRegistry):
 
 
 @pytest.mark.asyncio
-async def test_get_async_dependent_dependency(registry: DependencyRegistry):
+async def test_get_async_dependent_dependency(container: DependencyContainer):
     # Given: Registered functional dependency
     async def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
 
     # And: Registered functional dependent dependency
     async def get_b(a: A) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
     # When: Get dependency
-    b = await registry.get_async(B)
+    b = await container.get_async(B)
     # Then: Dependency is returned
     assert isinstance(b.a, A)
     assert b.a.value == "A"
     assert b.value == "B"
 
 
-def test_add_object(registry: DependencyRegistry):
+def test_add_object(container: DependencyContainer):
     # Given: Added an object
-    registry.add(A())
+    container.add(A())
     # When: Get dependency
-    a = registry.get(A)
+    a = container.get(A)
     # Then: Dependency is returned
     assert a.value == "A"
 
 
-def test_add_all(registry: DependencyRegistry):
+def test_add_all(container: DependencyContainer):
     # Given: A dataclass object
     class AppConfig(BaseSettings):
         data_dir: str = "./data"
@@ -172,16 +170,16 @@ def test_add_all(registry: DependencyRegistry):
         async_factory=InMemoryAsyncFactory(),
     )
     # When: All object properties are added
-    registry.add_all(app_state)
+    container.add_all(app_state)
     # Then: The object is added
-    assert registry.get(AppState) == app_state
+    assert container.get(AppState) == app_state
     # And: All properties are added
-    assert registry.get(AppConfig) == app_state.config
-    assert registry.get(BaseFactory) == app_state.factory
-    assert registry.get(BaseAsyncFactory) == app_state.async_factory
+    assert container.get(AppConfig) == app_state.config
+    assert container.get(BaseFactory) == app_state.factory
+    assert container.get(BaseAsyncFactory) == app_state.async_factory
 
 
-def test_circular_err(registry: DependencyRegistry):
+def test_circular_err(container: DependencyContainer):
     # Given: Two functions with circular dependency
     def get_a(b: B) -> A:
         return A()
@@ -189,17 +187,17 @@ def test_circular_err(registry: DependencyRegistry):
     def get_b(a: A) -> B:
         return B(a)
 
-    registry.register(get_a)
-    registry.register(get_b)
+    container.register(get_a)
+    container.register(get_b)
     # When: Get dependency
     with pytest.raises(RuntimeError) as e:
-        registry.get(A)
+        container.get(A)
     # Then: An error is raised
     assert "Cycle detected" in str(e.value)
 
 
 @pytest.mark.asyncio
-async def test_circular_async_err(registry: DependencyRegistry):
+async def test_circular_async_err(container: DependencyContainer):
     # Given: Two functions with circular dependency
     def get_a(b: B) -> A:
         return A()
@@ -207,18 +205,18 @@ async def test_circular_async_err(registry: DependencyRegistry):
     def get_b(a: A) -> B:
         return B(a)
 
-    registry.register(get_a)
-    registry.register(get_b)
+    container.register(get_a)
+    container.register(get_b)
     # When: Get dependency
     with pytest.raises(RuntimeError) as e:
-        await registry.get_async(A)
+        await container.get_async(A)
     # Then: An error is raised
     assert "Cycle detected" in str(e.value)
 
 
-def test_register_class(registry: DependencyRegistry):
+def test_register_class(container: DependencyContainer):
     # Given: Registered class dependency
-    @DependencyRegistry.register_class
+    @container.register_class
     class C:
         def __init__(self, a: A):
             self.a = a
@@ -226,25 +224,25 @@ def test_register_class(registry: DependencyRegistry):
     def get_a() -> A:
         return A()
 
-    registry.register_for_type(A)(get_a)
+    container.register_for_type(A)(get_a)
 
     # When: Get dependency
-    c = registry.get(C)
+    c = container.get(C)
 
     # Then: Dependency is returned
     assert isinstance(c, C)
     assert c.a.value == "A"
 
 
-def test_optional_dependency_missing(registry: DependencyRegistry):
+def test_optional_dependency_missing(container: DependencyContainer):
     # Given: A function that depends on an Optional dependency that is not registered
     def get_b(a: Optional[A]) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
 
     # When: Get dependency
-    b = registry.get(B)
+    b = container.get(B)
 
     # Then: Dependency is returned with None for the optional parameter
     assert b.a is None
@@ -252,53 +250,53 @@ def test_optional_dependency_missing(registry: DependencyRegistry):
 
 
 @pytest.mark.asyncio
-async def test_optional_dependency_missing_async(registry: DependencyRegistry):
+async def test_optional_dependency_missing_async(container: DependencyContainer):
     # Given: An async function that depends on an Optional dependency that is not registered
     async def get_b(a: Optional[A]) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
 
     # When: Get dependency
-    b = await registry.get_async(B)
+    b = await container.get_async(B)
 
     # Then: Dependency is returned with None for the optional parameter
     assert b.a is None
     assert b.value == "B"
 
 
-def test_complex_union_dependency_err(registry: DependencyRegistry):
+def test_complex_union_dependency_err(container: DependencyContainer):
     # Given: A function that depends on a complex Union dependency
     def get_b(a: Union[A, C, None]) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
 
     # When: Get dependency
     with pytest.raises(TypeError) as e:
-        registry.get(B)
+        container.get(B)
 
     # Then: An error is raised
     assert "Complex Union types are not supported" in str(e.value)
 
 
 @pytest.mark.asyncio
-async def test_complex_union_dependency_async_err(registry: DependencyRegistry):
+async def test_complex_union_dependency_async_err(container: DependencyContainer):
     # Given: An async function that depends on a complex Union dependency
     async def get_b(a: Union[A, C, None]) -> B:
         return B(a)
 
-    registry.register_for_type(B)(get_b)
+    container.register_for_type(B)(get_b)
 
     # When: Get dependency
     with pytest.raises(TypeError) as e:
-        await registry.get_async(B)
+        await container.get_async(B)
 
     # Then: An error is raised
     assert "Complex Union types are not supported" in str(e.value)
 
 
-def test_optional_dependency_no_cycle_false_positive(registry: DependencyRegistry):
+def test_optional_dependency_no_cycle_false_positive(container: DependencyContainer):
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
     class C:
@@ -309,11 +307,11 @@ def test_optional_dependency_no_cycle_false_positive(registry: DependencyRegistr
         c: C
         a: Optional[A]
 
-    registry.register_class(C)
-    registry.register_class(D)
+    container.register_class(C)
+    container.register_class(D)
 
     # When: Get dependency
-    d = registry.get(D)
+    d = container.get(D)
 
     # Then: No cycle error is raised, and both optional dependencies are None
     assert d.a is None
@@ -322,7 +320,7 @@ def test_optional_dependency_no_cycle_false_positive(registry: DependencyRegistr
 
 @pytest.mark.asyncio
 async def test_optional_dependency_no_cycle_false_positive_async(
-    registry: DependencyRegistry,
+    container: DependencyContainer,
 ):
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
@@ -340,34 +338,12 @@ async def test_optional_dependency_no_cycle_false_positive_async(
     async def get_d(c: C, a: Optional[A]) -> D:
         return D(c, a)
 
-    registry.register_for_type(C)(get_c)
-    registry.register_for_type(D)(get_d)
+    container.register_for_type(C)(get_c)
+    container.register_for_type(D)(get_d)
 
     # When: Get dependency
-    d = await registry.get_async(D)
+    d = await container.get_async(D)
 
     # Then: No cycle error is raised, and both optional dependencies are None
     assert d.a is None
     assert d.c.a is None
-
-
-def test_get_dependency_function(registry: DependencyRegistry):
-    # Given: Registered functional dependency
-    def get_a() -> A:
-        return A()
-
-    registry.register_for_type(A)(get_a)
-
-    # When: Create dependency getter
-    dep_getter = get_dependency(A)
-
-    # And: Call getter with registry
-    a1 = dep_getter()
-
-    # And: Call getter without registry (uses global DependencyRegistry)
-    a2 = dep_getter()
-
-    # Then: Dependencies are returned and are the same instance
-    assert a1.value == "A"  # pyright: ignore[reportAttributeAccessIssue]
-    assert a2.value == "A"  # pyright: ignore[reportAttributeAccessIssue]
-    assert a1 is a2
