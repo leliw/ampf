@@ -25,7 +25,7 @@ class PubsubPullRunner(PubsubRunner):
                 if processor_definition.payload_type is None:
                     raise ValueError(f"Payload type is required for task processor {task_name}")
                 s_processor = SubscriptionProcessor(self.factory, processor_definition.payload_type)
-                s_processor.process_payload = lambda payload, tn=task_name: TaskRegistry.run_task_async(tn, payload)
+                s_processor.process_payload = lambda payload, tn=task_name: TaskRegistry.run_task_async(self, tn, payload)
                 subscription = GcpSubscriptionPull(subscription_name, s_processor, loop=loop)
                 subscription.run()
                 self.subscriptions[subscription_name] = subscription

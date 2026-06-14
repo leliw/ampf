@@ -9,11 +9,11 @@ from .task_registry import TaskRegistry
 class DirectRunner(TaskRunner):
     @override
     def run(self, name: str, payload: BaseModel):
-        TaskRegistry.run_task(name, payload)
+        TaskRegistry.run_task(self, name, payload)
 
     @override
     async def run_async(self, name: str, payload: BaseModel):
-        await TaskRegistry.run_task_async(name, payload)
+        await TaskRegistry.run_task_async(self, name, payload)
 
     @classmethod
     def create(cls) -> "DirectRunner":
