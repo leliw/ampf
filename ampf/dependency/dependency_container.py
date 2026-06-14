@@ -1,8 +1,7 @@
 import inspect
 import types
-import typing
 from dataclasses import fields, is_dataclass
-from typing import Annotated, Any, Callable, Type, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Callable, Type, Union, get_args, get_origin, get_type_hints
 
 from ampf.dependency.dependency_model import DependencyDefinition, SyncOrAsyncCallable
 
@@ -39,12 +38,26 @@ class DependencyContainer:
             for field in fields(instance):
                 declared_type = field.type
                 value = getattr(instance, field.name)
-                if (
-                    not isinstance(value, type)
-                    and isinstance(declared_type, type)
-                    and declared_type.__module__ != "builtins"
-                ):
-                    self.add(value, declared_type)
+                if value is not None and not isinstance(value, type):
+                    actual_type, _ = self.get_actual_type_optional(declared_type)
+                    if isinstance(actual_type, type) and getattr(actual_type, "__module__", None) != "builtins":
+                        self.add(value, actual_type)
+
+    @staticmethod
+    def get_actual_type_optional(defined_type: Any) -> tuple[Type, bool]:
+        origin = get_origin(defined_type)
+        args = get_args(defined_type)
+        is_optional = False
+        actual_type = defined_type
+
+        if origin is Union or (hasattr(types, "UnionType") and origin is types.UnionType):
+            if type(None) in args:
+                is_optional = True
+                non_none_args = [arg for arg in args if arg is not type(None)]
+                if len(non_none_args) > 1:
+                    raise TypeError(f"Complex Union types are not supported for dependency injection: {defined_type}")
+                actual_type = non_none_args[0]
+        return actual_type, is_optional
 
     def register[T](self, fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
         """Decorator to register a function as a dependency provider based on its return type hint.
@@ -209,18 +222,7 @@ class DependencyContainer:
         """
         parameters = {}
         for param_name, param_type in params.items():
-            origin = typing.get_origin(param_type)
-            args = typing.get_args(param_type)
-            is_optional = False
-            actual_type = param_type
-
-            if origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType):
-                if type(None) in args:
-                    is_optional = True
-                    non_none_args = [arg for arg in args if arg is not type(None)]
-                    if len(non_none_args) > 1:
-                        raise TypeError(f"Complex Union types are not supported for dependency injection: {param_type}")
-                    actual_type = non_none_args[0]
+            actual_type, is_optional = self.get_actual_type_optional(param_type)
             try:
                 parameters[param_name] = self.get(actual_type, stack)
             except ValueError:
@@ -244,18 +246,7 @@ class DependencyContainer:
         """
         parameters = {}
         for param_name, param_type in params.items():
-            origin = typing.get_origin(param_type)
-            args = typing.get_args(param_type)
-            is_optional = False
-            actual_type = param_type
-
-            if origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType):
-                if type(None) in args:
-                    is_optional = True
-                    non_none_args = [arg for arg in args if arg is not type(None)]
-                    if len(non_none_args) > 1:
-                        raise TypeError(f"Complex Union types are not supported for dependency injection: {param_type}")
-                    actual_type = non_none_args[0]
+            actual_type, is_optional = self.get_actual_type_optional(param_type)
             try:
                 parameters[param_name] = await self.get_async(actual_type, stack)
             except ValueError:

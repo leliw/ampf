@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
+from pydantic import BaseModel
 import pytest
 from pydantic_settings import BaseSettings
 
@@ -152,9 +153,12 @@ def test_add_object(container: DependencyContainer):
 
 
 def test_add_all(container: DependencyContainer):
-    # Given: A dataclass object
+    # Given: A dataclass object with optional properties
     class AppConfig(BaseSettings):
         data_dir: str = "./data"
+
+    class BaseAIModel:
+        pass
 
     @dataclass
     class AppState:
@@ -162,12 +166,14 @@ def test_add_all(container: DependencyContainer):
         factory: BaseFactory
         async_factory: BaseAsyncFactory
         subscriptions: dict[str, GcpSubscriptionPull] = field(default_factory=dict)
-        ai_model: Any = None
+        ai_model: BaseAIModel | None = None
+        ignored: BaseModel | None = None
 
     app_state = AppState(
         config=AppConfig(),
         factory=InMemoryFactory(),
         async_factory=InMemoryAsyncFactory(),
+        ai_model=BaseAIModel(),
     )
     # When: All object properties are added
     container.add_all(app_state)
@@ -177,6 +183,8 @@ def test_add_all(container: DependencyContainer):
     assert container.get(AppConfig) == app_state.config
     assert container.get(BaseFactory) == app_state.factory
     assert container.get(BaseAsyncFactory) == app_state.async_factory
+    assert container.get(BaseAIModel) == app_state.ai_model
+
 
 
 def test_circular_err(container: DependencyContainer):
