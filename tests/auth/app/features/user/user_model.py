@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import model_serializer
 
@@ -15,6 +15,7 @@ class User(UserHeader):
 
 class UserInDB(User):
     @model_serializer
-    def ser_model(self) -> Dict[str, Any]:
-        self.password = None
-        return dict(self)
+    def ser_model(self) -> dict[str, Any]:
+        ret = dict(self)
+        ret.pop("password", None)
+        return ret

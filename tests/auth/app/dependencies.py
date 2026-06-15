@@ -11,17 +11,17 @@ from ampf.base.base_email_sender import BaseEmailSender
 from ampf.base.email_template import EmailTemplate
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 
-from .config import ServerConfig
+from .app_config import AppConfig
 from .features.user.user_service import UserService
 
 AuthTokenDep = Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="api/login"))]
 
 
-def get_server_config() -> ServerConfig:
-    return ServerConfig(auth=AuthConfig(jwt_secret_key="asdasdasd"))
+def get_app_config() -> AppConfig:
+    return AppConfig(auth=AuthConfig(jwt_secret_key="asdasdasd"))
 
 
-ServerConfigDep = Annotated[ServerConfig, Depends(get_server_config)]
+AppConfigDep = Annotated[AppConfig, Depends(get_app_config)]
 
 
 async def get_async_factory() -> BaseAsyncFactory:
@@ -35,10 +35,10 @@ def user_service_dep(factory: AsyncFactoryDep) -> UserService:
     return UserService(factory)
 
 
-UserServceDep = Annotated[UserService, Depends(user_service_dep)]
+UserServiceDep = Annotated[UserService, Depends(user_service_dep)]
 
 
-async def get_email_sender(conf: ServerConfigDep) -> Optional[BaseEmailSender]:
+async def get_email_sender(conf: AppConfigDep) -> Optional[BaseEmailSender]:
     return None
 
 
@@ -48,8 +48,8 @@ EmailSenderServiceDep = Annotated[BaseEmailSender, Depends(get_email_sender)]
 async def auth_service_dep(
     factory: AsyncFactoryDep,
     email_sender_service: EmailSenderServiceDep,
-    server_config: ServerConfigDep,
-    user_service: UserServceDep,
+    server_config: AppConfigDep,
+    user_service: UserServiceDep,
 ) -> AuthService:
     reset_mail_template = EmailTemplate(**dict(server_config.reset_password_mail))
     return AuthService(
