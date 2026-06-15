@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -10,6 +10,7 @@ from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_email_sender import BaseEmailSender
 from ampf.base.email_template import EmailTemplate
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
+from tests.auth.app.core.roles import Role
 
 from .app_config import AppConfig
 from .features.user.user_service import UserService
@@ -38,7 +39,7 @@ def user_service_dep(factory: AsyncFactoryDep) -> UserService:
 UserServiceDep = Annotated[UserService, Depends(user_service_dep)]
 
 
-async def get_email_sender(conf: AppConfigDep) -> Optional[BaseEmailSender]:
+async def get_email_sender(conf: AppConfigDep) -> BaseEmailSender | None:
     return None
 
 
@@ -74,7 +75,7 @@ TokenPayloadDep = Annotated[TokenPayload, Depends(decode_token)]
 class Authorize:
     """Dependency for authorizing users based on their role."""
 
-    def __init__(self, required_role: Optional[str] = None):
+    def __init__(self, required_role: Role | None = None):
         self.required_role = required_role
 
     def __call__(self, token_payload: TokenPayloadDep) -> bool:

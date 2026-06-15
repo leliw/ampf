@@ -2,21 +2,11 @@ from typing import Annotated, List
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 
-from ampf.auth import (
-    APIKey,
-    APIKeyInDB,
-    APIKeyRequest,
-    ChangePasswordData,
-    ResetPassword,
-    ResetPasswordRequest,
-    Tokens,
-)
-from tests.auth.app.dependencies import (
-    AuthServiceDep,
-    AuthTokenDep,
-    TokenPayloadDep,
-)
+from ampf.auth import APIKey, APIKeyInDB, APIKeyRequest, ChangePasswordData, ResetPassword, ResetPasswordRequest, Tokens
+from tests.auth.app.core.roles import ROLE_DESCRIPTIONS, Role
+from tests.auth.app.dependencies import AuthServiceDep, AuthTokenDep, TokenPayloadDep
 
 router = APIRouter(tags=["Autentykacja"])
 
@@ -33,7 +23,7 @@ async def logout(auth_service: AuthServiceDep, refresh_token: AuthTokenDep) -> N
     await auth_service.add_to_black_list(refresh_token)
 
 
-@router.post("/token-refresh")
+@router.post("/refresh-token")
 async def refresh_token(auth_service: AuthServiceDep, refresh_token: AuthTokenDep) -> Tokens:
     return await auth_service.refresh_token(refresh_token)
 
@@ -55,6 +45,16 @@ async def reset_password_request(auth_service: AuthServiceDep, rpr: ResetPasswor
 @router.post("/reset-password")
 async def reset_password_route(auth_service: AuthServiceDep, rp: ResetPassword):
     await auth_service.reset_password(rp.email, rp.reset_code, rp.new_password)
+
+
+class RoleDto(BaseModel):
+    name: str
+    description: str
+
+
+@router.get("/roles")
+def get_roles() -> List[RoleDto]:
+    return [RoleDto(name=role.value, description=ROLE_DESCRIPTIONS[role]) for role in Role]
 
 
 @router.post("/api-keys")
