@@ -29,6 +29,11 @@ class UserHeader(AuthUser):
     pass
 
 
+class UserPatch(BaseModel):
+    disabled: bool | None = None
+    password: str | None = None
+
+    
 class User(UserHeader):
     pass
 
@@ -836,7 +841,7 @@ export const authGuard: CanActivateFn = (route, state) => {
 };
 ```
 
-## 2.2 User login form
+## 2.2 Frontend - User login form
 
 ### LoginFormComponent
 
@@ -959,7 +964,7 @@ Add routing to login form.
 
 #### src/app/core/users/user.service.ts
 
-```typesript
+```typescript
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -1017,7 +1022,7 @@ export class UserService {
 }
 ```
 
-#### src/app/core/role.service.ts
+#### src/app/core/auth/role.service.ts
 
 ```typescript
 import { Injectable } from '@angular/core';
@@ -1480,7 +1485,7 @@ export const routes: Routes = [
 ];
 ```
 
-#### src/app/core/main-toolbar/main-toolbbar.component.html
+#### src/app/core/main-toolbar/main-toolbar.component.html
 
 ```html
     <mat-menu #menu="matMenu">
@@ -1499,9 +1504,9 @@ The same solution with `authGuard` and `authService` should be used with other f
 
 ## 2.4 Change password & logout
 
-### ChangePasswordComponent
+### ChangePasswordFormComponent
 
-#### src/app/core/users/change-password/change-password.component.html
+#### src/app/core/users/change-password-form/change-password-form.component.html
 
 ```html
 <div class="centered-form">
@@ -1558,7 +1563,7 @@ The same solution with `authGuard` and `authService` should be used with other f
 </div>
 ```
 
-#### src/app/core/users/change-password/change-password.component.ts
+#### src/app/core/users/change-password-form/change-password-form.component.ts
 
 ```typescript
 import { Component, inject, OnInit } from '@angular/core';
@@ -1634,13 +1639,13 @@ export class ChangePasswordFormComponent implements OnInit {
 }
 ```
 
-#### app/core/validators/index.ts
+#### src/app/core/validators/index.ts
 
 ```typescript
 export * from './password.validators';
 ```
 
-#### app/core/validators/password.validators.ts
+#### src/app/core/validators/password.validators.ts
 
 ```typescript
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
@@ -1664,7 +1669,7 @@ export function passwordStrengthValidator(minLength: number): ValidatorFn {
 export function newPasswordEqualsValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
         const value2: string = control.value;
-        const value1: string = control.parent?.value.new_password
+        const value1: string = control.parent?.value.new_password;
         return value1 != value2 ? { equals: true } : null;
     }
 }

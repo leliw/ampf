@@ -10,7 +10,7 @@ from pydantic import EmailStr
 from ampf.base import KeyExistsException, KeyNotExistsException
 
 from .auth_config import DefaultUser
-from .auth_exceptions import IncorectOldPasswordException, IncorrectUsernameOrPasswordException
+from .auth_exceptions import IncorrectOldPasswordException, IncorrectUsernameOrPasswordException
 from .auth_model import AuthUser
 
 _log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class BaseUserService[T: AuthUser](ABC):
             _log.error("User %s not found", username)
             raise IncorrectUsernameOrPasswordException
 
-    async def create(self, user: T) -> None:
+    async def create(self, user: T) -> T:
         """Creates user
 
         Args:
@@ -112,6 +112,7 @@ class BaseUserService[T: AuthUser](ABC):
                 user.hashed_password = self._hash_password(user.password)
                 user.password = None
             await self.put(key, user)
+            return user
 
     async def update(self, username: str, user: T) -> None:
         """Updates user
@@ -151,13 +152,13 @@ class BaseUserService[T: AuthUser](ABC):
             old_pass: Old password
             new_pass: New password
         Raises:
-            IncorectOldPasswordException: If old password is incorrect
+            IncorrectOldPasswordException: If old password is incorrect
             KeyNotExistsException: If user doesn't exist
         """
         try:
             user = await self.get_user_by_credentials(username, old_pass)
         except IncorrectUsernameOrPasswordException:
-            raise IncorectOldPasswordException
+            raise IncorrectOldPasswordException
         user.password = new_pass
         user.hashed_password = None
         await self.update(username, user)
