@@ -46,3 +46,14 @@ __all__ = [
     "GoogleOAuth",
     "BaseUserService",
 ]
+
+
+try:
+    from .google_oauth_service import GoogleOAuthService  # noqa: F401
+    from .google_oauth_model import GoogleOAuthConfig, ExchangeCodePayload  # noqa: F401
+
+    __all__.append("GoogleOAuthService")
+    __all__.append("GoogleOAuthConfig")
+    __all__.append("ExchangeCodePayload")
+except ImportError:
+    pass

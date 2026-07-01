@@ -58,7 +58,7 @@ def test_refresh_token(client, tokens):
     time.sleep(1)
     # When: Default user refreshes token
     response = client.post(
-        "/api/token-refresh",
+        "/api/refresh-token",
         headers={"Authorization": f"Bearer {tokens['refresh_token']}"},
     )
     # Then: The response status code is 200

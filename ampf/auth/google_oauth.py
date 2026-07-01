@@ -1,10 +1,10 @@
 import logging
 import os
 from typing import Any, Optional
+from warnings import deprecated
 from pydantic import BaseModel
 import requests
 import jwt
-
 
 
 GOOGLE_URL_PUBLIC_KEYS = "https://www.googleapis.com/oauth2/v1/certs"
@@ -18,6 +18,7 @@ class UserData(BaseModel):
     picture: Optional[str] = None
 
 
+@deprecated("Use GoogleOAuthService instead")
 class GoogleOAuth:
     """Google OAuth2 class."""
 
@@ -25,7 +26,7 @@ class GoogleOAuth:
 
     def __init__(
         self,
-        client_id: str = None,
+        client_id: str | None = None,
     ):
         self.client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID", client_id)
         self._google_public_keys = self._get_google_public_keys()
