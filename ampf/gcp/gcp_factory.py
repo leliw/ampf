@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional, Type, override
+from typing import Callable, Type, override
 
 from google.cloud import firestore, storage
 from pydantic import BaseModel
@@ -12,27 +12,35 @@ from .gcp_base_factory import GcpBaseFactory
 from .gcp_blob_storage import GcpBlobStorage
 from .gcp_storage import GcpStorage
 
+_log = logging.getLogger(__name__)
+
 
 class GcpFactory(GcpBaseFactory, BaseFactory):
-    _log = logging.getLogger(__name__)
-
-    def __init__(self, root_storage: Optional[str] = None, bucket_name: Optional[str] = None):
+    def __init__(
+        self,
+        root_storage: str | None = None,
+        bucket_name: str | None = None,
+        project_id: str | None = None,
+        database: str | None = None,
+    ):
         super().__init__(root_storage, bucket_name)
         BaseFactory.__init__(self)
-        self._db = firestore.Client()
-        self._async_db = firestore.AsyncClient()
-        self._storage_client = storage.Client()
+        self._db = firestore.Client(project=project_id, database=database)
+        self._async_db = firestore.AsyncClient(project=project_id, database=database)
+        self._storage_client = storage.Client(project=project_id)
+        self.project_id = project_id or self._db.project
+        self.database = database
 
     @override
     def get_project_id(self) -> str:
-        return self._db.project
+        return self.project_id
 
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key_name: str | None = None,
+        key: Callable[[T], str] | None = None,
     ) -> BaseStorage[T]:
         return GcpStorage(
             collection_name,
@@ -48,7 +56,7 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
         collection_name: str,
         clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
-        bucket_name: Optional[str] = None,
+        bucket_name: str | None = None,
     ) -> BaseBlobStorage[T]:
         bucket_name = bucket_name or self.bucket_name
         if not bucket_name:
@@ -67,10 +75,10 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
         self,
         collection_name: str,
         clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        key_name: str | None = None,
+        key: Callable[[T], str] | None = None,
     ) -> BaseAsyncStorage[T]:
-        self._log.debug("Creating async storage with root_storage=%s", self.root_storage)
+        _log.debug("Creating async storage with root_storage=%s", self.root_storage)
         return GcpAsyncStorage(
             f"{self.root_storage}/{collection_name}" if self.root_storage else collection_name,
             clazz,
