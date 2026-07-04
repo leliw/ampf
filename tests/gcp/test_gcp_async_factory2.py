@@ -1,35 +1,16 @@
 import asyncio
-import os
 from uuid import UUID, uuid4
 
-from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
 import pytest
 
 from ampf.gcp import GcpAsyncFactory
-
-
-class AppConfig(BaseSettings):
-    project_id: str
-
-    gcp_bucket_name: str
-    gcp_database_1: str
-    gcp_database_2: str
+from tests.gcp.conftest import AppConfig
 
 
 class D(BaseModel):
     uuid: UUID = Field(default_factory=uuid4)
     name: str
-
-
-@pytest.fixture
-def config():
-    load_dotenv("./infra/env/it/.env.app")
-    cred = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./infra/env/it/.gcp_credentials.json")
-    yield AppConfig()  # pyright: ignore[reportCallIssue]
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred
 
 
 @pytest.mark.asyncio

@@ -11,14 +11,27 @@ locals {
     "roles/storage.objectUser",
     "roles/iam.serviceAccountTokenCreator",
 
+    "roles/pubsub.admin", # Create & delete topics & subscriptions
     "roles/pubsub.publisher",
     "roles/pubsub.subscriber",
   ]
+  pubsub_topics = {
+    GCP_TOPIC_1 = {
+      topic_name = "${local.name_prefix}-topic-1"
+    },
+    GCP_TOPIC_2 = {
+      topic_name = "${local.name_prefix}-topic-2"
+    }
+
+  }
+
   env_vars_plain = {
-    PROJECT_ID       = var.project_id
-    GCP_BUCKET_NAME  = module.bucket.name
-    GCP_DATABASE_1   = resource.google_firestore_database.firestore_1.name
-    GCP_DATABASE_2   = resource.google_firestore_database.firestore_2.name
+    PROJECT_ID      = var.project_id
+    GCP_BUCKET_NAME = module.bucket.name
+    GCP_DATABASE_1  = resource.google_firestore_database.firestore_1.name
+    GCP_DATABASE_2  = resource.google_firestore_database.firestore_2.name
+    GCP_TOPIC_1     = local.pubsub_topics["GCP_TOPIC_1"].topic_name
+    GCP_TOPIC_2     = local.pubsub_topics["GCP_TOPIC_2"].topic_name
   }
 }
 
@@ -52,4 +65,18 @@ module "service_account" {
   display_name          = local.service_account_display_name
   service_account_roles = local.service_account_roles
   bucket_names          = [module.bucket.name]
+}
+
+
+module "pubsub_topics" {
+  source   = "./modules/pubsub-topic-with-dlq"
+  for_each = local.pubsub_topics
+
+  project_id                 = var.project_id
+  environment                = var.environment
+  topic_name                 = each.value.topic_name
+  ack_deadline_seconds       = 10
+  max_delivery_attempts      = 5
+  message_retention_duration = "600s"
+  create_dlq                 = false
 }
