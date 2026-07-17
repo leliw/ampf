@@ -1,7 +1,7 @@
-from typing import Callable, Optional, Type, override
+from typing import Callable, Type, override
 
-from google.cloud import firestore, storage
 import httpx2
+from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
@@ -17,20 +17,24 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         self,
         root_storage: str | None = None,
         bucket_name: str | None = None,
+        project_id: str | None = None,
+        database: str | None = None,
         httpx_async_client: httpx2.AsyncClient | None = None,
     ):
         super().__init__(root_storage, bucket_name)
         BaseAsyncFactory.__init__(self)
-        self._async_db = firestore.AsyncClient()
-        self._storage_client = storage.Client()
+        self._async_db = firestore.AsyncClient(project=project_id, database=database)
+        self._storage_client = storage.Client(project=project_id)
         self._httpx_async_client = httpx_async_client
+        self.project_id = project_id or self._async_db.project
+        self.database = database
 
     @override
     def get_project_id(self) -> str:
-        return self._async_db.project
+        return self.project_id
 
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key: Optional[Callable[[T], str]] = None
+        self, collection_name: str, clazz: Type[T], key: Callable[[T], str] | None = None
     ) -> BaseAsyncStorage[T]:
         return GcpAsyncStorage(
             collection_name,
@@ -45,7 +49,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         collection_name: str,
         clazz: Type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
-        bucket_name: Optional[str] = None,
+        bucket_name: str | None = None,
     ) -> BaseAsyncBlobStorage[T]:
         bucket_name = bucket_name or self.bucket_name
         if not bucket_name:
@@ -61,7 +65,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
             httpx_async_client=self._httpx_async_client,
         )
 
-    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+    def create_blob_location(self, name: str, bucket: str | None = None) -> BlobLocation:
         """Creates a BlobLocation object.
 
         Args:

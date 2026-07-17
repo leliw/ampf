@@ -13,7 +13,7 @@ class TokenExpiredException(HTTPException):
 
 class InvalidTokenException(HTTPException):
     def __init__(self):
-        super().__init__(status_code=401, detail="Invalids token")
+        super().__init__(status_code=401, detail="Invalid token")
 
 
 class InvalidRefreshTokenException(HTTPException):
@@ -26,7 +26,7 @@ class BlackListedRefreshTokenException(HTTPException):
         super().__init__(status_code=401, detail="Invalid token")
 
 
-class IncorectOldPasswordException(HTTPException):
+class IncorrectOldPasswordException(HTTPException):
     def __init__(self):
         super().__init__(status_code=400, detail="Incorrect old password")
 

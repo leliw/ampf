@@ -1,5 +1,4 @@
 import logging
-from typing import List
 from pydantic import EmailStr
 
 from ampf.base import BaseAsyncFactory, KeyNotExistsException
@@ -13,10 +12,7 @@ _log = logging.getLogger(__name__)
 class UserService(BaseUserService[User]):
     """User service implementation"""
 
-    def __init__(
-        self,
-        factory: BaseAsyncFactory,
-    ) -> None:
+    def __init__(self, factory: BaseAsyncFactory) -> None:
         super().__init__(User)
         self.storage = factory.create_compact_storage("users", UserInDB, "username")
 
@@ -25,7 +21,7 @@ class UserService(BaseUserService[User]):
             return user
         raise KeyNotExistsException(email)
 
-    async def get_all(self) -> List[UserHeader]:
+    async def get_all(self) -> list[UserHeader]:
         return [UserHeader(**i.model_dump(by_alias=True)) async for i in self.storage.get_all()]
 
     async def get(self, key: str) -> User:

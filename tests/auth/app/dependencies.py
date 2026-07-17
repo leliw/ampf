@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -10,18 +10,19 @@ from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_email_sender import BaseEmailSender
 from ampf.base.email_template import EmailTemplate
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
+from tests.auth.app.core.roles import Role
 
-from .config import ServerConfig
+from .app_config import AppConfig
 from .features.user.user_service import UserService
 
 AuthTokenDep = Annotated[str, Depends(OAuth2PasswordBearer(tokenUrl="api/login"))]
 
 
-def get_server_config() -> ServerConfig:
-    return ServerConfig(auth=AuthConfig(jwt_secret_key="asdasdasd"))
+def get_app_config() -> AppConfig:
+    return AppConfig(auth=AuthConfig(jwt_secret_key="asdasdasd"))
 
 
-ServerConfigDep = Annotated[ServerConfig, Depends(get_server_config)]
+AppConfigDep = Annotated[AppConfig, Depends(get_app_config)]
 
 
 async def get_async_factory() -> BaseAsyncFactory:
@@ -35,10 +36,10 @@ def user_service_dep(factory: AsyncFactoryDep) -> UserService:
     return UserService(factory)
 
 
-UserServceDep = Annotated[UserService, Depends(user_service_dep)]
+UserServiceDep = Annotated[UserService, Depends(user_service_dep)]
 
 
-async def get_email_sender(conf: ServerConfigDep) -> Optional[BaseEmailSender]:
+async def get_email_sender(conf: AppConfigDep) -> BaseEmailSender | None:
     return None
 
 
@@ -48,8 +49,8 @@ EmailSenderServiceDep = Annotated[BaseEmailSender, Depends(get_email_sender)]
 async def auth_service_dep(
     factory: AsyncFactoryDep,
     email_sender_service: EmailSenderServiceDep,
-    server_config: ServerConfigDep,
-    user_service: UserServceDep,
+    server_config: AppConfigDep,
+    user_service: UserServiceDep,
 ) -> AuthService:
     reset_mail_template = EmailTemplate(**dict(server_config.reset_password_mail))
     return AuthService(
@@ -74,7 +75,7 @@ TokenPayloadDep = Annotated[TokenPayload, Depends(decode_token)]
 class Authorize:
     """Dependency for authorizing users based on their role."""
 
-    def __init__(self, required_role: Optional[str] = None):
+    def __init__(self, required_role: Role | None = None):
         self.required_role = required_role
 
     def __call__(self, token_payload: TokenPayloadDep) -> bool:

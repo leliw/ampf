@@ -7,6 +7,7 @@ import google.auth.transport.requests
 from google.api_core import exceptions
 from google.cloud import storage
 import httpx2
+from urllib.parse import quote, unquote
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
@@ -45,7 +46,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         method: str,
         content_type: str | None = None,
         expiration: int = 3600,
-        headers: dict | None = None,
+        headers: dict[str, str] | None = None,
         query_parameters: dict | None = None,
     ) -> str:
         """Generates a signed URL for the given key.
@@ -146,9 +147,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
         for blob in self._bucket.list_blobs(prefix=prefix):
             try:
-                metadata = self.clazz.model_validate(blob.metadata, extra="ignore")
-                metadata.content_type = blob.content_type
-                metadata.generation = blob.generation
+                metadata = self.clazz.model_validate_unquoted(blob.metadata or {}, blob.content_type, blob.generation)
                 yield BlobHeader(name=blob.name[col_name_len:], metadata=metadata)
             except Exception as e:
                 _log.warning("Failed to parse metadata for blob '%s': %s", blob.name, e)
@@ -210,7 +209,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
             metadata: The metadata to put.
         """
         blob = self._get_blob(name)
-        blob.metadata = metadata.model_dump()
+        blob.metadata = metadata.model_dump_quoted()
         blob.patch()
 
     async def get_metadata(self, name: str) -> T:
@@ -234,7 +233,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         metadata = {}
         for key, value in headers_dict.items():
             if key.startswith("x-goog-meta-"):
-                metadata[key.replace("x-goog-meta-", "")] = value
+                metadata[key.removeprefix("x-goog-meta-")] = unquote(value)
             else:
                 match key:
                     case "content-type":
@@ -255,7 +254,7 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
                     case "generation":
                         headers["x-goog-generation"] = str(value)
                     case _:
-                        headers[f"x-goog-meta-{key}"] = str(value)
+                        headers[f"x-goog-meta-{key}"] = quote(str(value), "")
         else:
             headers = {"Content-Type": self.content_type}
         return headers

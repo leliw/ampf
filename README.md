@@ -17,8 +17,9 @@ Set of helper classes:
 * [Dependency](doc/dependency.md) - simple dependency registry for managing dependencies in your application.
 * [Tasks](doc/tasks.md) - helper for running background tasks
 * FastAPI - helper classes for FastAPI framework
-  * [StaticFileResponse](doc/fastapi/static_file_response.md) - return static files or index.html (Angular files)
+  * [Auth](doc/fastapi/auth.md) - users authentication & authorization
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.
+  * [StaticFileResponse](doc/fastapi/static_file_response.md) - return static files or index.html (Angular files)
 * [GCP](doc/gcp.md) - wrapping of **Google Cloud Platform** classes
   * [GcpTopic](doc/gcp/gcp_topic.md) - helper class for Pub/Sub topic.
   * [GcpSubscription](doc/gcp/gcp_subscription.md) - helper class for Pub/Sub subscription in Push mode.

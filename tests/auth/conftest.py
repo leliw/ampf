@@ -10,8 +10,8 @@ from ampf.base import BaseAsyncFactory
 from ampf.base.exceptions import KeyNotExistsException
 
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
-from tests.auth.app.config import ServerConfig
-from tests.auth.app.dependencies import get_async_factory, get_email_sender, get_server_config
+from tests.auth.app.app_config import AppConfig
+from tests.auth.app.dependencies import get_async_factory, get_email_sender, get_app_config
 from tests.auth.app.features.user.user_model import User
 from tests.auth.app.features.user.user_service import UserService
 from tests.auth.app.routers import auth, users
@@ -29,8 +29,8 @@ def test_user() -> DefaultUser:
 
 
 @pytest.fixture
-def test_server_config(tmp_path: str, test_user) -> ServerConfig:
-    return ServerConfig(
+def test_server_config(tmp_path: str, test_user) -> AppConfig:
+    return AppConfig(
         data_dir=str(tmp_path),
         default_user=test_user,
         auth=AuthConfig(jwt_secret_key="asdafdgsdfgsfdgfsdgsdfgsdfgsdasd"),
@@ -38,7 +38,7 @@ def test_server_config(tmp_path: str, test_user) -> ServerConfig:
 
 
 @pytest_asyncio.fixture
-async def user_service(factory, test_server_config: ServerConfig) -> UserService: # type: ignore
+async def user_service(factory, test_server_config: AppConfig) -> UserService: # type: ignore
     ret = UserService(factory)
     await ret.initialise_storage(test_server_config.default_user)
     yield ret # type: ignore
@@ -47,13 +47,13 @@ async def user_service(factory, test_server_config: ServerConfig) -> UserService
 
 @pytest.fixture
 def client(
-    factory, email_sender, test_server_config: ServerConfig, user_service: UserService
+    factory, email_sender, test_server_config: AppConfig, user_service: UserService
 ) -> Iterator[TestClient]:
 
     app = FastAPI()
     app.dependency_overrides[get_async_factory] = lambda: factory
     app.dependency_overrides[get_email_sender] = lambda: email_sender
-    app.dependency_overrides[get_server_config] = lambda: test_server_config
+    app.dependency_overrides[get_app_config] = lambda: test_server_config
 
     app.include_router(prefix="/api", router=auth.router)
     app.include_router(prefix="/api/users", router=users.router)

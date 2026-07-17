@@ -59,6 +59,23 @@ class AuthService[T: AuthUser]:
         payload = self.create_token_payload(user)
         return self.create_tokens(payload)
 
+    async def authorize_by_email(self, email: str) -> Tokens:
+        """Authorize user only by email (when authentication is external i.e. Google)
+        
+        Args:
+            email: Email of the user
+        Returns:
+            User tokens
+        Raises:
+            UserNotExistsException: If user doesn't exist
+        """
+        try:
+            user = await self._user_service.get_user_by_email(email)
+        except KeyNotExistsException:
+            raise UserNotExistsException(email)
+        payload = self.create_token_payload(user)
+        return self.create_tokens(payload)
+
     def create_token_payload(self, user: T):
         return TokenPayload(
             sub=user.username,
