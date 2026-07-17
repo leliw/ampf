@@ -1,10 +1,28 @@
-import uuid
+import os
 
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 import pytest
 
 from ampf.gcp import GcpAsyncFactory, GcpTopic
-from ampf.testing import mock_method  # noqa: F401
 
+
+class AppConfig(BaseSettings):
+    project_id: str
+
+    gcp_bucket_name: str
+    gcp_database_1: str
+    gcp_database_2: str
+    gcp_topic_1: str
+    gcp_topic_2: str
+
+@pytest.fixture(scope="session")
+def config():
+    load_dotenv("./infra/env/it/.env.app")
+    cred = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./infra/env/it/.gcp_credentials.json")
+    yield AppConfig()  # pyright: ignore[reportCallIssue]
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred
 
 @pytest.fixture(scope="session")
 def async_factory():
@@ -27,30 +45,24 @@ def existing_subscription(existing_topic: GcpTopic):
 
 
 @pytest.fixture(scope="session")
-def topic():
-    topic_id = "ampf_unit_tests_" + uuid.uuid4().hex[:6]
-    topic = GcpTopic(topic_id).create(exist_ok=True)
-    yield topic
-    topic.delete()
+def topic(config: AppConfig):
+    topic = GcpTopic(config.gcp_topic_1, project_id=config.project_id)
+    return topic
 
 
 @pytest.fixture(scope="session")
 def subscription(topic: GcpTopic):
     subscription = topic.create_subscription(exist_ok=True)
-    yield subscription
-    subscription.delete()
+    return subscription
 
 
 @pytest.fixture(scope="session")
-def topic2():
-    topic_id = "ampf_unit_tests_" + uuid.uuid4().hex[:6]
-    topic = GcpTopic(topic_id).create(exist_ok=True)
-    yield topic
-    topic.delete()
+def topic2(config: AppConfig):
+    topic = GcpTopic(config.gcp_topic_2, project_id=config.project_id)
+    return topic
 
 
 @pytest.fixture(scope="session")
 def subscription2(topic2: GcpTopic):
     subscription = topic2.create_subscription(exist_ok=True)
-    yield subscription
-    subscription.delete()
+    return subscription
