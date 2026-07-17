@@ -6,6 +6,7 @@ from mimetypes import guess_file_type
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import Any, AsyncGenerator, BinaryIO, Generator, Optional, Self
+from urllib.parse import quote, unquote
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -49,6 +50,32 @@ class BaseBlobMetadata(BaseModel):
             content_type, _ = guess_file_type(filename)
         content_type = content_type or "application/octet-stream"
         return cls(filename=filename or None, content_type=content_type)
+
+    def model_dump_quoted(self) -> dict[str, Any]:
+        quoted = {}
+        for k, v in self.model_dump(exclude_none=True).items():
+            if isinstance(v, str):
+                quoted[k] = quote(v, safe="")
+            else:
+                quoted[k] = v
+        return quoted
+
+    @classmethod
+    def model_validate_unquoted(
+        cls, quoted_dict: dict[str, Any] | None = None, content_type: str | None = None, generation: int | None = None
+    ) -> Self:
+        unquoted = {}
+        if quoted_dict:
+            for k, v in quoted_dict.items():
+                if isinstance(v, str):
+                    unquoted[k] = unquote(v)
+                else:
+                    unquoted[k] = v
+        if content_type is not None:
+            unquoted["content_type"] = content_type
+        if generation is not None:
+            unquoted["generation"] = generation
+        return cls.model_validate(unquoted, extra="ignore")
 
 
 empty_blob_metadata = BaseBlobMetadata(content_type="")
@@ -133,6 +160,7 @@ class Blob[T: BaseBlobMetadata]:
             content=value_create.content,
             metadata=value_create.metadata,
         )
+
     @classmethod
     def from_file(cls, path: Path, metadata: T = empty_blob_metadata) -> "Blob[T]":
         return cls.create(BlobCreate.from_file(path, metadata))
