@@ -56,7 +56,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     def upload(self, blob: Blob[T]) -> None:
         g_blob = self._get_blob(blob.name)
         if blob.metadata:
-            g_blob.metadata = blob.metadata.model_dump(exclude_none=True)
+            g_blob.metadata = blob.metadata.model_dump_quoted()
 
         g_blob.upload_from_string(blob.content, content_type=blob.content_type or self.content_type)
 
@@ -65,7 +65,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     ) -> None:
         blob = self._get_blob(key)
         if metadata:
-            blob.metadata = metadata.model_dump(exclude_none=True)
+            blob.metadata = metadata.model_dump_quoted()
         blob.upload_from_string(data, content_type=content_type or self.content_type)
 
     def download(self, key: str) -> Blob[T]:
@@ -86,7 +86,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
 
     def put_metadata(self, key: str, metadata: T) -> None:
         blob = self._get_blob(key)
-        blob.metadata = metadata.dict()
+        blob.metadata = metadata.model_dump_quoted()
         blob.patch()
 
     def get_metadata(self, key: str) -> T:
@@ -98,7 +98,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
             blob.reload()
         if not blob.metadata or not self.clazz:
             raise ValueError(f"No metadata found for blob '{key}'")
-        return self.clazz(**blob.metadata)
+        return self.clazz.model_validate_unquoted(blob.metadata, blob.content_type, blob.generation)
 
     def delete(self, key: str):
         blob = self._get_blob(key)
@@ -127,7 +127,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
         blob = self._get_blob(key)
         blob.upload_from_filename(file_path)
         if metadata:
-            blob.metadata = metadata.model_dump()
+            blob.metadata = metadata.model_dump_quoted()
             blob.patch()
 
     def download_file(self, key: str, dest_path: Path):
