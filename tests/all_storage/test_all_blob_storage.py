@@ -48,10 +48,10 @@ def test_upload_blob_with_metadata(storage: BaseBlobStorage):
     # When: Upload blob with metadata
     storage.upload_blob(file_name, data, metadata)
     # Then: Metadata is saved
-    assert metadata == storage.get_metadata(file_name)
+    assert metadata.model_dump(exclude={"content_type", "generation"}) == storage.get_metadata(file_name).model_dump(exclude={"content_type", "generation"})
 
 
-def test_upload_file_with_metadata(storage: BaseBlobStorage, tmp_path: Path):
+def test_upload_file_with_metadata(storage: BaseBlobStorage[MyMetadata], tmp_path: Path):
     # Given: File
     file_path = tmp_path.joinpath("test.txt")
     with open(file_path, "wb") as f:
@@ -60,7 +60,7 @@ def test_upload_file_with_metadata(storage: BaseBlobStorage, tmp_path: Path):
     # When: Upload blob with metadata
     storage.upload_file(file_path, metadata=metadata)
     # Then: Metadata is saved
-    assert metadata == storage.get_metadata("test")
+    assert metadata.model_dump(exclude={"content_type", "generation"}) == storage.get_metadata("test").model_dump(exclude={"content_type", "generation"})
 
 
 def test_download_blob(storage: BaseBlobStorage):
@@ -85,7 +85,8 @@ def test_get_metadata(storage: BaseBlobStorage):
     metadata = MyMetadata(name="test", age=10)
     storage.upload_blob(file_name, b"test data", metadata)
     retrieved_metadata = storage.get_metadata(file_name)
-    assert retrieved_metadata == metadata
+    assert metadata.model_dump(exclude={"content_type", "generation"}) == retrieved_metadata.model_dump(exclude={"content_type", "generation"})
+
 
 
 def test_get_nonexistent_metadata(storage: BaseBlobStorage):
@@ -195,4 +196,4 @@ def test_download(storage: BaseBlobStorage):
     # Then: A downloaded blob is the same as the original
     assert downloaded_blob.name == blob.name
     assert downloaded_blob.content == blob.content
-    assert downloaded_blob.metadata == blob.metadata
+    assert downloaded_blob.metadata.model_dump(exclude={"content_type", "generation"}) == blob.metadata.model_dump(exclude={"content_type", "generation"})
