@@ -101,8 +101,8 @@ def test_get_typed_list(client: ApiTestClient):
 
 def test_get_typed_list_err(client: ApiTestClient):
     # When: Call the get_list method with a non-list response
-    # Then: It raises a ValueError
-    with pytest.raises(ValueError):
+    # Then: It raises a TypeError
+    with pytest.raises(TypeError):
         client.get_typed_list("/", 200, D)
 
 
