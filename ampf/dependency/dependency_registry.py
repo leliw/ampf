@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Type
+from typing import Any
 
 from ampf.dependency.dependency_container import DependencyContainer
 
@@ -52,7 +53,7 @@ class DependencyRegistry:
         _log.debug("All objects cleared in registry")
 
     @classmethod
-    def add(cls, instance: Any, instance_type: Type[Any] | None = None) -> None:
+    def add(cls, instance: Any, instance_type: type[Any] | None = None) -> None:
         """
         Manually adds an object instance to the registry.
 
@@ -91,7 +92,7 @@ class DependencyRegistry:
 
     @classmethod
     def register_for_type[T](
-        cls, dependency_type: Type[T]
+        cls, dependency_type: type[T]
     ) -> Callable[[SyncOrAsyncCallable[T]], SyncOrAsyncCallable[T]]:
         """
         Decorator to register a function as a provider for a specific type.
@@ -105,20 +106,21 @@ class DependencyRegistry:
         return cls.current().register_for_type(dependency_type)
 
     @classmethod
-    def register_class[T](cls, dependency_class: Type[T]) -> Type[T]:
+    def register_class[T](cls, dependency_class: type[T], dependency_type: type[Any] | None = None) -> type[T]:
         """
         Decorator to register a class as a dependency provider.
 
         Args:
             dependency_class: The class to register.
+            dependency_type: The type this class satisfies.
 
         Returns:
             The original class.
         """
-        return cls.current().register_class(dependency_class)
+        return cls.current().register_class(dependency_class, dependency_type)
 
     @classmethod
-    def get[T](cls, dependency_type: Type[T]) -> T:
+    def get[T](cls, dependency_type: type[T]) -> T:
         """
         Synchronously retrieves or creates an instance of a registered dependency.
 
@@ -136,7 +138,7 @@ class DependencyRegistry:
         return cls.current().get(dependency_type)
 
     @classmethod
-    async def get_async[T](cls, dependency_type: Type[T]) -> T:
+    async def get_async[T](cls, dependency_type: type[T]) -> T:
         """
         Asynchronously retrieves or creates an instance of a registered dependency.
 
@@ -153,7 +155,7 @@ class DependencyRegistry:
         return await cls.current().get_async(dependency_type)
 
 
-def get_dependency[T](clazz: Type[T]) -> SyncOrAsyncCallable[T]:
+def get_dependency[T](clazz: type[T]) -> SyncOrAsyncCallable[T]:
     """Returns a function that retrieves a dependency of the specified type from the DependencyRegistry.
 
     Args:

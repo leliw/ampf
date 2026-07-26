@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any
 
 import pytest
 from pydantic_settings import BaseSettings
@@ -236,9 +236,37 @@ def test_register_class(registry: DependencyRegistry):
     assert c.a.value == "A"
 
 
+def test_register_class_for_type(registry: DependencyRegistry):
+    # Given: Registered class dependency
+    class C:
+        def __init__(self, a: A):
+            self.a = a
+
+    class C1(C):
+        def __init__(self, a: A):
+            super().__init__(a)
+            self.value1 = "C1"
+
+    def get_a() -> A:
+        return A()
+
+    registry.register_for_type(A)(get_a)
+    registry.register_class(C1, C)
+
+    # When: Get dependency
+    c = registry.get(C)
+
+    # Then: Dependency is returned
+    assert isinstance(c, C)
+    assert c.a.value == "A"
+    # And: It is C1 instead of C
+    assert isinstance(c, C1)
+    assert c.value1 == "C1"
+
+
 def test_optional_dependency_missing(registry: DependencyRegistry):
     # Given: A function that depends on an Optional dependency that is not registered
-    def get_b(a: Optional[A]) -> B:
+    def get_b(a: A | None) -> B:
         return B(a)
 
     registry.register_for_type(B)(get_b)
@@ -254,7 +282,7 @@ def test_optional_dependency_missing(registry: DependencyRegistry):
 @pytest.mark.asyncio
 async def test_optional_dependency_missing_async(registry: DependencyRegistry):
     # Given: An async function that depends on an Optional dependency that is not registered
-    async def get_b(a: Optional[A]) -> B:
+    async def get_b(a: A | None) -> B:
         return B(a)
 
     registry.register_for_type(B)(get_b)
@@ -269,7 +297,7 @@ async def test_optional_dependency_missing_async(registry: DependencyRegistry):
 
 def test_complex_union_dependency_err(registry: DependencyRegistry):
     # Given: A function that depends on a complex Union dependency
-    def get_b(a: Union[A, C, None]) -> B:
+    def get_b(a: A | C | None) -> B:
         return B(a)
 
     registry.register_for_type(B)(get_b)
@@ -285,7 +313,7 @@ def test_complex_union_dependency_err(registry: DependencyRegistry):
 @pytest.mark.asyncio
 async def test_complex_union_dependency_async_err(registry: DependencyRegistry):
     # Given: An async function that depends on a complex Union dependency
-    async def get_b(a: Union[A, C, None]) -> B:
+    async def get_b(a: A | C | None) -> B:
         return B(a)
 
     registry.register_for_type(B)(get_b)
@@ -302,12 +330,12 @@ def test_optional_dependency_no_cycle_false_positive(registry: DependencyRegistr
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
     class C:
-        a: Optional[A]
+        a: A | None
 
     @dataclass
     class D:
         c: C
-        a: Optional[A]
+        a: A | None
 
     registry.register_class(C)
     registry.register_class(D)
@@ -327,17 +355,17 @@ async def test_optional_dependency_no_cycle_false_positive_async(
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
     class C:
-        a: Optional[A]
+        a: A | None
 
     @dataclass
     class D:
         c: C
-        a: Optional[A]
+        a: A | None
 
-    async def get_c(a: Optional[A]) -> C:
+    async def get_c(a: A | None) -> C:
         return C(a)
 
-    async def get_d(c: C, a: Optional[A]) -> D:
+    async def get_d(c: C, a: A | None) -> D:
         return D(c, a)
 
     registry.register_for_type(C)(get_c)
@@ -371,3 +399,18 @@ def test_get_dependency_function(registry: DependencyRegistry):
     assert a1.value == "A"  # pyright: ignore[reportAttributeAccessIssue]
     assert a2.value == "A"  # pyright: ignore[reportAttributeAccessIssue]
     assert a1 is a2
+
+def test_register_class_not_a_subclass_err(registry: DependencyRegistry):
+    # Given: Two unrelated classes
+    class C:
+        pass
+
+    class D:
+        pass
+
+    # When: Registering D for type C (D is not a subclass of C)
+    with pytest.raises(RuntimeError) as e:
+        registry.register_class(D, C)
+
+    # Then: An error is raised
+    assert "must be a subclass of" in str(e.value)

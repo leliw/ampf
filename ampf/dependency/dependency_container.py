@@ -1,7 +1,8 @@
 import inspect
 import types
+from collections.abc import Callable
 from dataclasses import fields, is_dataclass
-from typing import Annotated, Any, Callable, Type, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 from ampf.dependency.dependency_model import DependencyDefinition, SyncOrAsyncCallable
 
@@ -9,8 +10,8 @@ from ampf.dependency.dependency_model import DependencyDefinition, SyncOrAsyncCa
 class DependencyContainer:
     def __init__(self, parent: "DependencyContainer | None" = None) -> None:
         self.parent = parent
-        self._dependencies: dict[Type[Any], DependencyDefinition] = {}
-        self._objects: dict[Type[Any], Any] = {}
+        self._dependencies: dict[type[Any], DependencyDefinition] = {}
+        self._objects: dict[type[Any], Any] = {}
 
     def create_scope(self) -> "DependencyContainer":
         return DependencyContainer(parent=self)
@@ -24,7 +25,7 @@ class DependencyContainer:
         """Clears all cached object instances."""
         self._objects = {}
 
-    def add(self, instance: Any, instance_type: Type[Any] | None = None) -> None:
+    def add(self, instance: Any, instance_type: type[Any] | None = None) -> None:
         self._objects[instance_type or instance.__class__] = instance
 
     def add_all(self, instance: Any) -> None:
@@ -44,19 +45,18 @@ class DependencyContainer:
                         self.add(value, actual_type)
 
     @staticmethod
-    def get_actual_type_optional(defined_type: Any) -> tuple[Type, bool]:
+    def get_actual_type_optional(defined_type: Any) -> tuple[type, bool]:
         origin = get_origin(defined_type)
         args = get_args(defined_type)
         is_optional = False
         actual_type = defined_type
 
-        if origin is Union or (hasattr(types, "UnionType") and origin is types.UnionType):
-            if type(None) in args:
-                is_optional = True
-                non_none_args = [arg for arg in args if arg is not type(None)]
-                if len(non_none_args) > 1:
-                    raise TypeError(f"Complex Union types are not supported for dependency injection: {defined_type}")
-                actual_type = non_none_args[0]
+        if (origin is Union or (hasattr(types, "UnionType") and origin is types.UnionType)) and type(None) in args:
+            is_optional = True
+            non_none_args = [arg for arg in args if arg is not type(None)]
+            if len(non_none_args) > 1:
+                raise TypeError(f"Complex Union types are not supported for dependency injection: {defined_type}")
+            actual_type = non_none_args[0]
         return actual_type, is_optional
 
     def register[T](self, fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
@@ -78,7 +78,7 @@ class DependencyContainer:
         return fn
 
     def register_for_type[T](
-        self, dependency_type: Type[T]
+        self, dependency_type: type[T]
     ) -> Callable[[SyncOrAsyncCallable[T]], SyncOrAsyncCallable[T]]:
         """Decorator to register a function as a provider for a specific type.
 
@@ -95,19 +95,23 @@ class DependencyContainer:
 
         return decorator
 
-    def register_class[T](self, dependency_class: Type[T]) -> Type[T]:
+    def register_class[T](self, dependency_class: type[T], dependency_type: type[Any] | None = None) -> type[T]:
         """Decorator to register a class as a dependency provider.
 
         Args:
             dependency_class: The class to register.
+            dependency_type: The type this class satisfies.
+
         Returns:
             The original class.
         """
+        if dependency_type and not issubclass(dependency_class, dependency_type):
+            raise RuntimeError(f"{dependency_class} must be a subclass of {dependency_type}.")
         params = self.get_parameters(dependency_class)
-        self._dependencies[dependency_class] = DependencyDefinition(dependency_class, params)
+        self._dependencies[dependency_type or dependency_class] = DependencyDefinition(dependency_class, params)
         return dependency_class
 
-    def _get_object(self, dependency_type: Type[Any]) -> Any:
+    def _get_object(self, dependency_type: type[Any]) -> Any:
         if dependency_type in self._objects:
             return self._objects[dependency_type]
 
@@ -116,7 +120,7 @@ class DependencyContainer:
 
         raise KeyError(dependency_type)
 
-    def _get_definition(self, dependency_type: Type[Any]) -> DependencyDefinition:
+    def _get_definition(self, dependency_type: type[Any]) -> DependencyDefinition:
         if dependency_type in self._dependencies:
             return self._dependencies[dependency_type]
 
@@ -126,7 +130,7 @@ class DependencyContainer:
         raise KeyError(dependency_type)
 
     @staticmethod
-    def get_parameters(func: SyncOrAsyncCallable) -> dict[str, Type[Any]]:
+    def get_parameters(func: SyncOrAsyncCallable) -> dict[str, type[Any]]:
         """Inspects a callable to extract its parameter names and types.
 
         Args:
@@ -152,7 +156,7 @@ class DependencyContainer:
             params[name] = param_type
         return params
 
-    def get(self, dependency_type: Type[Any], stack: set[Type] | None = None) -> Any:
+    def get(self, dependency_type: type[Any], stack: set[type] | None = None) -> Any:
         try:
             return self._get_object(dependency_type)
         except KeyError:
@@ -182,7 +186,7 @@ class DependencyContainer:
 
         return ret
 
-    async def get_async(self, dependency_type: Type[Any], stack: set[Type] | None = None) -> Any:
+    async def get_async(self, dependency_type: type[Any], stack: set[type] | None = None) -> Any:
         try:
             return self._get_object(dependency_type)
         except KeyError:
@@ -210,7 +214,7 @@ class DependencyContainer:
         self._objects[dependency_type] = ret
         return ret
 
-    def get_call_parameters(self, params: dict[str, Type[Any]], stack: set[Type]) -> dict[str, Any]:
+    def get_call_parameters(self, params: dict[str, type[Any]], stack: set[type]) -> dict[str, Any]:
         """Resolves a dictionary of parameter types into their corresponding instances synchronously.
 
         Args:
@@ -234,7 +238,7 @@ class DependencyContainer:
                     raise
         return parameters
 
-    async def get_call_parameters_async(self, params: dict[str, Type[Any]], stack: set[Type]) -> dict[str, Any]:
+    async def get_call_parameters_async(self, params: dict[str, type[Any]], stack: set[type]) -> dict[str, Any]:
         """Resolves a dictionary of parameter types into their corresponding instances asynchronously.
 
         Args:
