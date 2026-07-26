@@ -3,6 +3,7 @@ from typing import override
 from fastapi import BackgroundTasks
 from pydantic import BaseModel
 
+from .direct_runner import DirectRunner
 from .task_model import TaskRunner
 from .task_registry import TaskRegistry
 
@@ -10,17 +11,20 @@ from .task_registry import TaskRegistry
 class BackgroundRunner(TaskRunner):
     def __init__(self, background_tasks: BackgroundTasks):
         self.background_tasks = background_tasks
+        self._task_runner = (
+            DirectRunner()
+        )  # BackgroundRunner uses DirectRunner to execute tasks immediately in background
 
     @override
     def run(self, name: str, payload: BaseModel):
         processor = TaskRegistry._tasks[name].processor
-        parameters = TaskRegistry.get_task_parameters(name, payload)
+        parameters = TaskRegistry.get_task_parameters(self._task_runner, name, payload)
         self.background_tasks.add_task(processor, **parameters)  # type: ignore
 
     @override
     async def run_async(self, name: str, payload: BaseModel):
         processor = TaskRegistry._tasks[name].processor
-        parameters = TaskRegistry.get_task_parameters(name, payload)
+        parameters = TaskRegistry.get_task_parameters(self._task_runner, name, payload)
         self.background_tasks.add_task(processor, **parameters)  # type: ignore
 
     @classmethod

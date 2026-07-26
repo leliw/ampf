@@ -31,7 +31,7 @@ class PubsubPushRunner(PubsubRunner):
                 @gcp_pubsub_push_handler()
                 async def endpoint(payload: processor_definition.payload_type) -> None:  # pyright: ignore[reportInvalidTypeForm]
                     _log.info("Received push task: %s", name)
-                    await TaskRegistry.run_task_async(name, payload)
+                    await TaskRegistry.run_task_async(self, name, payload)
 
                 return endpoint
 

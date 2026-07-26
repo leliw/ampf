@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ampf.dependency.dependency_registry import DependencyRegistry
 
-from .task_model import ProcessorDefinition, SyncOrAsyncCallable
+from .task_model import ProcessorDefinition, SyncOrAsyncCallable, TaskRunner
 
 _log = logging.getLogger(__name__)
 
@@ -32,14 +32,14 @@ class TaskRegistry:
         return decorator
 
     @classmethod
-    def get_parameters(cls, callable: SyncOrAsyncCallable) -> dict[str, Type[Any]]:
-        sig = inspect.signature(callable)
+    def get_parameters(cls, func: SyncOrAsyncCallable) -> dict[str, Type[Any]]:
+        sig = inspect.signature(func)
         params = {}
         for name, param in sig.parameters.items():
             if name == "self":
                 continue
             if param.annotation is inspect._empty:
-                raise TypeError(f"Parameter '{name}' in {cls}.__init__ must have a type annotation")
+                raise TypeError(f"Parameter '{name}' in {func.__name__} must have a type annotation")
             if get_origin(param.annotation) is Annotated:
                 param_type = get_args(param.annotation)[0]
             else:
@@ -48,60 +48,35 @@ class TaskRegistry:
         return params
 
     @classmethod
-    def get_dependency[T](cls, dependency_type: Type[T]) -> T:
-        """
-        Retrieves an instance of a registered dependency.
-
-        Args:
-            dependency_type: The type of the dependency to retrieve.
-
-        Returns:
-            An instance of the requested dependency.
-
-        Raises:
-            ValueError: If the dependency type is not registered.
-        """
-        return DependencyRegistry.get(dependency_type)
+    def get_task_parameters(cls, task_runner: TaskRunner, name: str, payload: BaseModel) -> dict[str, Any]:
+        with DependencyRegistry.scope() as local_registry:
+            local_registry.add(task_runner, TaskRunner)
+            parameters = {}
+            for param_name, param_type in cls._tasks[name].params.items():
+                actual_type = get_origin(param_type) or param_type
+                if isinstance(payload, actual_type):
+                    parameters[param_name] = payload
+                else:
+                    parameters[param_name] = local_registry.get(param_type)
+            return parameters
 
     @classmethod
-    def get_task_parameters(cls, name: str, payload: BaseModel) -> dict[str, Any]:
-        parameters = {}
-        for param_name, param_type in cls._tasks[name].params.items():
-            if payload.__class__ == param_type:
-                parameters[param_name] = payload
-            else:
-                parameters[param_name] = cls.get_dependency(param_type)
-        return parameters
-
-    @classmethod
-    def get_call_parameters(cls, params: dict[str, Type[Any]], payload: BaseModel | None = None) -> dict[str, Any]:
-        parameters = {}
-        for param_name, param_type in params.items():
-            # if get_origin(param_type) is Annotated:
-            #     param_type = get_args(param_type)[0]
-            if payload and payload.__class__ == param_type:
-                parameters[param_name] = payload
-            else:
-                parameters[param_name] = cls.get_dependency(param_type)
-        return parameters
-
-    @classmethod
-    def run_task(cls, name: str, payload: BaseModel) -> None:
+    def run_task(cls, task_runner: TaskRunner, name: str, payload: BaseModel) -> None:
         processor = cls._tasks[name].processor
-        parameters = cls.get_task_parameters(name, payload)
+        parameters = cls.get_task_parameters(task_runner, name, payload)
         if callable(processor):
-            ret = processor(**parameters)
-            if asyncio.iscoroutine(ret):
+            if inspect.iscoroutinefunction(processor):
                 raise TypeError(
                     f"Processor '{name}' is an asynchronous task. Use 'run_async' for asynchronous execution."
                 )
+            processor(**parameters)
         else:
             raise ValueError(f"Processor {name} is not callable")
 
     @classmethod
-    async def run_task_async(cls, name: str, payload: BaseModel) -> None:
+    async def run_task_async(cls, task_runner: TaskRunner, name: str, payload: BaseModel) -> None:
         processor = cls._tasks[name].processor
-        parameters = cls.get_task_parameters(name, payload)
+        parameters = cls.get_task_parameters(task_runner, name, payload)
         if callable(processor):
             ret = processor(**parameters)
             if asyncio.iscoroutine(ret):
