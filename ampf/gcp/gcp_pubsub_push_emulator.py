@@ -1,28 +1,29 @@
 import logging
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Iterator, List, Optional, Self, Type
+from typing import Self
 
 from fastapi.testclient import TestClient
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.subscriber.message import Message
-from httpx import Response
+from httpx2 import Response
 from pydantic import BaseModel
 
 
 class GcpPubsubPushEmulator[T: BaseModel]:
     _log = logging.getLogger(__name__)
 
-    def __init__(self, subscription_path: str, clazz: Optional[Type[T]] = None):
+    def __init__(self, subscription_path: str, clazz: type[T] | None = None):
         self.subscription_path = subscription_path
         self.clazz = clazz
-        self.messages: List[Message] = []
-        self.payloads: List[T] = []
-        self.responses: List[Response] = []
+        self.messages: list[Message] = []
+        self.payloads: list[T] = []
+        self.responses: list[Response] = []
         self.start_time = time.time()
 
     @contextmanager
-    def run_push_emulator(self, client: TestClient, endpoint_url: str) -> Iterator[Self]:
+    def run_push_emulator(self, client: TestClient, endpoint_url: str) -> Generator[Self]:
         """
         A context manager that simulates a Pub/Sub push subscription.
 
@@ -90,7 +91,7 @@ class GcpPubsubPushEmulator[T: BaseModel]:
         while not self.isfinished(timeout=timeout, expected_responses=expected_responses):
             time.sleep(0.2)
 
-    def get_messages(self) -> List[Message]:
+    def get_messages(self) -> list[Message]:
         """Returns the list of received messages.
 
         Returns:
@@ -98,7 +99,7 @@ class GcpPubsubPushEmulator[T: BaseModel]:
         """
         return self.messages
 
-    def get_payloads(self) -> List[T]:
+    def get_payloads(self) -> list[T]:
         """Returns the list of deserialized payloads.
 
         Returns:
@@ -106,7 +107,7 @@ class GcpPubsubPushEmulator[T: BaseModel]:
         """
         return self.payloads
 
-    def get_responses(self) -> List[Response]:
+    def get_responses(self) -> list[Response]:
         """Returns the list of sent responses.
 
         Returns:

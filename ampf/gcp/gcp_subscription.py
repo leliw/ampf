@@ -1,9 +1,9 @@
 import logging
 import queue
 import time
+from collections.abc import Callable, Generator
 from concurrent.futures import TimeoutError
 from contextlib import contextmanager
-from typing import Callable, Generator, Iterator, Optional, Type
 
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
@@ -12,20 +12,23 @@ from pydantic import BaseModel
 from ampf.gcp.gcp_base_subscription import GcpBaseSubscription
 from ampf.gcp.gcp_pubsub_push_emulator import GcpPubsubPushEmulator
 
+_log = logging.getLogger(__name__)
+
 # deprecated
 class GcpSubscription[T: BaseModel](GcpBaseSubscription):
     """A subscription for GCP Pub/Sub. Messages are returned
     by generator."""
-    _log = logging.getLogger(__name__)
+
+    
 
     def __init__(
         self,
         subscription_id: str,
-        project_id: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
+        project_id: str | None = None,
+        clazz: type[T] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
-        subscriber: Optional[SubscriberClient] = None,
+        subscriber: SubscriberClient | None = None,
     ):
         """Initializes the subscription.
 
@@ -41,7 +44,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
 
-    def receive_messages(self) -> Generator[Message, None, None]:
+    def receive_messages(self) -> Generator[Message]:
         """Receives messages from the subscription.
 
         Yields:
@@ -51,7 +54,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
 
         def callback(message: Message) -> None:
             _messages_queue.put(message)
-            self._log.debug("Received message %s", message.message_id)
+            _log.debug("Received message %s", message.message_id)
             message.ack()
 
         streaming_pull_future = self.subscriber.subscribe(self.subscription_path, callback=callback)
@@ -59,7 +62,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
         end_time = time.time() + self.processing_timeout
         try:
             while time.time() < end_time:
-                self._log.debug("Waiting for messages... %s < %s", time.time(), end_time)
+                _log.debug("Waiting for messages... %s < %s", time.time(), end_time)
                 try:
                     remaining_time_for_cycle = end_time - time.time()
                     if remaining_time_for_cycle <= 0:
@@ -71,7 +74,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
                     if not streaming_pull_future.running():
                         break
                     continue
-            self._log.debug("Waiting for messages -> timeout")
+            _log.debug("Waiting for messages -> timeout")
         finally:
             if streaming_pull_future.running():
                 streaming_pull_future.cancel()
@@ -79,10 +82,10 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
                     streaming_pull_future.result(timeout=2.0)
                 except TimeoutError:
                     pass
-                except Exception:
-                    pass
+                except Exception as e:
+                    _log.exception(e)
 
-    def __iter__(self) -> Generator[T, None, None]:
+    def __iter__(self) -> Generator[T]:
         """Iterates over the messages in the subscription.
 
         Yields:
@@ -96,7 +99,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
                     "clazz is not set, so cannot deserialize message. Set clazz in the constructor to deserialize messages."
                 )
 
-    def receive_first_message(self, filter: Callable[[Message], bool]) -> Optional[Message]:
+    def receive_first_message(self, filter: Callable[[Message], bool]) -> Message | None:
         """Receives the first message that satisfies the filter.
 
         Args:
@@ -108,7 +111,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
             if filter(message):
                 return message
 
-    def receive_first_payload(self, filter: Optional[Callable[[T], bool]] = None) -> Optional[T]:
+    def receive_first_payload(self, filter: Callable[[T], bool] | None = None) -> T | None:
         """Receives the first message **payload** that satisfies the filter.
 
         Args:
@@ -124,7 +127,7 @@ class GcpSubscription[T: BaseModel](GcpBaseSubscription):
         from fastapi.testclient import TestClient
 
         @contextmanager
-        def run_push_emulator(self, client: TestClient, endpoint_url: str) -> Iterator[GcpPubsubPushEmulator[T]]:
+        def run_push_emulator(self, client: TestClient, endpoint_url: str) -> Generator[GcpPubsubPushEmulator[T]]:
             emulator = GcpPubsubPushEmulator[T](self.subscription_path, self.clazz)
             with emulator.run_push_emulator(client, endpoint_url) as sub_emulator:
                 yield sub_emulator

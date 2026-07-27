@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -20,14 +21,14 @@ class BaseFactory(ABC):
 
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
-        self._type_to_collection_defs: dict[Type[BaseModel], CollectionDef] = {}
+        self._type_to_collection_defs: dict[type[BaseModel], CollectionDef] = {}
 
     @abstractmethod
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
     ) -> BaseQueryStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -43,8 +44,8 @@ class BaseFactory(ABC):
     def create_compact_storage[T: BaseModel](
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
     ) -> BaseQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
@@ -64,10 +65,10 @@ class BaseFactory(ABC):
     @abstractmethod
     def create_blob_storage[T: BaseBlobMetadata](
         self,
-        collection_name: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
-        bucket_name: Optional[str] = None,
+        collection_name: str | None = None,
+        clazz: type[T] | None = None,
+        content_type: str | None = None,
+        bucket_name: str | None = None,
     ) -> BaseBlobStorage[T]:
         """Creates blob storage for items of given class.
 
@@ -113,7 +114,7 @@ class BaseFactory(ABC):
             if definition.clazz:
                 self._type_to_collection_defs[definition.clazz] = definition
 
-    def get_collection[T: BaseModel](self, collection_name_or_type: str | Type[T] | Any) -> BaseCollectionStorage[T]:
+    def get_collection[T: BaseModel](self, collection_name_or_type: str | type[T] | Any) -> BaseCollectionStorage[T]:
         """Retrieves a collection by its name or type from the registered definitions.
 
         Args:
@@ -131,7 +132,7 @@ class BaseFactory(ABC):
             definition = self._type_to_collection_defs[collection_name_or_type]
         return self.create_collection(definition)
 
-    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+    def create_blob_location(self, name: str, bucket: str | None = None) -> BlobLocation:
         """Creates a BlobLocation object.
 
         Args:
@@ -154,9 +155,9 @@ class BaseFactory(ABC):
         try:
             bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
             return bs.download(blob_location.name)
-        except KeyNotExistsException as e:
+        except KeyNotExistsException:
             _log.warning("Error downloading blob: %s", blob_location.name)
-            raise e
+            raise
 
     def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
         """Uploads a blob to the specified file location.

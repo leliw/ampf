@@ -1,13 +1,12 @@
+import asyncio
 import logging
 import os
 from abc import ABC
-from typing import Optional, Self
+from typing import Self
 
 from google.api_core.exceptions import AlreadyExists, DeadlineExceeded, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
 from pydantic import BaseModel
-import asyncio
-
 
 
 class GcpBaseSubscription[T: BaseModel](ABC):
@@ -18,8 +17,8 @@ class GcpBaseSubscription[T: BaseModel](ABC):
     def __init__(
         self,
         subscription_id: str,
-        project_id: Optional[str] = None,
-        subscriber: Optional[SubscriberClient] = None,
+        project_id: str | None = None,
+        subscriber: SubscriberClient | None = None,
     ):
         """Initializes the subscription.
 
@@ -64,9 +63,9 @@ class GcpBaseSubscription[T: BaseModel](ABC):
                 topic=self.subscriber.topic_path(self.project_id, topic_id),
                 ack_deadline_seconds=600,
             )
-        except AlreadyExists as e:
+        except AlreadyExists:
             if not exist_ok:
-                raise e
+                raise
         return self
 
     def delete(self) -> None:
