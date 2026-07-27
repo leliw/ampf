@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -20,14 +21,14 @@ class BaseAsyncFactory(ABC):
 
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
-        self._type_to_collection_defs: dict[Type[BaseModel], CollectionDef] = {}
+        self._type_to_collection_defs: dict[type[BaseModel], CollectionDef] = {}
 
     @abstractmethod
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
     ) -> BaseAsyncQueryStorage[T]:
         """Creates standard key-value storage for items of given class.
 
@@ -43,8 +44,8 @@ class BaseAsyncFactory(ABC):
     def create_compact_storage[T: BaseModel](
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
     ) -> BaseAsyncQueryStorage[T]:
         """Creates _compact_ key-value storage for items of given class.
 
@@ -64,10 +65,10 @@ class BaseAsyncFactory(ABC):
     @abstractmethod
     def create_blob_storage[T: BaseBlobMetadata](
         self,
-        collection_name: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
-        bucket_name: Optional[str] = None,
+        collection_name: str | None = None,
+        clazz: type[T] | None = None,
+        content_type: str | None = None,
+        bucket_name: str | None = None,
     ) -> BaseAsyncBlobStorage[T]:
         """Creates blob storage for items of given class.
 
@@ -102,7 +103,7 @@ class BaseAsyncFactory(ABC):
         """
         return self.create_collection(root)
 
-    def register_collections(self, definitions: list[CollectionDef[Any]]):
+    def register_collections(self, definitions: list[CollectionDef[Any]]) -> None:
         """Registers a list of collection definitions.
 
         Args:
@@ -114,7 +115,7 @@ class BaseAsyncFactory(ABC):
                 self._type_to_collection_defs[definition.clazz] = definition
 
     def get_collection[T: BaseModel](
-        self, collection_name_or_type: str | Type[T] | Any
+        self, collection_name_or_type: str | type[T] | Any
     ) -> BaseAsyncCollectionStorage[T]:
         """Retrieves a collection by its name or type from the registered definitions.
 
@@ -173,8 +174,8 @@ class BaseAsyncFactory(ABC):
         self,
         topic_id: str,
         data: BaseModel | str | bytes,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> str:
         """Publishes a message to the specified topic.
 
@@ -189,7 +190,7 @@ class BaseAsyncFactory(ABC):
         topic = self.create_topic(topic_id)
         return await topic.publish_async(data, response_topic=response_topic, sender_id=sender_id)
 
-    def create_blob_location(self, name: str, bucket: Optional[str] = None) -> BlobLocation:
+    def create_blob_location(self, name: str, bucket: str | None = None) -> BlobLocation:
         """Creates a BlobLocation object.
 
         Args:

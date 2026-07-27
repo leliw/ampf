@@ -1,32 +1,33 @@
-from typing import Callable, Dict, Optional, Type
+from collections.abc import Callable
+from typing import ClassVar
 
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
-from .in_memory_storage import InMemoryStorage
 
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
+from .in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections: Dict[str, InMemoryStorage] = {}
+    collections: ClassVar[dict[str, InMemoryStorage]] = {}
 
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
-        clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
+        clazz: type[T],
+        key_name: str | None = None,
+        key: Callable[[T], str] | None = None,
     ) -> BaseAsyncStorage[T]:
-        if collection_name not in self.collections:
-            self.collections[collection_name] = InMemoryStorage[T](
+        if collection_name not in self.__class__.collections:
+            self.__class__.collections[collection_name] = InMemoryStorage[T](
                 collection_name=collection_name,
                 clazz=clazz,
                 key_name=key_name,
                 key=key,
             )
-        storage = self.collections[collection_name]
+        storage = self.__class__.collections[collection_name]
         instance = InMemoryAsyncStorage(
             storage.collection_name,
             storage.clazz,
@@ -40,11 +41,11 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: Optional[Type[T]] = None,
-        content_type: Optional[str] = None,
-        bucket_name: Optional[str] = None,
+        clazz: type[T] | None = None,
+        content_type: str | None = None,
+        bucket_name: str | None = None,
     ) -> BaseAsyncBlobStorage[T]:
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
 
     def drop(self):
-        self.collections = {}
+        self.__class__.collections = {}
