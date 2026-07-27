@@ -1,4 +1,5 @@
-from typing import Callable, Type, override
+from collections.abc import Callable
+from typing import override
 
 import httpx2
 from google.cloud import firestore, storage
@@ -34,7 +35,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         return self.project_id
 
     def create_storage[T: BaseModel](
-        self, collection_name: str, clazz: Type[T], key: Callable[[T], str] | None = None
+        self, collection_name: str, clazz: type[T], key: Callable[[T], str] | None = None
     ) -> BaseAsyncStorage[T]:
         return GcpAsyncStorage(
             collection_name,
@@ -47,7 +48,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: Type[T] = BaseBlobMetadata,
+        clazz: type[T] | None = None,
         content_type: str = "text/plain",
         bucket_name: str | None = None,
     ) -> BaseAsyncBlobStorage[T]:
@@ -59,7 +60,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         return GcpAsyncBlobStorage(
             bucket_name=bucket_name,
             collection_name=collection_name,
-            clazz=clazz,
+            clazz=clazz or BaseBlobMetadata,
             content_type=content_type,
             storage_client=self._storage_client,
             httpx_async_client=self._httpx_async_client,

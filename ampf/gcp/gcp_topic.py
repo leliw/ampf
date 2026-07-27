@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from typing import Dict, Optional, Self, Type, override
+from typing import Self, override
 
 from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.pubsub_v1 import PublisherClient
@@ -12,10 +12,11 @@ from ampf.base.base_topic import BaseTopic
 
 from .gcp_subscription import GcpSubscription
 
+_log = logging.getLogger(__name__)
+
 
 class GcpTopic[T: BaseModel](BaseTopic[T]):
-    _log = logging.getLogger(__name__)
-    _default_publisher: Optional[PublisherClient] = None
+    _default_publisher: PublisherClient | None = None
 
     @classmethod
     def get_default_publisher(cls) -> PublisherClient:
@@ -23,7 +24,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
 
         return GcpBaseFactory.get_publisher_client()
 
-    def __init__(self, topic_id: str, project_id: Optional[str] = None, publisher: Optional[PublisherClient] = None):
+    def __init__(self, topic_id: str, project_id: str | None = None, publisher: PublisherClient | None = None):
         """Initializes the topic.
 
         Args:
@@ -42,9 +43,9 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
     def publish(
         self,
         data: T | str | bytes,
-        attrs: Optional[Dict[str, str]] = None,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        attrs: dict[str, str] | None = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> str:
         """Publishes a message to the topic.
 
@@ -56,16 +57,16 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         """
         future = self._publish(data, attrs, response_topic, sender_id)
         message_id = future.result()
-        self._log.debug("Published message ID: %s", message_id)
+        _log.debug("Published message ID: %s", message_id)
         return message_id
 
     @override
     async def publish_async(
         self,
         data: T | str | bytes,
-        attrs: Optional[Dict[str, str]] = None,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        attrs: dict[str, str] | None = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> str:
         """Publishes a message to the topic.
 
@@ -77,15 +78,15 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         """
         future = self._publish(data, attrs, response_topic, sender_id)
         message_id = await asyncio.wrap_future(future)
-        self._log.debug("Published message ID: %s", message_id)
+        _log.debug("Published message ID: %s", message_id)
         return message_id
 
     def _publish(
         self,
         data: T | str | bytes,
-        attrs: Optional[Dict[str, str]] = None,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        attrs: dict[str, str] | None = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> Future:
         """Publishes a message to the topic.
 
@@ -108,13 +109,13 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         elif isinstance(data, BaseModel):
             bdata = data.model_dump_json().encode("utf-8")
         else:
-            raise ValueError("Unsupported data type")
+            raise TypeError("Unsupported data type")
         # When you publish a message, the client returns a future.
         if attrs:
-            self._log.debug("Publishing message in topic %s with attributes: %s", self.topic_id, attrs)
+            _log.debug("Publishing message in topic %s with attributes: %s", self.topic_id, attrs)
             future = self.publisher.publish(self.topic_path, bdata, **attrs)
         else:
-            self._log.debug("Publishing message in topic %s", self.topic_id)
+            _log.debug("Publishing message in topic %s", self.topic_id)
             future = self.publisher.publish(self.topic_path, bdata)
         return future
 
@@ -135,9 +136,9 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         """
         try:
             self.publisher.create_topic(name=self.topic_path)
-        except AlreadyExists as e:
+        except AlreadyExists:
             if not exist_ok:
-                raise e
+                raise
         return self
 
     def delete(self) -> None:
@@ -146,8 +147,8 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
 
     def create_subscription[R: BaseModel](
         self,
-        subscription_id: Optional[str] = None,
-        clazz: Optional[Type[R]] = None,
+        subscription_id: str | None = None,
+        clazz: type[R] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
         exist_ok: bool = False,

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
 
 from pydantic import BaseModel
 
@@ -11,9 +10,9 @@ class BaseTopic[T: BaseModel](ABC):
     def publish(
         self,
         data: T | str | bytes,
-        attrs: Optional[Dict[str, str]] = None,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        attrs: dict[str, str] | None = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> str:
         """Publishes a message to the topic.
 
@@ -23,14 +22,14 @@ class BaseTopic[T: BaseModel](ABC):
         Returns:
             The message ID.
         """
-        pass
-
+        ...
+        
     async def publish_async(
         self,
         data: T | str | bytes,
-        attrs: Optional[Dict[str, str]] = None,
-        response_topic: Optional[str] = None,
-        sender_id: Optional[str] = None,
+        attrs: dict[str, str] | None = None,
+        response_topic: str | None = None,
+        sender_id: str | None = None,
     ) -> str:
         """Publishes a message to the topic.
 
