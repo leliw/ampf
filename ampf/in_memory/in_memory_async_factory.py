@@ -1,9 +1,10 @@
 from collections.abc import Callable
-from typing import ClassVar
+from typing import ClassVar, override
 
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
+from ampf.in_memory.pubsub.in_memory_topic import InMemoryTopic
 
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
@@ -49,3 +50,8 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
 
     def drop(self):
         self.__class__.collections = {}
+
+    @override
+    def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
+        return InMemoryTopic(topic_id)
+

@@ -1,4 +1,3 @@
-import uuid
 from typing import Self, override
 
 from pydantic import BaseModel
@@ -21,23 +20,18 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
     @override
     def publish(
         self,
-        data: T | str,
+        data: T,
         attrs: dict[str, str] | None = None,
         response_topic: str | None = None,
         sender_id: str | None = None,
     ) -> str:
-        message_id = str(uuid.uuid4())
-
         final_attrs = attrs.copy() if attrs else {}
         if response_topic:
             final_attrs["response_topic"] = response_topic
         if sender_id:
             final_attrs["sender_id"] = sender_id
 
-        if isinstance(data, BaseModel):
-            data = data.model_dump_json()
-
-        msg = PubsubMessage(message_id=message_id, data=data, attributes=final_attrs)
+        msg = PubsubMessage.create(data=data, attributes=final_attrs)
         self.published_messages.append(msg)
 
         # Dostarczenie wiadomości do wszystkich subskrypcji tego tematu
@@ -45,12 +39,12 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
         for sub in subscriptions:
             sub.put_message(msg)
 
-        return message_id
+        return msg.messageId
 
     @override
     async def publish_async(
         self,
-        data: T | str,
+        data: T,
         attrs: dict[str, str] | None = None,
         response_topic: str | None = None,
         sender_id: str | None = None,

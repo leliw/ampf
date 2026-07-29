@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from ampf.base import BaseFactory, BaseStorage
 from ampf.base.base_blob_storage import BaseBlobStorage
-from ampf.base.base_topic import BaseTopic
 from ampf.base.blob_model import BaseBlobMetadata
 from ampf.in_memory.pubsub.in_memory_topic import InMemoryTopic
 
@@ -24,7 +23,7 @@ class InMemoryFactory(BaseFactory):
         key: Callable[[T], str] | None = None,
     ) -> BaseStorage[T]:
         if collection_name not in self.collections:
-            self.collections[collection_name] = InMemoryStorage(
+            self.collections[collection_name] = InMemoryStorage[T](
                 collection_name=collection_name,
                 clazz=clazz,
                 key_name=key_name,
@@ -42,5 +41,5 @@ class InMemoryFactory(BaseFactory):
         return InMemoryBlobStorage(collection_name, clazz, content_type)
 
     @override
-    def create_topic(self, topic_id: str) -> BaseTopic[BaseModel]:
+    def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
         return InMemoryTopic(topic_id)

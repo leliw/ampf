@@ -61,7 +61,7 @@ class InMemorySubscription[T: BaseModel](BaseSubscription):
     def __iter__(self) -> Generator[T]:
         for message in self.receive_messages():
             if self.clazz:
-                yield self.clazz.model_validate_json(message.data)
+                yield message.decoded_data(self.clazz)
             else:
                 raise TypeError("clazz is not set, so cannot deserialize message.")
 
