@@ -64,7 +64,7 @@ class GcpPubsubPushEmulator[T: BaseModel]:
                 except Exception:
                     pass
 
-    def isfinished(self, timeout: float = 60.0, expected_responses: int = 1) -> bool:
+    def is_finished(self, timeout: float = 60.0, expected_responses: int = 1) -> bool:
         """Checks if the emulator has finished processing messages.
 
         Args:
@@ -88,7 +88,7 @@ class GcpPubsubPushEmulator[T: BaseModel]:
             timeout: The maximum time in seconds to wait for responses.
             expected_responses: The number of expected responses.
         """
-        while not self.isfinished(timeout=timeout, expected_responses=expected_responses):
+        while not self.is_finished(timeout=timeout, expected_responses=expected_responses):
             time.sleep(0.2)
 
     def get_messages(self) -> list[Message]:

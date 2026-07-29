@@ -126,7 +126,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         except NotFound:
             return False
 
-    def create(self, exist_ok: bool = False) -> Self:
+    def create(self, exist_ok: bool = True) -> Self:
         """Creates the topic in GCP if it does not exist.
 
         Args:
@@ -151,7 +151,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         clazz: type[R] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
-        exist_ok: bool = False,
+        exist_ok: bool = True,
     ) -> GcpSubscription[R]:
         """Creates a subscription to the topic in GCP.
 

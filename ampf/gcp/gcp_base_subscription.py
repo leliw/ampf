@@ -1,18 +1,21 @@
 import asyncio
+import base64
 import logging
 import os
-from abc import ABC
 from typing import Self
 
 from google.api_core.exceptions import AlreadyExists, DeadlineExceeded, NotFound
 from google.cloud.pubsub_v1 import SubscriberClient
 from pydantic import BaseModel
 
+from ampf.base.base_subscription import BaseSubscription
+from ampf.shared.pubsub_message import PubsubMessage
 
-class GcpBaseSubscription[T: BaseModel](ABC):
+_log = logging.getLogger(__name__)
+
+
+class GcpBaseSubscription[T: BaseModel](BaseSubscription):
     """A base class for GCP Pub/Sub subscriptions."""
-
-    _log = logging.getLogger(__name__)
 
     def __init__(
         self,
@@ -35,6 +38,31 @@ class GcpBaseSubscription[T: BaseModel](ABC):
         self.subscriber = subscriber or SubscriberClient()
 
         self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
+
+    def receive_message(self, timeout: float | None = None) -> PubsubMessage | None:
+        with self.subscriber:
+            try:
+                response = self.subscriber.pull(
+                    subscription=self.subscription_path, max_messages=1, return_immediately=True
+                )
+                _log.warning("Return %s", not response.received_messages)
+                if len(response.received_messages) == 1:
+                    message = response.received_messages[0].message
+                    ack_id = response.received_messages[0].ack_id
+                    self.subscriber.acknowledge(subscription=self.subscription_path, ack_ids=[ack_id])
+                    return PubsubMessage(
+                        messageId=message.ack_id,
+                        attributes={k:v for k, v in message.attributes},
+                        data = base64.b64decode(message.data).decode("utf-8"),
+                        publishTime=message.publishTime
+                    )
+                else:
+                    return None
+            except DeadlineExceeded:
+                return None
+            except Exception as e:
+                _log.exception(e)
+                return None
 
     def exists(self) -> bool:
         """Checks if the subscription exists in GCP.
@@ -82,12 +110,12 @@ class GcpBaseSubscription[T: BaseModel](ABC):
             response = self.subscriber.pull(
                 subscription=self.subscription_path, max_messages=1, return_immediately=True
             )
-            self._log.warning("Return %s", not response.received_messages)
+            _log.warning("Return %s", not response.received_messages)
             return not response.received_messages
         except DeadlineExceeded:
             return True
         except Exception as e:
-            self._log.exception(e)
+            _log.exception(e)
             return True
 
     async def wait_until_empty(self, timeout: float = 5.0, check_interval: float = 1.0) -> None:
