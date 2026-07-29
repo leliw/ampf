@@ -3,6 +3,7 @@ import logging
 import signal
 import threading
 import time
+from collections.abc import Generator
 from datetime import UTC, datetime
 
 from google.api_core.exceptions import InvalidArgument, NotFound
@@ -10,6 +11,8 @@ from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1.subscriber.message import Message
 from google.cloud.pubsub_v1.types import FlowControl
 from pydantic import BaseModel
+
+from ampf.shared.pubsub_message import PubsubMessage
 
 from .gcp_base_subscription import GcpBaseSubscription
 from .gcp_pubsub_model import GcpPubsubRequest
@@ -46,6 +49,12 @@ class GcpSubscriptionPull[T: BaseModel](GcpBaseSubscription):
         self.is_running = False
         self.max_concurrent_messages = max_concurrent_messages
         self._previous_sigterm_handler: signal._HANDLER = None
+
+    def receive_message(self, timeout: float | None = None) -> PubsubMessage | None:
+        raise RuntimeError("Not implemented")
+
+    def receive_messages(self) -> Generator[Message]:
+        raise RuntimeError("Not implemented")
 
     async def run_and_exit(self, processing_timeout: float = 5.0, per_message_timeout: float = 1.0):
         """The subscription asynchronously, processing messages until a timeout or SIGTERM.
