@@ -55,7 +55,7 @@ def test_receive_empty_queue(factory: InMemoryFactory):
     topic = factory.create_topic(topic_id)
     subscription = topic.create_subscription()
     # When: The message is received from the empty queue
-    received_message = subscription.receive_message(timeout=1.0)
+    received_message = subscription.receive_message(timeout=0.5)
     # Then: The received message is None
     assert received_message is None
 
@@ -69,7 +69,7 @@ def test_publish_and_receive(factory: InMemoryFactory):
     # When: A message is published via topic
     message_id = topic.publish(D(name="Hello, World!"), attrs={"key": "value"})
     # Then: The message can be received via subscription
-    received_message = subscription.receive_message(timeout=1.0)
+    received_message = subscription.receive_message(timeout=0.5)
     assert received_message is not None
     assert received_message.messageId == message_id
     assert received_message.decoded_data(D).name == "Hello, World!"
@@ -89,7 +89,7 @@ def test_publish_and_receive_messages(factory: InMemoryFactory):
     message1_id = topic.publish(d1)
     message2_id = topic.publish(d2)
     # When: Messages can be received via subscription
-    for received_message in subscription.receive_messages(processing_timeout=1.0, per_message_timeout=0.5):
+    for received_message in subscription.receive_messages(processing_timeout=0.5, per_message_timeout=0.1):
         # Then: The received message is one of the published messages
         assert received_message is not None
         assert received_message.messageId in [message1_id, message2_id]
@@ -101,7 +101,7 @@ def test_publish_and_iterate_payloads(factory: InMemoryFactory):
     assert factory
     # And: A topic and subscription
     topic = factory.create_topic(topic_id)
-    subscription = topic.create_subscription(clazz=D, processing_timeout=1.0)
+    subscription = topic.create_subscription(clazz=D, processing_timeout=0.5)
     # And: A messages are published via topic
     topic.publish(D(name="Hello, World 1!"))
     topic.publish(D(name="Hello, World 2!"))
