@@ -70,7 +70,7 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
         clazz: type[R] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
-        exist_ok: bool = False,
+        exist_ok: bool = True,
     ) -> InMemorySubscription[R]:
         subscription_id = subscription_id or f"{self.topic_id}-sub"
 

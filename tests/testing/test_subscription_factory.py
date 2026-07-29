@@ -53,7 +53,7 @@ def test_subscription_factory(client: ApiTestClient, subscription_factory: Subsc
         d = D(name="foo", value="bar")
         GcpTopic(config.response_topic_name).publish(d)
         # Then: It is received by the emulator
-        while not sub_emulator.isfinished(timeout=120, expected_responses=1):
+        while not sub_emulator.is_finished(timeout=120, expected_responses=1):
             time.sleep(0.1)
         # And: The payload is correct
         ret = sub_emulator.get_payloads()[0]

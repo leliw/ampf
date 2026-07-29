@@ -139,7 +139,7 @@ def test_push_emulator(factory: InMemoryFactory, client: ApiTestClient):
     with subscription.run_push_emulator(client, "/pub-sub/") as sub_emulator:
         # When: A message is published via topic
         topic.publish(D(name="X"))
-        while not sub_emulator.isfinished(timeout=1):
+        while not sub_emulator.is_finished(timeout=1):
             time.sleep(0.1)
     # Then: The message was sent via http to application
     m = client.get_typed("/last-message", 200, D)

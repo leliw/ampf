@@ -218,7 +218,7 @@ def test_pubsub_push_emulator(topic: GcpTopic, subscription: GcpSubscription, cl
     with subscription.run_push_emulator(client, "/pub-sub/one_param") as sub_emulator:
         # And: Message is published
         topic.publish(d, attributes)
-        while not sub_emulator.isfinished(timeout=5, expected_responses=1):
+        while not sub_emulator.is_finished(timeout=5, expected_responses=1):
             time.sleep(0.1)
         # Then: The sent message is received
         assert sub_emulator.messages[0].attributes["sender_id"] == sender_id
@@ -345,7 +345,7 @@ def test_multistep(topic: GcpTopic, subscription: GcpSubscription, subscription2
         response = client.post("/pub-sub/step-1", json=req.model_dump())
         # Then: Response is OK
         assert response.status_code == status.HTTP_200_OK
-        while not sub_emulator.isfinished(timeout=20, expected_responses=1):
+        while not sub_emulator.is_finished(timeout=20, expected_responses=1):
             time.sleep(0.1)
     # And: Message is received
     received_message = subscription.receive_first_message(lambda msg: msg.attributes["sender_id"] == sender_id)
