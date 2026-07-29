@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+
 from ampf.in_memory import InMemoryFactory
 
 
@@ -8,12 +9,12 @@ class D(BaseModel):
 
 
 def test_create_storage():
-    t1 = InMemoryFactory()
-    s1 = t1.create_storage("xxx", D)
+    # Given: A factory with a stroage with an item
+    f = InMemoryFactory()
+    s1 = f.create_storage("xxx", D)
     s1.drop()
     s1.save(D(name="1", value="a"))
-
-    t2 = InMemoryFactory()
-    s2 = t2.create_storage("xxx", D)
-
+    # When: The storage is created again
+    s2 = f.create_storage("xxx", D)
+    # Then: The item sill exists
     assert list(s2.keys()) == ["1"]

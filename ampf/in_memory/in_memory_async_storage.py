@@ -1,5 +1,6 @@
 import asyncio
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, Optional, Type
+from collections.abc import AsyncIterator, Coroutine
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -9,21 +10,15 @@ from ampf.in_memory.in_memory_storage import InMemoryStorage
 
 
 class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
-    def __init__(
-        self,
-        collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
-        embedding_field_name: str = "embedding",
-        embedding_search_limit: int = 5,
-    ):
-        super().__init__(collection_name, clazz, key, embedding_field_name, embedding_search_limit)
-        self.storage = InMemoryStorage(
-            collection_name,
-            clazz,
-            key_name=key if isinstance(key, str) else None,
-            key=key if isinstance(key, Callable) else None,
+    def __init__(self, storage: InMemoryStorage[T]):
+        super().__init__(
+            storage.collection_name,
+            storage.clazz,
+            storage.key,
+            storage.embedding_field_name,
+            storage.embedding_search_limit,
         )
+        self.storage = storage
         self.storage.to_storage = self._to_storage
         self.storage.from_storage = self._from_storage
 
@@ -36,8 +31,7 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
         ret = self.storage.get(key)
         if isinstance(ret, Coroutine):
             ret = await ret
-        return ret # type: ignore
-
+        return ret  # type: ignore
 
     async def keys(self) -> AsyncIterator[str]:
         for key in self.storage.keys():
@@ -57,11 +51,11 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
     async def is_empty(self) -> bool:
         return self.storage.is_empty()
 
-    def _to_storage(self, data: T) -> Dict[str, Any]:
+    def _to_storage(self, data: T) -> dict[str, Any]:
         ret = self.to_storage(data)
         if isinstance(ret, Coroutine):
             ret = asyncio.run(ret)
         return ret
 
-    def _from_storage(self, data: Dict[str, Any]) -> T:
-        return self.from_storage(data) # type: ignore
+    def _from_storage(self, data: dict[str, Any]) -> T:
+        return self.from_storage(data)  # type: ignore

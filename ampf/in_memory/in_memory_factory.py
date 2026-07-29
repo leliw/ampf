@@ -1,9 +1,10 @@
 from collections.abc import Callable
+from copy import copy
 from typing import override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseBlobMetadata, BaseBlobStorage, BaseFactory, BaseStorage
+from ampf.base import BaseBlobMetadata, BaseFactory
 
 from .in_memory_blob_storage import InMemoryBlobStorage
 from .in_memory_storage import InMemoryStorage
@@ -12,6 +13,7 @@ from .pubsub.in_memory_topic import InMemoryTopic
 
 class InMemoryFactory(BaseFactory):
     def __init__(self):
+        super().__init__()
         self.collections: dict[str, InMemoryStorage] = {}
         # self.buckets: dict[str, dict[str, bytes]] = {}
 
@@ -19,17 +21,18 @@ class InMemoryFactory(BaseFactory):
         self,
         collection_name: str,
         clazz: type[T],
-        key_name: str | None = None,
-        key: Callable[[T], str] | None = None,
-    ) -> BaseStorage[T]:
+        key: str | Callable[[T], str] | None = None,
+    ) -> InMemoryStorage[T]:
         if collection_name not in self.collections:
             self.collections[collection_name] = InMemoryStorage[T](
-                collection_name=collection_name,
-                clazz=clazz,
-                key_name=key_name,
-                key=key,
+                collection_name=collection_name, clazz=clazz, key=key
             )
-        return self.collections[collection_name]
+        ret = self.collections[collection_name]
+        if ret.clazz is not clazz:
+            # Differet class, so I return shallow copy with desired class
+            ret = copy(ret)
+            ret.clazz = clazz
+        return ret
 
     def create_blob_storage[T: BaseBlobMetadata](
         self,
@@ -37,7 +40,7 @@ class InMemoryFactory(BaseFactory):
         clazz: type[T] | None = None,
         content_type: str | None = None,
         bucket_name: str | None = None,
-    ) -> BaseBlobStorage[T]:
+    ) -> InMemoryBlobStorage[T]:
         return InMemoryBlobStorage(collection_name, clazz, content_type)
 
     def drop(self):

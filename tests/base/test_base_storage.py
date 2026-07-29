@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import pytest
 from pydantic import BaseModel
 
@@ -18,8 +16,6 @@ def storage():
     storage = InMemoryStorage("test", D)
     yield storage
     storage.drop()
-
-
 
 
 def test_create_new(storage: BaseStorage):
@@ -55,7 +51,7 @@ def test_patch_with_dict(storage: BaseStorage):
     patch_data = {"value": "wine"}
     # And: A stored object
     storage.create(D(name="foo", value="beer"))
-    # When: I patch not existing object
+    # When: I patch an existing object
     storage.patch("foo", patch_data)
     # Then: Is patched
     assert D(name="foo", value="wine") == storage.get("foo")
@@ -64,8 +60,8 @@ def test_patch_with_dict(storage: BaseStorage):
 def test_patch_with_pydantic(storage: BaseStorage):
     # Given: A patch data
     class DPatch(BaseModel):
-        name: Optional[str] = None
-        value: Optional[str] = None
+        name: str | None = None
+        value: str | None = None
 
     patch_data = DPatch(value="wine")
     # And: A stored object
@@ -172,7 +168,7 @@ def test_get_key_not_set():
 
 def test_get_key_name_is_set():
     # Given: A storage with key name
-    storage = InMemoryStorage("test", D, key_name="value")
+    storage = InMemoryStorage("test", D, key="value")
     # And: A new element
     d = D(name="foo", value="beer")
     # When: I get the key
@@ -201,18 +197,20 @@ def test_create_collection(storage: BaseStorage):
     ret.save(D(name="foo", value="bar"))
     assert D(name="foo", value="bar") == ret.get("foo")
     # And: Parent storage is unchanged
-    assert ["foo"] not in list(storage.keys())
+    assert "foo" not in list(storage.keys())
 
 
 class TC(BaseModel):
     name: str
-    embedding: Optional[List[float]] = None
+    embedding: list[float] | None = None
+
 
 @pytest.fixture
 def storage_tc():
     storage = InMemoryStorage("test", TC)
     yield storage
     storage.drop()
+
 
 def test_embedding(storage_tc: BaseStorage[TC]):
     # Given: Data with embedding
