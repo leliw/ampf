@@ -5,17 +5,18 @@ from pydantic import BaseModel
 from ampf.base.base_topic import BaseTopic
 
 from ...shared.pubsub_message import PubsubMessage
-from .in_memory_registry import MemoryPubsubRegistry
+from .in_memory_registry import InMemoryPubsubRegistry
 from .in_memory_subscription import InMemorySubscription
 
 
 class InMemoryTopic[T: BaseModel](BaseTopic[T]):
     """Implementacja BaseTopic w pamięci do testów jednostkowych."""
 
-    def __init__(self, topic_id: str):
+    def __init__(self, pubsub_registry: InMemoryPubsubRegistry, topic_id: str):
+        self.pubsub_registry = pubsub_registry
         self.topic_id = topic_id
         self.published_messages: list[PubsubMessage] = []
-        MemoryPubsubRegistry.register_topic(self)
+        self.pubsub_registry.register_topic(self)
 
     @override
     def publish(
@@ -35,7 +36,7 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
         self.published_messages.append(msg)
 
         # Dostarczenie wiadomości do wszystkich subskrypcji tego tematu
-        subscriptions = MemoryPubsubRegistry.get_subscriptions_for_topic(self.topic_id)
+        subscriptions = self.pubsub_registry.get_subscriptions_for_topic(self.topic_id)
         for sub in subscriptions:
             sub.put_message(msg)
 
@@ -59,10 +60,10 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
         return self
 
     def delete(self) -> None:
-        if self.topic_id in MemoryPubsubRegistry._topics:
-            del MemoryPubsubRegistry._topics[self.topic_id]
-        if self.topic_id in MemoryPubsubRegistry._subscriptions_by_topic:
-            del MemoryPubsubRegistry._subscriptions_by_topic[self.topic_id]
+        if self.topic_id in self.pubsub_registry._topics:
+            del self.pubsub_registry._topics[self.topic_id]
+        if self.topic_id in self.pubsub_registry._subscriptions_by_topic:
+            del self.pubsub_registry._subscriptions_by_topic[self.topic_id]
 
     def create_subscription[R: BaseModel](
         self,
@@ -74,18 +75,19 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
     ) -> InMemorySubscription[R]:
         subscription_id = subscription_id or f"{self.topic_id}-sub"
 
-        existing = MemoryPubsubRegistry._all_subscriptions.get(subscription_id)
+        existing = self.pubsub_registry._all_subscriptions.get(subscription_id)
         if existing:
             if exist_ok:
                 return existing  # type: ignore
             raise ValueError(f"Subscription {subscription_id} already exists")
 
         sub = InMemorySubscription(
+            self.pubsub_registry,
             subscription_id=subscription_id,
             topic=self,
             clazz=clazz,
             processing_timeout=processing_timeout,
             per_message_timeout=per_message_timeout,
         )
-        MemoryPubsubRegistry.bind(subscription_id, self.topic_id)
+        self.pubsub_registry.bind(subscription_id, self.topic_id)
         return sub

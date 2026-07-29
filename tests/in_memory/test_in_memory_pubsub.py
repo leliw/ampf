@@ -10,7 +10,6 @@ from ampf.base.base_subscription import BaseSubscription
 from ampf.base.base_topic import BaseTopic
 from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse
 from ampf.in_memory.in_memory_factory import InMemoryFactory
-from ampf.in_memory.pubsub.in_memory_registry import MemoryPubsubRegistry
 from ampf.testing.api_test_client import ApiTestClient
 
 topic_id = "xxx"
@@ -20,7 +19,6 @@ _log = logging.getLogger(__name__)
 
 @pytest.fixture
 def factory():
-    MemoryPubsubRegistry.reset()
     return InMemoryFactory()
 
 

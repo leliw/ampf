@@ -45,4 +45,4 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
 
     @override
     def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
-        return InMemoryTopic(topic_id)
+        return self.sync_factory.create_topic(topic_id)

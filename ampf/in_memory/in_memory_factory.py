@@ -8,6 +8,7 @@ from ampf.base import BaseBlobMetadata, BaseFactory
 
 from .in_memory_blob_storage import InMemoryBlobStorage
 from .in_memory_storage import InMemoryStorage
+from .pubsub.in_memory_registry import InMemoryPubsubRegistry
 from .pubsub.in_memory_topic import InMemoryTopic
 
 
@@ -16,6 +17,7 @@ class InMemoryFactory(BaseFactory):
         super().__init__()
         self.collections: dict[str, InMemoryStorage] = {}
         # self.buckets: dict[str, dict[str, bytes]] = {}
+        self.pubsub_registry = InMemoryPubsubRegistry()
 
     def create_storage[T: BaseModel](
         self,
@@ -48,4 +50,4 @@ class InMemoryFactory(BaseFactory):
 
     @override
     def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
-        return InMemoryTopic(topic_id)
+        return InMemoryTopic(self.pubsub_registry, topic_id)

@@ -9,7 +9,7 @@ from ampf.base.base_push_emulator import BasePushEmulator
 from ampf.base.base_subscription import BaseSubscription
 
 from ...shared.pubsub_message import PubsubMessage
-from .in_memory_registry import MemoryPubsubRegistry
+from .in_memory_registry import InMemoryPubsubRegistry
 
 
 class InMemorySubscription[T: BaseModel](BaseSubscription):
@@ -17,19 +17,21 @@ class InMemorySubscription[T: BaseModel](BaseSubscription):
 
     def __init__(
         self,
+        pubsub_registry: InMemoryPubsubRegistry, 
         subscription_id: str,
         topic=None,
         clazz: type[T] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
     ):
+        self.pubsub_registry = pubsub_registry
         self.subscription_id = subscription_id
         self.topic = topic
         self.clazz = clazz
         self.processing_timeout = processing_timeout
         self.per_message_timeout = per_message_timeout
         self._queue = queue.Queue()
-        MemoryPubsubRegistry.register_subscription(self)
+        self.pubsub_registry.register_subscription(self)
 
     def put_message(self, message: PubsubMessage):
         self._queue.put(message)
@@ -78,10 +80,10 @@ class InMemorySubscription[T: BaseModel](BaseSubscription):
         return None
 
     def create(self, topic_id: str, exist_ok: bool = False) -> None:
-        MemoryPubsubRegistry.bind(self.subscription_id, topic_id)
+        self.pubsub_registry.bind(self.subscription_id, topic_id)
 
     def delete(self) -> None:
-        MemoryPubsubRegistry.delete(self.subscription_id)
+        self.pubsub_registry.delete(self.subscription_id)
 
     try:
         from fastapi.testclient import TestClient
