@@ -8,6 +8,7 @@ from ampf.base import BaseAsyncStorage
 from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.local import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
 
 
@@ -33,8 +34,10 @@ class Duuid(BaseModel):
     ]
 )
 async def storage(gcp_factory, request, tmp_path):
-    clazz: Type[BaseAsyncStorage[D]] = request.param
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+    clazz: type[BaseAsyncStorage[D]] = request.param
+    if clazz is InMemoryAsyncStorage:
+        storage = InMemoryAsyncFactory().create_storage("test-ampf", D)
+    elif clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
         storage = clazz("tests-ampf-gcp", D, root_path=tmp_path)  # type: ignore
     else:
         storage = clazz("tests-ampf-gcp", D)
@@ -51,8 +54,10 @@ async def storage(gcp_factory, request, tmp_path):
     ]
 )
 async def storage_uuid(request, tmp_path):
-    clazz: Type[BaseAsyncStorage[Duuid]] = request.param
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+    clazz: type[BaseAsyncStorage[Duuid]] = request.param
+    if clazz is InMemoryAsyncStorage:
+        storage = InMemoryAsyncFactory().create_storage("test-ampf", Duuid)
+    elif clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
         storage = clazz("tests-ampf-gcp", Duuid, root_path=tmp_path)  # type: ignore
     else:
         storage = clazz("tests-ampf-gcp", Duuid)

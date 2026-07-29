@@ -1,7 +1,8 @@
 import json
 import logging
 import uuid
-from typing import Any, Callable, Iterable, Iterator, List, Optional, Type
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -19,12 +20,11 @@ class WeaviateStorage[T: BaseModel](BaseStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[Callable[[T], str]] = None,
-        db: Optional[WeaviateDB] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
+        db: WeaviateDB | None = None,
     ):
-        BaseStorage.__init__(self, collection_name, clazz, key_name, key)
+        BaseStorage.__init__(self, collection_name, clazz, key)
         # BaseQuery.__init__(self, self.get_all)
         self.db = db or WeaviateDB()
         self.collection = self.db.get_collection(
@@ -94,7 +94,7 @@ class WeaviateStorage[T: BaseModel](BaseStorage[T]):
     def drop(self):
         self.collection.data.delete_many(where=Filter.by_property("key").like("*"))
 
-    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+    def find_nearest(self, embedding: list[float], limit: int | None = None) -> Iterator[T]:
         response = self.collection.query.near_vector(
             near_vector=embedding, limit=limit, return_metadata=MetadataQuery(distance=True)
         )

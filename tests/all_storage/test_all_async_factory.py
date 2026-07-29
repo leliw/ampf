@@ -11,7 +11,9 @@ from ampf.local import LocalAsyncFactory
 
 @pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory, GcpAsyncFactory])
 def factory(request, tmp_path):
-    if request.param == LocalAsyncFactory:
+    if request.param == InMemoryAsyncFactory:
+        factory = InMemoryAsyncFactory()
+    elif request.param == LocalAsyncFactory:
         factory = request.param(tmp_path)
     elif request.param == GcpAsyncFactory:
         factory = request.param(bucket_name="unit-tests-001")
