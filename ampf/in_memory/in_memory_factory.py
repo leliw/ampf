@@ -1,19 +1,19 @@
 from collections.abc import Callable
-from typing import ClassVar, override
+from typing import override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseFactory, BaseStorage
-from ampf.base.base_blob_storage import BaseBlobStorage
-from ampf.base.blob_model import BaseBlobMetadata
-from ampf.in_memory.pubsub.in_memory_topic import InMemoryTopic
+from ampf.base import BaseBlobMetadata, BaseBlobStorage, BaseFactory, BaseStorage
 
 from .in_memory_blob_storage import InMemoryBlobStorage
 from .in_memory_storage import InMemoryStorage
+from .pubsub.in_memory_topic import InMemoryTopic
 
 
 class InMemoryFactory(BaseFactory):
-    collections: ClassVar[dict[str, InMemoryStorage]] = {}
+    def __init__(self):
+        self.collections: dict[str, InMemoryStorage] = {}
+        # self.buckets: dict[str, dict[str, bytes]] = {}
 
     def create_storage[T: BaseModel](
         self,
@@ -29,7 +29,7 @@ class InMemoryFactory(BaseFactory):
                 key_name=key_name,
                 key=key,
             )
-        return self.collections.get(collection_name)  # type: ignore
+        return self.collections[collection_name]
 
     def create_blob_storage[T: BaseBlobMetadata](
         self,
@@ -39,6 +39,9 @@ class InMemoryFactory(BaseFactory):
         bucket_name: str | None = None,
     ) -> BaseBlobStorage[T]:
         return InMemoryBlobStorage(collection_name, clazz, content_type)
+
+    def drop(self):
+        self.collections = {}
 
     @override
     def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:

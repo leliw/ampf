@@ -1,18 +1,24 @@
 from collections.abc import Callable
-from typing import ClassVar, override
+from typing import override
 
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
-from ampf.in_memory.pubsub.in_memory_topic import InMemoryTopic
 
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
+from .in_memory_factory import InMemoryFactory
 from .in_memory_storage import InMemoryStorage
+from .pubsub.in_memory_topic import InMemoryTopic
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections: ClassVar[dict[str, InMemoryStorage]] = {}
+    def __init__(self, sync_factory: InMemoryFactory | None = None):
+        self.sync_factory = sync_factory or InMemoryFactory()
+
+    @property
+    def collections(self) -> dict[str, InMemoryStorage]:
+        return self.sync_factory.collections
 
     def create_storage[T: BaseModel](
         self,
@@ -21,14 +27,14 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         key_name: str | None = None,
         key: Callable[[T], str] | None = None,
     ) -> BaseAsyncStorage[T]:
-        if collection_name not in self.__class__.collections:
-            self.__class__.collections[collection_name] = InMemoryStorage[T](
+        if collection_name not in self.collections:
+            self.collections[collection_name] = InMemoryStorage[T](
                 collection_name=collection_name,
                 clazz=clazz,
                 key_name=key_name,
                 key=key,
             )
-        storage = self.__class__.collections[collection_name]
+        storage = self.collections[collection_name]
         instance = InMemoryAsyncStorage(
             storage.collection_name,
             storage.clazz,
@@ -49,9 +55,8 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
         return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
 
     def drop(self):
-        self.__class__.collections = {}
+        self.sync_factory.drop()
 
     @override
     def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
         return InMemoryTopic(topic_id)
-
