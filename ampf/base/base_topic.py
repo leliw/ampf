@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
+from ampf.base.base_subscription import BaseSubscription
+
 
 class BaseTopic[T: BaseModel](ABC):
     """An abstract base class for a topic"""
@@ -40,3 +42,14 @@ class BaseTopic[T: BaseModel](ABC):
             The message ID.
         """
         return self.publish(data, attrs, response_topic, sender_id)
+
+    @abstractmethod
+    def create_subscription[R: BaseModel](
+        self,
+        subscription_id: str | None = None,
+        clazz: type[R] | None = None,
+        processing_timeout: float = 5.0,
+        per_message_timeout: float = 1.0,
+        exist_ok: bool = False,
+    ) -> BaseSubscription[R]:
+        pass
