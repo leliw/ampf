@@ -5,6 +5,7 @@ from typing import override
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobMetadata, BaseFactory
+from ampf.base.blob_model import Blob
 
 from .in_memory_blob_storage import InMemoryBlobStorage
 from .in_memory_storage import InMemoryStorage
@@ -16,7 +17,7 @@ class InMemoryFactory(BaseFactory):
     def __init__(self):
         super().__init__()
         self.collections: dict[str, InMemoryStorage] = {}
-        # self.buckets: dict[str, dict[str, bytes]] = {}
+        self.buckets: dict[str, dict[str, Blob]] = {}
         self.pubsub_registry = InMemoryPubsubRegistry()
 
     def create_storage[T: BaseModel](
@@ -39,11 +40,14 @@ class InMemoryFactory(BaseFactory):
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: type[T] | None = None,
+        clazz: type[T] = BaseBlobMetadata,
         content_type: str | None = None,
         bucket_name: str | None = None,
     ) -> InMemoryBlobStorage[T]:
-        return InMemoryBlobStorage(collection_name, clazz, content_type)
+        bucket_name = bucket_name or "__default__"
+        if bucket_name not in self.buckets:
+            self.buckets[bucket_name] = {}
+        return InMemoryBlobStorage[T](self.buckets[bucket_name], collection_name, clazz, content_type)
 
     def drop(self):
         self.collections = {}

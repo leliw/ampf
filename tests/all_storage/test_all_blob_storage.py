@@ -2,24 +2,27 @@ import os
 from pathlib import Path
 
 import pytest
-from pydantic import Field
 
 from ampf.base import BaseBlobMetadata, BaseBlobStorage, KeyNotExistsException
 from ampf.base.blob_model import Blob
 from ampf.gcp import GcpBlobStorage
 from ampf.in_memory import InMemoryBlobStorage
+from ampf.in_memory.in_memory_factory import InMemoryFactory
 from ampf.local import LocalBlobStorage
 
 
 class MyMetadata(BaseBlobMetadata):
-    name: str = Field(...)
-    age: int = Field(...)
+    name: str | None = None
+    age: int | None = None
 
 
 @pytest.fixture(params=[InMemoryBlobStorage, LocalBlobStorage, GcpBlobStorage])
 def storage(gcp_factory, request, tmp_path):
     if request.param == LocalBlobStorage:
         storage = request.param("unit-tests", MyMetadata, content_type="text/plain", root_path=tmp_path)
+    elif request.param == InMemoryBlobStorage:
+        factory = InMemoryFactory()
+        storage = factory.create_blob_storage("unit-tests", MyMetadata, content_type="text/plain")
     else:
         if request.param == GcpBlobStorage:
             bucket_name = os.environ.get("GOOGLE_DEFAULT_BUCKET_NAME")

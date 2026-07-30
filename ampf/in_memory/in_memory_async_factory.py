@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from ampf.base import BaseAsyncFactory, BaseBlobMetadata
 
 from .in_memory_async_storage import InMemoryAsyncStorage
-from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
+from .in_memory_blob_async_storage import InMemoryAsyncBlobStorage
 from .in_memory_factory import InMemoryFactory
 from .in_memory_storage import InMemoryStorage
 from .pubsub.in_memory_topic import InMemoryTopic
@@ -34,11 +34,12 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: type[T] | None = None,
+        clazz: type[T] = BaseBlobMetadata,
         content_type: str | None = None,
         bucket_name: str | None = None,
-    ) -> InMemoryBlobAsyncStorage[T]:
-        return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
+    ) -> InMemoryAsyncBlobStorage[T]:
+        storage = self.sync_factory.create_blob_storage(collection_name, clazz, content_type, bucket_name)
+        return InMemoryAsyncBlobStorage(storage)
 
     def drop(self):
         self.sync_factory.drop()
