@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
 from ampf.base.blob_model import BaseBlobMetadata, BlobLocation
+from ampf.gcp.gcp_factory import GcpFactory
 
 from .gcp_async_blob_storage import GcpAsyncBlobStorage
 from .gcp_async_storage import GcpAsyncStorage
@@ -25,13 +26,34 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         super().__init__(root_storage, bucket_name)
         BaseAsyncFactory.__init__(self)
         self._async_db = firestore.AsyncClient(project=project_id, database=database)
-        self._storage_client = storage.Client(project=project_id)
+        self._storage_client: storage.Client | None = None
         self._httpx_async_client = httpx_async_client
-        self.project_id = project_id or self._async_db.project
+        self.project_id = project_id
         self.database = database
+        self.sync_factory: GcpFactory | None = None
+
+    def get_storage_client(self) -> storage.Client:
+        if not self._storage_client:
+            self._storage_client = storage.Client(project=self.project_id)
+        return self._storage_client
+
+    @override
+    def get_sync_factory(self) -> GcpFactory:
+        if not self.sync_factory:
+            self.sync_factory = GcpFactory(
+                root_storage=self.root_storage,
+                bucket_name=self.bucket_name,
+                project_id=self.project_id,
+                database=self.database,
+            )
+            self.sync_factory._collection_defs = self._collection_defs
+            self.sync_factory._type_to_collection_defs = self._type_to_collection_defs
+        return self.sync_factory
 
     @override
     def get_project_id(self) -> str:
+        if not self.project_id:
+            self.project_id = self._async_db.project
         return self.project_id
 
     def create_storage[T: BaseModel](
@@ -62,7 +84,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
             collection_name=collection_name,
             clazz=clazz or BaseBlobMetadata,
             content_type=content_type,
-            storage_client=self._storage_client,
+            storage_client=self.get_storage_client(),
             httpx_async_client=self._httpx_async_client,
         )
 

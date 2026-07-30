@@ -8,7 +8,6 @@ from ampf.base import BaseAsyncFactory, BaseBlobMetadata
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryAsyncBlobStorage
 from .in_memory_factory import InMemoryFactory
-from .in_memory_storage import InMemoryStorage
 from .pubsub.in_memory_topic import InMemoryTopic
 
 
@@ -16,10 +15,12 @@ class InMemoryAsyncFactory(BaseAsyncFactory):
     def __init__(self, sync_factory: InMemoryFactory | None = None):
         super().__init__()
         self.sync_factory = sync_factory or InMemoryFactory()
+        self._collection_defs = self.sync_factory._collection_defs
+        self._type_to_collection_defs = self.sync_factory._type_to_collection_defs
 
-    @property
-    def collections(self) -> dict[str, InMemoryStorage]:
-        return self.sync_factory.collections
+
+    def get_sync_factory(self) -> InMemoryFactory:
+        return self.sync_factory
 
     def create_storage[T: BaseModel](
         self,
