@@ -8,6 +8,9 @@ from ampf.base.base_subscription import BaseSubscription
 class BaseTopic[T: BaseModel](ABC):
     """An abstract base class for a topic"""
 
+    def __init__(self, topic_id: str) -> None:
+        self.topic_id = topic_id
+
     @abstractmethod
     def publish(
         self,
@@ -25,7 +28,7 @@ class BaseTopic[T: BaseModel](ABC):
             The message ID.
         """
         ...
-        
+
     async def publish_async(
         self,
         data: T | str | bytes,

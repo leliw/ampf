@@ -32,7 +32,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
             project_id: The project ID.
             publisher: The GCP publisher client.
         """
-        self.topic_id = topic_id
+        super().__init__(topic_id)
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not self.project_id:
             raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")

@@ -25,6 +25,8 @@ def test_create_topic(factory: BaseFactory):
     topic = factory.create_topic(topic_id)
     # Then: A BaseTopic subclass is returned
     assert isinstance(topic, BaseTopic)
+    # And: Topic_id is stored
+    assert topic.topic_id == topic_id
 
 def test_create_topic_and_subscription(factory: BaseFactory):
     # Given: A factory
@@ -33,10 +35,10 @@ def test_create_topic_and_subscription(factory: BaseFactory):
     topic = factory.create_topic(topic_id)
     # When: A subscription is created
     subscription = topic.create_subscription()
-    # Then: A BaseTopic subclas is returned
+    # Then: A BaseTopic subclass is returned
     assert isinstance(subscription, BaseSubscription)
 
-# def test_publis_and_receive_str(factory: BaseFactory):
+# def test_publish_and_receive_str(factory: BaseFactory):
 #     # Given: A topic & a subscription
 #     topic = factory.create_topic(topic_id)
 #     subscription = topic.create_subscription()
@@ -53,7 +55,7 @@ def test_create_topic_and_subscription(factory: BaseFactory):
 class C(BaseModel):
     name: str
 
-def test_publis_and_receive(factory: BaseFactory):
+def test_publish_and_receive(factory: BaseFactory):
     # Given: A topic & a subscription
     topic = factory.create_topic(topic_id)
     subscription = topic.create_subscription()

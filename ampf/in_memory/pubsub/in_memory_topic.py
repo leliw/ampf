@@ -13,8 +13,8 @@ class InMemoryTopic[T: BaseModel](BaseTopic[T]):
     """Implementacja BaseTopic w pamięci do testów jednostkowych."""
 
     def __init__(self, pubsub_registry: InMemoryPubsubRegistry, topic_id: str):
+        super().__init__(topic_id)
         self.pubsub_registry = pubsub_registry
-        self.topic_id = topic_id
         self.published_messages: list[PubsubMessage] = []
         self.pubsub_registry.register_topic(self)
 
