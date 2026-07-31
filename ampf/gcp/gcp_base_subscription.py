@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import logging
 import os
 from typing import Self
@@ -51,10 +50,10 @@ class GcpBaseSubscription[T: BaseModel](BaseSubscription):
                     ack_id = response.received_messages[0].ack_id
                     self.subscriber.acknowledge(subscription=self.subscription_path, ack_ids=[ack_id])
                     return PubsubMessage(
-                        messageId=message.ack_id,
+                        messageId=message.message_id,
                         attributes={k:v for k, v in message.attributes},
-                        data = base64.b64decode(message.data).decode("utf-8"),
-                        publishTime=message.publishTime
+                        data = message.data.decode("utf-8"),
+                        publishTime=message.publish_time.isoformat() # pyright: ignore[reportAttributeAccessIssue]
                     )
                 else:
                     return None

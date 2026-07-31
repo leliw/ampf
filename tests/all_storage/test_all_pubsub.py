@@ -1,4 +1,5 @@
 import pytest
+from pydantic import BaseModel
 
 from ampf.base.base_factory import BaseFactory
 from ampf.base.base_subscription import BaseSubscription
@@ -34,3 +35,35 @@ def test_create_topic_and_subscription(factory: BaseFactory):
     subscription = topic.create_subscription()
     # Then: A BaseTopic subclas is returned
     assert isinstance(subscription, BaseSubscription)
+
+# def test_publis_and_receive_str(factory: BaseFactory):
+#     # Given: A topic & a subscription
+#     topic = factory.create_topic(topic_id)
+#     subscription = topic.create_subscription()
+#     # When: Publish a string
+#     payload = "Hello!"
+#     message_id = topic.publish(payload)
+#     # And: receive it
+#     message = subscription.receive_message()
+#     # Then: They are the same
+#     assert message
+#     assert message.messageId == message_id
+#     assert payload == message.data
+
+class C(BaseModel):
+    name: str
+
+def test_publis_and_receive(factory: BaseFactory):
+    # Given: A topic & a subscription
+    topic = factory.create_topic(topic_id)
+    subscription = topic.create_subscription()
+    # And: A payload
+    payload = C(name="XXX")
+    # When: Publish message
+    message_id = topic.publish(payload)
+    # And: receive it
+    message = subscription.receive_message()
+    # Then: They are the same
+    assert message
+    assert message.messageId == message_id
+    assert payload == message.decoded_data(C)

@@ -1,10 +1,11 @@
 import base64
+import binascii
 import logging
 from datetime import UTC, datetime
 from typing import Self
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 _log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class PubsubMessage(BaseModel):
         """
         return cls(
             attributes=attributes,
-            data=base64.b64encode(data.model_dump_json().encode("utf-8")).decode("utf-8"),
+            data=data.model_dump_json(),
             messageId=uuid4().hex,
             publishTime=str(datetime.now(UTC)),
         )
@@ -42,9 +43,9 @@ class PubsubMessage(BaseModel):
         Returns:
             The deserialized Pydantic model.
         """
-        encoded_data = self.data
-        decoded_data = base64.b64decode(encoded_data).decode("utf-8")
-        return clazz.model_validate_json(decoded_data)
+        # encoded_data = self.data
+        # decoded_data = base64.b64decode(encoded_data).decode("utf-8")
+        return clazz.model_validate_json(self.data)
 
 
 class PubsubRequest(BaseModel):
@@ -87,8 +88,6 @@ class PubsubRequest(BaseModel):
         Returns:
             The deserialized Pydantic model.
         """
-        encoded_data = self.message.data
-        decoded_data = base64.b64decode(encoded_data).decode("utf-8")
 
         # Log subscription and message ID
         _log.info(
@@ -96,8 +95,15 @@ class PubsubRequest(BaseModel):
             self.subscription,
             self.message.messageId,
         )
-        return clazz.model_validate_json(decoded_data)
-
+        try:
+            return clazz.model_validate_json(self.message.data)
+        except ValidationError as ve:
+            try:
+                encoded_data = self.message.data
+                decoded_data = base64.b64decode(encoded_data).decode("utf-8")
+                return clazz.model_validate_json(decoded_data)
+            except binascii.Error:
+                raise ve
 
 # class PubsubMessage:
 #     def __init__(self, message_id: str, data: str, attributes: dict[str, str]):
