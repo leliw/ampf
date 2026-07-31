@@ -172,5 +172,6 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
             processing_timeout=processing_timeout,
             per_message_timeout=per_message_timeout,
         )
-        subscription.create(self.topic_id, exist_ok=exist_ok)
+        if not subscription.exists():
+            subscription.create(self.topic_id, exist_ok=exist_ok)
         return subscription
