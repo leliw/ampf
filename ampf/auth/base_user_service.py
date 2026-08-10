@@ -2,7 +2,6 @@ import hashlib
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Self, Type
 from warnings import deprecated
 
 from pydantic import EmailStr
@@ -19,7 +18,7 @@ _log = logging.getLogger(__name__)
 class BaseUserService[T: AuthUser](ABC):
     """Base class for user service."""
 
-    def __init__(self, user_class: Type[T] = AuthUser, default_user: DefaultUser | None = None) -> None:
+    def __init__(self, user_class: type[T] = AuthUser, default_user: DefaultUser | None = None) -> None:
         self.user_class = user_class
         self.default_user = default_user
 
@@ -60,10 +59,11 @@ class BaseUserService[T: AuthUser](ABC):
             user: User object
         """
 
-    @deprecated("Use initialize_storage()")
+    @deprecated("Storage is initialized in get_user_by_credentials() method (if needed)")
     async def initialise_storage(self, default_user: DefaultUser) -> None:
         await self.initialize_storage(default_user)
 
+    @deprecated("Storage is initialized in get_user_by_credentials() method (if needed)")
     async def initialize_storage(self, default_user: DefaultUser) -> None:
         """Initialise storage with default user if it's empty
 
@@ -75,7 +75,8 @@ class BaseUserService[T: AuthUser](ABC):
             await self.create(self.user_class(**default_user.model_dump()))
 
     async def get_user_by_credentials(self, username: str, password: str) -> T:
-        """Gets user by credentials and verifies password
+        """Gets user by credentials and verifies password.
+        Also initialize storage with default user if it is empty.
 
         Args:
             username: Username of the user
@@ -85,6 +86,9 @@ class BaseUserService[T: AuthUser](ABC):
         Raises:
             IncorrectUsernameOrPasswordException: If username or password is incorrect
         """
+        if await self.is_empty() and self.default_user:
+            _log.warning("User storage is empty, creating default user")
+            await self.create(self.user_class(**self.default_user.model_dump()))
         try:
             user = await self.get(username)
             if user.hashed_password != self._hash_password(password):
@@ -124,8 +128,6 @@ class BaseUserService[T: AuthUser](ABC):
             KeyNotExistsException: If user doesn't exist
         """
         old = await self.get(username)
-        if not old:
-            raise KeyNotExistsException
         if user.password:
             user.hashed_password = self._hash_password(user.password)
             user.password = None
@@ -160,7 +162,6 @@ class BaseUserService[T: AuthUser](ABC):
         except IncorrectUsernameOrPasswordException:
             raise IncorrectOldPasswordException
         user.password = new_pass
-        user.hashed_password = None
         await self.update(username, user)
 
     async def set_reset_code(self, username: str, reset_code: str, reset_code_exp: datetime) -> None:
@@ -177,11 +178,3 @@ class BaseUserService[T: AuthUser](ABC):
         user.reset_code = reset_code
         user.reset_code_exp = reset_code_exp
         await self.update(username, user)
-
-    async def __aenter__(self) -> Self:
-        if self.default_user:
-            await self.initialize_storage(self.default_user)
-        return self
-
-    async def __aexit__(self, _exc_type, _exc_val, _exc_tb) -> None:
-        pass

@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
@@ -53,7 +53,7 @@ class RoleDto(BaseModel):
 
 
 @router.get("/roles")
-def get_roles() -> List[RoleDto]:
+def get_roles() -> list[RoleDto]:
     return [RoleDto(name=role.value, description=ROLE_DESCRIPTIONS[role]) for role in Role]
 
 
@@ -65,7 +65,7 @@ async def generate_api_key(
 
 
 @router.get("/api-keys")
-async def get_api_keys(auth_service: AuthServiceDep, token_payload: TokenPayloadDep) -> List[APIKeyInDB]:
+async def get_api_keys(auth_service: AuthServiceDep, token_payload: TokenPayloadDep) -> list[APIKeyInDB]:
     return [key async for key in auth_service.get_api_keys(token_payload)]
 
 

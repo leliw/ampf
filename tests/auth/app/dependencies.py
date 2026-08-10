@@ -32,8 +32,8 @@ async def get_async_factory() -> BaseAsyncFactory:
 AsyncFactoryDep = Annotated[BaseAsyncFactory, Depends(get_async_factory)]
 
 
-def user_service_dep(factory: AsyncFactoryDep) -> UserService:
-    return UserService(factory)
+def user_service_dep(factory: AsyncFactoryDep, config: AppConfigDep) -> UserService:
+    return UserService(factory, config.default_user)
 
 
 UserServiceDep = Annotated[UserService, Depends(user_service_dep)]

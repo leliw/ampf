@@ -1,17 +1,17 @@
-from typing import Dict, Iterator
+from collections.abc import Iterator
+
+import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
-import pytest
-import pytest_asyncio
 
-from ampf.auth import TokenExp, DefaultUser, AuthConfig
+from ampf.auth import AuthConfig, DefaultUser, TokenExp
 from ampf.base import BaseAsyncFactory
 from ampf.base.exceptions import KeyNotExistsException
-
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from tests.auth.app.app_config import AppConfig
-from tests.auth.app.dependencies import get_async_factory, get_email_sender, get_app_config
+from tests.auth.app.dependencies import get_app_config, get_async_factory, get_email_sender
 from tests.auth.app.features.user.user_model import User
 from tests.auth.app.features.user.user_service import UserService
 from tests.auth.app.routers import auth, users
@@ -39,8 +39,7 @@ def test_server_config(tmp_path: str, test_user) -> AppConfig:
 
 @pytest_asyncio.fixture
 async def user_service(factory, test_server_config: AppConfig) -> UserService: # type: ignore
-    ret = UserService(factory)
-    await ret.initialise_storage(test_server_config.default_user)
+    ret = UserService(factory, test_server_config.default_user)
     yield ret # type: ignore
     await ret.storage.drop()
 
@@ -80,12 +79,12 @@ async def tokens(factory: BaseAsyncFactory, client: TestClient):
 
 
 @pytest.fixture
-def auth_header(tokens) -> Dict[str, str]:
+def auth_header(tokens) -> dict[str, str]:
     return {"Authorization": f"Bearer {tokens["access_token"]}"}
 
 
 @pytest_asyncio.fixture
-async def auth_header2(user_service: UserService, client: TestClient) -> Dict[str, str]:
+async def auth_header2(user_service: UserService, client: TestClient) -> dict[str, str]:
     await user_service.create(User(email="test2@test.com", password="test2", roles=["admin"]))
     # Login
     response = client.post(

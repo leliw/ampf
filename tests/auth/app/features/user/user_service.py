@@ -1,9 +1,11 @@
 import logging
+
 from pydantic import EmailStr
 
+from ampf.auth import BaseUserService
+from ampf.auth.auth_config import DefaultUser
 from ampf.base import BaseAsyncFactory, KeyNotExistsException
 
-from ampf.auth import BaseUserService
 from .user_model import User, UserHeader, UserInDB
 
 _log = logging.getLogger(__name__)
@@ -12,8 +14,8 @@ _log = logging.getLogger(__name__)
 class UserService(BaseUserService[User]):
     """User service implementation"""
 
-    def __init__(self, factory: BaseAsyncFactory) -> None:
-        super().__init__(User)
+    def __init__(self, factory: BaseAsyncFactory, default_user: DefaultUser | None = None) -> None:
+        super().__init__(User, default_user)
         self.storage = factory.create_compact_storage("users", UserInDB, "username")
 
     async def get_user_by_email(self, email: EmailStr) -> User:
