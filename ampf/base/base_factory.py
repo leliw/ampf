@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from ampf.base.base_topic import BaseTopic
 from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
 
@@ -17,7 +18,7 @@ _log = logging.getLogger(__name__)
 
 
 class BaseFactory(ABC):
-    """Factory creating storage objects"""
+    """Factory creating objects"""
 
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
@@ -168,3 +169,13 @@ class BaseFactory(ABC):
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
         bs.upload(blob)
+
+    def create_topic(self, topic_id: str) -> BaseTopic[BaseModel]:
+        """Creates a topic (a sender object to publish messages to)
+
+        Args:
+            topic_id: The ID of the topic.
+        Returns:
+            The created BaseTopic object.
+        """
+        raise NotImplementedError(f"create_topic() method is not implemented in {self.__class__.__name__}")

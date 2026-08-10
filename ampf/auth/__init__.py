@@ -20,40 +20,45 @@ from .auth_model import (
 )
 from .auth_service import AuthService
 from .base_user_service import BaseUserService
-from .google_oauth import GoogleOAuth
 
 __all__ = [
-    "AuthConfig",
-    "DefaultUser",
-    "SmtpConfig",
-    "ResetPasswordMailConfig",
-    "Tokens",
-    "TokenExp",
-    "TokenPayload",
-    "AuthUser",
-    "ChangePasswordData",
-    "ResetPassword",
-    "ResetPasswordRequest",
-    "APIKeyRequest",
     "APIKey",
     "APIKeyInDB",
-    "BlackListedRefreshTokenException",
-    "TokenExpiredException",
-    "InvalidTokenException",
-    "InvalidRefreshTokenException",
-    "InsufficientPermissionsError",
+    "APIKeyRequest",
+    "AuthConfig",
     "AuthService",
-    "GoogleOAuth",
+    "AuthUser",
     "BaseUserService",
+    "BlackListedRefreshTokenException",
+    "ChangePasswordData",
+    "DefaultUser",
+    "InsufficientPermissionsError",
+    "InvalidRefreshTokenException",
+    "InvalidTokenException",
+    "ResetPassword",
+    "ResetPasswordMailConfig",
+    "ResetPasswordRequest",
+    "SmtpConfig",
+    "TokenExp",
+    "TokenExpiredException",
+    "TokenPayload",
+    "Tokens",
 ]
 
 
 try:
+    from .google_oauth_model import ExchangeCodePayload, GoogleOAuthConfig  # noqa: F401
     from .google_oauth_service import GoogleOAuthService  # noqa: F401
-    from .google_oauth_model import GoogleOAuthConfig, ExchangeCodePayload  # noqa: F401
-
     __all__.append("GoogleOAuthService")
     __all__.append("GoogleOAuthConfig")
     __all__.append("ExchangeCodePayload")
+except ImportError:
+    pass
+
+try:
+    from .google_oauth import GoogleOAuth  # noqa: F401
+
+    __all__.append("GoogleOAuth")
+
 except ImportError:
     pass

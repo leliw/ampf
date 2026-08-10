@@ -9,6 +9,7 @@ from ampf.base import BaseAsyncStorage, KeyExistsException
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpAsyncStorage
 from ampf.in_memory import InMemoryAsyncStorage
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 from ampf.local import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
 
 _log = logging.getLogger(__name__)
@@ -35,8 +36,10 @@ class Duuid(BaseModel):
     ]
 )
 async def storage(gcp_factory, request, tmp_path):
-    clazz: Type[BaseAsyncStorage[D]] = request.param
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+    clazz: type[BaseAsyncStorage[D]] = request.param
+    if clazz is InMemoryAsyncStorage:
+        storage = InMemoryAsyncFactory().create_storage("tests-ampf-gcp", D)
+    elif clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
         storage = clazz("tests-ampf-gcp", D, root_path=tmp_path)  # type: ignore
     else:
         storage = clazz("tests-ampf-gcp", D)
@@ -53,8 +56,10 @@ async def storage(gcp_factory, request, tmp_path):
     ]
 )
 async def storage_uuid(request, tmp_path):
-    clazz: Type[BaseAsyncStorage[Duuid]] = request.param
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
+    clazz: type[BaseAsyncStorage[Duuid]] = request.param
+    if clazz is InMemoryAsyncStorage:
+        storage = InMemoryAsyncFactory().create_storage("tests-ampf-gcp", Duuid)
+    elif clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
         storage = clazz("tests-ampf-gcp", Duuid, root_path=tmp_path)  # type: ignore
     else:
         storage = clazz("tests-ampf-gcp", Duuid)
@@ -308,7 +313,7 @@ async def test_put_new_key(storage: BaseAsyncStorage):
     await storage.create(D(name="foo", value="beer"))
     # When: I put a new key
     await storage.put("foo", D(name="foo2", value="beer"))
-    # Then: Oryginal object does'n exist
+    # Then: Original object doesn't exist
     with pytest.raises(KeyNotExistsException):
         await storage.get("foo")
     # And: New object exists

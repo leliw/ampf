@@ -1,96 +1,96 @@
-from typing import Any, Iterator, Optional, Type
-from pydantic import BaseModel
+from collections.abc import Iterator
+from copy import copy, deepcopy
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.blob_model import Blob
+from ampf.base.blob_model import BaseBlobMetadata, Blob
 
 
-class InMemoryBlobStorage[T: BaseModel](BaseBlobStorage):
+class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
     """In memory blob storage implementation"""
 
-    buckets = {}
-
-    def __init__(self, bucket_name: str, clazz: Optional[Type[T]], content_type: Optional[str] = None):
-        self.bucket_name = bucket_name
+    def __init__(
+        self,
+        bucket: dict[str, Blob[T]],
+        collection_name: str,
+        clazz: type[T] = BaseBlobMetadata,
+        content_type: str | None = None,
+    ):
+        self.bucket = bucket
+        self.collection_name = self.collection_name = collection_name.rstrip("/") + "/"
         self.clazz = clazz
         self.content_type = content_type
-        if self.bucket_name not in self.buckets:
-            self.buckets[self.bucket_name] = {}
+
+    def _full_path(self, blob_name: str) -> str:
+        return f"{self.collection_name}{blob_name}"
 
     def upload(self, blob: Blob[T]) -> None:
-        self.buckets[self.bucket_name][blob.name] = blob
-    
-    def upload_blob(
-        self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
-    ) -> None:
-        if key not in self.buckets[self.bucket_name]:
-            self.buckets[self.bucket_name][key] = {}
-        self.buckets[self.bucket_name][key]["data"] = data
-        if metadata:
-            self.buckets[self.bucket_name][key]["metadata"] = metadata.model_copy(
-                deep=True
-            )
-        if content_type:
-            self.buckets[self.bucket_name][key]["content_type"] = content_type
+        _ = blob.content  # Reads data from file and stores in content property
+        self.bucket[self._full_path(blob.name)] = blob
+
+    def upload_blob(self, key: str, data: bytes, metadata: T | None = None, content_type: str = "") -> None:
+        metadata = metadata or self.clazz(content_type=content_type)
+        blob = Blob(name=key, content=data, metadata=metadata)
+        self.upload(blob)
 
     def download(self, key: str) -> Blob[T]:
         try:
-            return self.buckets[self.bucket_name][key]
+            return deepcopy(self.bucket[self._full_path(key)])
         except KeyError:
-            raise KeyNotExistsException(collection_name=self.bucket_name, key=key, clazz=self.clazz)
+            raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
 
     def download_blob(self, key: str) -> bytes:
-        if key not in self.buckets[self.bucket_name]:
-            raise KeyNotExistsException(self.bucket_name, self.clazz, key)
-        return self.buckets[self.bucket_name][key]["data"]
+        return copy(self.download(key).content)
 
     def put_metadata(self, key: str, metadata: T) -> None:
-        self.buckets[self.bucket_name][key]["metadata"] = metadata.model_copy(deep=True)
+        self.download(key).metadata = metadata.model_copy(deep=True)
 
     def get_metadata(self, key: str) -> T:
-        if key not in self.buckets[self.bucket_name]:
-            raise KeyNotExistsException(self.bucket_name, self.clazz, key)
-        return self.buckets[self.bucket_name][key]["metadata"]
+        return copy(self.download(key).metadata)
 
-    def delete(self, key: str):
-        if key not in self.buckets[self.bucket_name]:
-            raise KeyNotExistsException(self.bucket_name, self.clazz, key)
-        self.buckets[self.bucket_name].pop(key, None)
+    def exists(self, key: str) -> bool:
+        full_path = self._full_path(key)
+        return full_path in self.bucket
+
+    def delete(self, key: str) -> None:
+        full_path = self._full_path(key)
+        if full_path not in self.bucket:
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        self.bucket.pop(full_path, None)
 
     def keys(self) -> Iterator[str]:
-        return self.buckets[self.bucket_name].keys()
+        yield from self
+
+    def __iter__(self) -> Iterator[str]:
+        i = len(self.collection_name)
+        for k in self.bucket:
+            if k.startswith(self.collection_name):
+                yield k[i:]
 
     def drop(self) -> None:
-        self.buckets.pop(self.bucket_name, None)
+        keys = list(self.keys())
+        for k in keys:
+            self.delete(k)
 
-    def list_blobs(self, dir: Optional[str] = None) -> Iterator[Any]:
-        if self.bucket_name not in self.buckets:
-            return
-        if dir:
-            prefix = dir if dir[-1] == "/" else dir + "/"
-        else:
-            prefix = None
-        i = len(prefix) if prefix else 0
+    def list_blobs(self, folder_name: str | None = None) -> Iterator[FileNameMimeType]:
+        folder_name = folder_name.rstrip("/") + "/" if folder_name else ""
+        i = len(folder_name)
         for k in self.keys():
-            if not prefix or k.startswith(prefix):
+            if k.startswith(folder_name):
+                blob = self.bucket[self._full_path(k)]
                 yield FileNameMimeType(
-                    name=k[i:],
-                    mime_type=self.buckets[self.bucket_name][k]["content_type"],
+                    name=blob.name[i:],
+                    mime_type=blob.content_type,
                 )
 
     def move_blob(self, source_key: str, dest_key: str):
-        self.buckets[self.bucket_name][dest_key] = self.buckets[self.bucket_name].pop(
-            source_key
-        )
+        self.bucket[self._full_path(dest_key)] = self.bucket.pop(self._full_path(source_key))
 
     def delete_folder(self, folder_name: str):
-        if self.bucket_name not in self.buckets:
-            return
-        prefix = folder_name if folder_name[-1] == "/" else folder_name + "/"
+        folder_name = folder_name.rstrip("/") + "/" if folder_name else ""
         deletable = []
         for k in self.keys():
-            if k.startswith(prefix):
+            if k.startswith(folder_name):
                 deletable.append(k)
         for k in deletable:
             self.delete(k)

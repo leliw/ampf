@@ -6,15 +6,10 @@ import httpx2
 import pytest
 import pytest_asyncio
 
-from ampf.base import BaseAsyncBlobStorage, BaseBlobStorage, KeyNotExistsException
-
-# from ampf.gcp import GcpBlobStorage
-from ampf.base.blob_model import Blob, BaseBlobMetadata
+from ampf.base import BaseAsyncBlobStorage, BaseBlobMetadata, BaseBlobStorage, Blob, KeyNotExistsException
 from ampf.gcp import GcpAsyncBlobStorage
-from ampf.in_memory import InMemoryAsyncBlobStorage
+from ampf.in_memory import InMemoryAsyncBlobStorage, InMemoryAsyncFactory
 from ampf.local import LocalAsyncBlobStorage
-
-# from ampf.local import LocalBlobStorage
 
 
 class MyMetadata(BaseBlobMetadata):
@@ -38,6 +33,9 @@ def temp_storage_dir():
 async def storage(gcp_factory, request, temp_storage_dir, httpx_async_client):
     if request.param == LocalAsyncBlobStorage:
         storage = request.param(temp_storage_dir, MyMetadata, content_type="text/plain")
+    elif request.param == InMemoryAsyncBlobStorage:
+        factory = InMemoryAsyncFactory()
+        storage = factory.create_blob_storage(temp_storage_dir, MyMetadata, content_type="text/plain")
     elif request.param == GcpAsyncBlobStorage:
         storage = request.param(
             "unit-tests-001",
@@ -63,7 +61,7 @@ async def test_upload_blob(storage: BaseAsyncBlobStorage):
     # When: I upload it
     await storage.upload_async(blob)
     # Then: It is uploaded
-    assert file_name in list([b.name async for b in storage.list_blobs()])
+    assert file_name in [b.name async for b in storage.list_blobs()]
 
 
 @pytest.mark.asyncio
@@ -163,7 +161,7 @@ async def test_names(storage: BaseAsyncBlobStorage):
     # And: It is stored
     await storage.upload_async(blob)
     # When: Get names
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert len(names) == 1
     assert blob.name in list(names)
 
@@ -173,12 +171,12 @@ async def test_delete(storage: BaseAsyncBlobStorage):
     # Give: An uploaded file
     blob = Blob(name="file.txt", content="test data", metadata=MyMetadata(name="test", age=10))
     await storage.upload_async(blob)
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert blob.name in names
     # When: I delete the file
     await storage.delete_async(blob.name)
     # Then: The file is deleted
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert blob.name not in names
 
 
@@ -210,7 +208,7 @@ async def test_list_blobs(storage: BaseAsyncBlobStorage):
     blob = Blob(name="test/file.txt", content="test data", metadata=MyMetadata(name="test", age=10))
     await storage.upload_async(blob)
     # When: List blobs
-    blobs = list([b async for b in storage.list_blobs("test")])
+    blobs = [b async for b in storage.list_blobs("test")]
     # Then: The file is listed
     assert len(blobs) == 1
     assert blobs[0].name == "test/file.txt"
@@ -223,17 +221,17 @@ async def test_delete_folder(storage: BaseAsyncBlobStorage):
     # Give: An uploaded blob in test1 folder
     blob1 = Blob(name="test1/file.txt", content="test data", metadata=MyMetadata(name="test", age=10))
     await storage.upload_async(blob1)
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert blob1.name in names
     # And: An uploaded blob in test2 folder
     blob2 = Blob(name="test2/file.txt", content="test data", metadata=MyMetadata(name="test", age=10))
     await storage.upload_async(blob2)
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert blob2.name in names
     # When: I delete the folder test1
     await storage.delete_folder("test1")
     # Then: The file 1 is deleted
-    names = list([n async for n in storage.names()])
+    names = [n async for n in storage.names()]
     assert blob1.name not in names
     # And: The file 2 exists
     assert blob2.name in names

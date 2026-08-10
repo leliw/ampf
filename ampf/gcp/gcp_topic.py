@@ -32,7 +32,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
             project_id: The project ID.
             publisher: The GCP publisher client.
         """
-        self.topic_id = topic_id
+        super().__init__(topic_id)
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not self.project_id:
             raise ValueError("Project ID or GOOGLE_CLOUD_PROJECT environment variable is not set")
@@ -126,7 +126,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         except NotFound:
             return False
 
-    def create(self, exist_ok: bool = False) -> Self:
+    def create(self, exist_ok: bool = True) -> Self:
         """Creates the topic in GCP if it does not exist.
 
         Args:
@@ -151,7 +151,7 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         clazz: type[R] | None = None,
         processing_timeout: float = 5.0,
         per_message_timeout: float = 1.0,
-        exist_ok: bool = False,
+        exist_ok: bool = True,
     ) -> GcpSubscription[R]:
         """Creates a subscription to the topic in GCP.
 
@@ -172,5 +172,6 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
             processing_timeout=processing_timeout,
             per_message_timeout=per_message_timeout,
         )
-        subscription.create(self.topic_id, exist_ok=exist_ok)
+        if not subscription.exists():
+            subscription.create(self.topic_id, exist_ok=exist_ok)
         return subscription

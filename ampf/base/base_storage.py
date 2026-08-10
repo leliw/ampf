@@ -5,14 +5,14 @@ from __future__ import annotations
 import copy
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 
 from pydantic import BaseModel
 
-from ampf.base.versioned_base_model import VersionedBaseModel
-
 from .base_query import OP, BaseQuery
 from .exceptions import KeyExistsException
+from .versioned_base_model import VersionedBaseModel
 
 
 class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
@@ -23,22 +23,19 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T],
-        key_name: Optional[str] = None,
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
         self.collection_name = collection_name
         self.clazz = clazz
-        if not key and not key_name:
-            key = BaseStorage._find_key_name(clazz)
-        self.key = key or key_name
+        self.key = key or BaseStorage._find_key_name(clazz)
         self.embedding_field_name = embedding_field_name
         self.embedding_search_limit = embedding_search_limit
 
     @classmethod
-    def _find_key_name(cls, clazz: Type[T]) -> str:
+    def _find_key_name(cls, clazz: type[T]) -> str:
         field_names = list(clazz.model_fields.keys())
         if "id" in field_names:
             return "id"
@@ -66,13 +63,13 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
         """Delete the value with the key"""
 
     def create(self, value: T) -> None:
-        """Adds to collection a new element but only if such key doesn't already exists"""
+        """Adds to collection a new element but only if such key doesn't already exist"""
         key = self.get_key(value)
         if self.key_exists(key):
             raise KeyExistsException
         self.put(key, value)
 
-    def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+    def patch(self, key: Any, patch_data: BaseModel | dict[str, Any]) -> T:
         """Patch the object with new data.
 
         Args:
@@ -87,7 +84,7 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
         else:
             patch_dict = patch_data
         data = self.get(key)
-        data.__dict__.update(patch_dict) # type: ignore
+        data.__dict__.update(patch_dict)  # type: ignore
         self.put(key, data)
         return data
 
@@ -138,13 +135,13 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
         self,
         parent_key: str,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
     ) -> BaseStorage[T]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return self.__class__(new_collection_name, clazz, key=key)
 
-    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+    def find_nearest(self, embedding: list[float], limit: int | None = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector.
 
         Args:
@@ -154,14 +151,13 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
             An iterator of the nearest items.
         """
         try:
-            self._log
             from sentence_transformers.util import cos_sim
 
             self._log.warning("Embedding search is not optimized for performance.")
             self._log.warning("Consider using a vector database for production.")
 
             limit = limit or self.embedding_search_limit
-            ret: List[Tuple[T, float]] = []
+            ret: list[tuple[T, float]] = []
             for item in self.get_all():
                 em = getattr(item, self.embedding_field_name)
                 if em:
@@ -171,25 +167,25 @@ class BaseStorage[T: BaseModel | VersionedBaseModel](ABC):
             for item in ret[:limit]:
                 yield item[0]
         except ImportError:
-            self._log.error("The package `sentence_transformers` is not installed ")
+            self._log.error("The package `sentence_transformers` is not installed")
             self._log.error("Try: pip install ampf[huggingface]")
 
     @abstractmethod
     def where(self, field: str, op: OP, value: Any) -> BaseQuery[T]:
         pass
 
-    def using_class[U: BaseModel](self, clazz: Type[U]) -> BaseStorage[U]:
-        duplicat: BaseStorage[U] = copy.copy(self)  # type: ignore
-        duplicat.clazz = clazz
-        return duplicat
+    def using_class[U: BaseModel](self, clazz: type[U]) -> BaseStorage[U]:
+        duplicate: BaseStorage[U] = copy.copy(self)  # type: ignore
+        duplicate.clazz = clazz
+        return duplicate
 
-    def to_storage(self, data: T) -> Dict[str, Any]:
+    def to_storage(self, data: T) -> dict[str, Any]:
         if isinstance(data, VersionedBaseModel):
             return data.to_storage()
         else:
             return data.model_dump(by_alias=True, exclude_none=True)
 
-    def from_storage(self, data: Dict[str, Any]) -> T:
+    def from_storage(self, data: dict[str, Any]) -> T:
         if issubclass(self.clazz, VersionedBaseModel):
             return self.clazz.from_storage(data)
         else:

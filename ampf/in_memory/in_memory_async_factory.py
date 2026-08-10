@@ -1,51 +1,50 @@
 from collections.abc import Callable
-from typing import ClassVar
+from typing import override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
+from ampf.base import BaseAsyncFactory, BaseBlobMetadata
 
 from .in_memory_async_storage import InMemoryAsyncStorage
-from .in_memory_blob_async_storage import InMemoryBlobAsyncStorage
-from .in_memory_storage import InMemoryStorage
+from .in_memory_blob_async_storage import InMemoryAsyncBlobStorage
+from .in_memory_factory import InMemoryFactory
+from .pubsub.in_memory_topic import InMemoryTopic
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    collections: ClassVar[dict[str, InMemoryStorage]] = {}
+    def __init__(self, sync_factory: InMemoryFactory | None = None):
+        super().__init__()
+        self.sync_factory = sync_factory or InMemoryFactory()
+        self._collection_defs = self.sync_factory._collection_defs
+        self._type_to_collection_defs = self.sync_factory._type_to_collection_defs
+
+
+    def get_sync_factory(self) -> InMemoryFactory:
+        return self.sync_factory
 
     def create_storage[T: BaseModel](
         self,
         collection_name: str,
         clazz: type[T],
-        key_name: str | None = None,
-        key: Callable[[T], str] | None = None,
-    ) -> BaseAsyncStorage[T]:
-        if collection_name not in self.__class__.collections:
-            self.__class__.collections[collection_name] = InMemoryStorage[T](
-                collection_name=collection_name,
-                clazz=clazz,
-                key_name=key_name,
-                key=key,
-            )
-        storage = self.__class__.collections[collection_name]
-        instance = InMemoryAsyncStorage(
-            storage.collection_name,
-            storage.clazz,
-            storage.key,
-            storage.embedding_field_name,
-            storage.embedding_search_limit,
-        )
-        instance.storage = storage
+        key: str | Callable[[T], str] | None = None,
+    ) -> InMemoryAsyncStorage[T]:
+        storage = self.sync_factory.create_storage(collection_name, clazz, key)
+        instance = InMemoryAsyncStorage(storage)
         return instance
 
     def create_blob_storage[T: BaseBlobMetadata](
         self,
         collection_name: str,
-        clazz: type[T] | None = None,
+        clazz: type[T] = BaseBlobMetadata,
         content_type: str | None = None,
         bucket_name: str | None = None,
-    ) -> BaseAsyncBlobStorage[T]:
-        return InMemoryBlobAsyncStorage(collection_name, clazz, content_type)
+    ) -> InMemoryAsyncBlobStorage[T]:
+        storage = self.sync_factory.create_blob_storage(collection_name, clazz, content_type, bucket_name)
+        return InMemoryAsyncBlobStorage(storage)
 
     def drop(self):
-        self.__class__.collections = {}
+        self.sync_factory.drop()
+
+    @override
+    def create_topic(self, topic_id: str) -> InMemoryTopic[BaseModel]:
+        return self.sync_factory.create_topic(topic_id)

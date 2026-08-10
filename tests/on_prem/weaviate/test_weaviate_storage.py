@@ -1,5 +1,4 @@
 import time
-from typing import List, Tuple
 
 import docker
 import docker.errors
@@ -53,11 +52,11 @@ def weaviate_ports(docker_client: docker.DockerClient):
 class D(BaseModel):
     name: str
     value: str
-    embedding: List[float] = Field(default_factory=list)
+    embedding: list[float] = Field(default_factory=list)
 
 
 @pytest.fixture
-def storage(weaviate_ports: Tuple[int, int]):
+def storage(weaviate_ports: tuple[int, int]):
     db = WeaviateDB(port=weaviate_ports[0], grpc_port=weaviate_ports[1])
     with db.connect() as db:
         yield WeaviateStorage("test", D, db=db)

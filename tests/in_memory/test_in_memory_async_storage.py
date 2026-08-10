@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseAsyncQueryStorage, BaseAsyncStorage, KeyNotExistsException
 from ampf.in_memory import InMemoryAsyncStorage
+from ampf.in_memory.in_memory_storage import InMemoryStorage
 
 
 class D(BaseModel):
@@ -12,7 +13,7 @@ class D(BaseModel):
 
 @pytest.fixture
 def storage():
-    return InMemoryAsyncStorage("test", D)
+    return InMemoryAsyncStorage(InMemoryStorage("test", D))
 
 @pytest.mark.asyncio
 async def test_storage_all(storage: BaseAsyncStorage):

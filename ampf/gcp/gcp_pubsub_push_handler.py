@@ -1,5 +1,6 @@
+from collections.abc import AsyncIterator, Coroutine, Iterator
 from inspect import Parameter
-from typing import Annotated, Any, AsyncIterator, Coroutine, Iterator, List, Optional, Type, get_args, get_origin
+from typing import Annotated, Any, get_args, get_origin
 
 from .gcp_base_factory import GcpBaseFactory
 
@@ -12,7 +13,7 @@ try:
 
     from ampf.gcp.gcp_pubsub_model import GcpPubsubRequest, GcpPubsubResponse
 
-    def gcp_pubsub_push_handler[T: GcpBaseFactory](factory_dep: Optional[Type[T] | Any] = None):
+    def gcp_pubsub_push_handler[T: GcpBaseFactory](factory_dep: type[T] | Any = None):
         """
         Decorator for FastAPI endpoints to handle Google Cloud Pub/Sub push messages.
         It automatically decodes the incoming Pub/Sub message into a Pydantic model,
@@ -77,12 +78,12 @@ try:
                         ret = await ret
                     if isinstance(ret, AsyncIterator):
                         async for result in ret:
-                            request.publish_response(result, async_factory=gcp_factory)
-                    elif isinstance(ret, Iterator) or isinstance(ret, List):
+                            request.publish_response(result, factory=gcp_factory)
+                    elif isinstance(ret, (Iterator, list)):
                         for result in ret:
-                            request.publish_response(result, async_factory=gcp_factory)
+                            request.publish_response(result, factory=gcp_factory)
                     elif ret:
-                        request.publish_response(ret, async_factory=gcp_factory)
+                        request.publish_response(ret, factory=gcp_factory)
                     return GcpPubsubResponse(status="acknowledged", messageId=request.message.messageId)
                 except ValidationError as e:
                     _log.exception(

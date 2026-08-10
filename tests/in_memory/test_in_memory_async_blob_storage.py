@@ -3,9 +3,10 @@ import logging
 
 import pytest
 
-from ampf.base.blob_model import Blob, BaseBlobMetadata
+from ampf.base.blob_model import BaseBlobMetadata, Blob
 from ampf.base.exceptions import KeyNotExistsException
 from ampf.in_memory import InMemoryAsyncBlobStorage
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 
 _log = logging.getLogger(__name__)
 
@@ -16,7 +17,8 @@ class SampleMetadata(BaseBlobMetadata):
 
 @pytest.fixture
 def storage() -> InMemoryAsyncBlobStorage[SampleMetadata]:
-    return InMemoryAsyncBlobStorage[SampleMetadata](collection_name="test_collection", clazz=SampleMetadata)
+    factory = InMemoryAsyncFactory()
+    return factory.create_blob_storage(collection_name="test_collection", clazz=SampleMetadata)
 
 
 @pytest.mark.asyncio

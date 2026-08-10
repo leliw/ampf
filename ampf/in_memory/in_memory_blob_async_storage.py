@@ -1,74 +1,68 @@
 import asyncio
-from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import override
+from warnings import deprecated
 
 from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
+from ampf.in_memory.in_memory_blob_storage import InMemoryBlobStorage
 
 
 class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
-    buckets = {}
-
-    def __init__(self, collection_name: str, clazz: Optional[Type[T]] = None, content_type: Optional[str] = None):
-        self.collection_name = collection_name
-        self.clazz = clazz
-        self.content_type = content_type
-        if self.collection_name not in self.buckets:
-            self.buckets[self.collection_name] = {}
+    def __init__(self, storage: InMemoryBlobStorage):
+        self.storage = storage
+        super().__init__(
+            collection_name=storage.collection_name, clazz=storage.clazz, content_type=storage.content_type
+        )
         self.transaction_lock = asyncio.Lock()
 
     @override
     async def upload_async(self, blob: Blob[T]) -> None:
-        _ = blob.content  # Reads data from file and stores in content property
-        self.buckets[self.collection_name][blob.name] = blob
+        self.storage.upload(blob)
 
     @override
     async def download_async(self, key: str) -> Blob[T]:
-        try:
-            return self.buckets[self.collection_name][key]
-        except KeyError:
-            raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
+        return self.storage.download(key)
 
     @override
-    async def get_metadata(self, key: str) -> Optional[T]:
-        try:
-            return self.buckets[self.collection_name][key].metadata
-        except KeyError:
-            raise KeyNotExistsException(collection_name=self.collection_name, key=key, clazz=self.clazz)
+    async def get_metadata(self, key: str) -> T:
+        return self.storage.get_metadata(key)
 
     @override
     async def put_metadata(self, key: str, metadata: T) -> None:
-        self.buckets[self.collection_name][key].metadata = metadata
+        self.storage.put_metadata(key, metadata)
 
     @override
     def delete(self, key: str) -> None:
-        if key in self.buckets[self.collection_name]:
-            del self.buckets[self.collection_name][key]
-        else:
-            raise KeyNotExistsException(self.collection_name, self.clazz, key)
+        self.storage.delete(key)
 
     @override
     def exists(self, key: str) -> bool:
-        return key in self.buckets[self.collection_name]
+        return self.storage.exists(key)
 
     @override
-    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
-        for name, blob in self.buckets[self.collection_name].items():
-            if prefix is None or name.startswith(prefix):
-                yield name
+    async def names(self, prefix: str | None = None) -> AsyncGenerator[str]:
+        prefix = prefix.rstrip("/") + "/" if prefix else ""
+        for k in self.storage:
+            if k.startswith(prefix):
+                blob = self.storage.download(k)
+                yield blob.name
 
     @override
-    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
-        for name, blob in self.buckets[self.collection_name].items():
-            if prefix is None or name.startswith(prefix):
-                yield BlobHeader(name=name, metadata=blob.metadata)
+    async def list_blobs(self, prefix: str | None = None) -> AsyncGenerator[BlobHeader[T]]:
+        prefix = prefix.rstrip("/") + "/" if prefix else ""
+        for k in self.storage:
+            if k.startswith(prefix):
+                blob = self.storage.download(k)
+                yield BlobHeader(name=blob.name, metadata=blob.metadata)
 
     @override
     async def _upsert_transactional(
         self,
         name: str,
-        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
-        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+        create_func: Callable[[str], Awaitable[Blob[T]]] | None = None,
+        update_func: Callable[[Blob[T]], Awaitable[Blob[T]]] | None = None,
     ) -> None:
         async with self.transaction_lock:
             try:
@@ -78,13 +72,13 @@ class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
                     await self.upload_async(updated_blob)
                 else:
                     raise KeyExistsException(self.collection_name, self.clazz, name)
-            except KeyNotExistsException as e:
+            except KeyNotExistsException:
                 if not create_func:
-                    raise e
+                    raise
                 created_blob = await create_func(name)
                 await self.upload_async(created_blob)
 
 
-# deprecated
+@deprecated("Use InMemoryAsyncBlobStorage")
 class InMemoryBlobAsyncStorage[T: BaseBlobMetadata](InMemoryAsyncBlobStorage[T]):
     pass

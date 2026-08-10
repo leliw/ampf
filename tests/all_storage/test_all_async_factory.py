@@ -1,7 +1,8 @@
-from pydantic import BaseModel
 import pytest
+from pydantic import BaseModel
 
 from ampf.base.base_async_factory import BaseAsyncFactory
+from ampf.base.base_factory import BaseFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.base.collection_def import CollectionDef
 from ampf.gcp import GcpAsyncFactory
@@ -11,7 +12,9 @@ from ampf.local import LocalAsyncFactory
 
 @pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory, GcpAsyncFactory])
 def factory(request, tmp_path):
-    if request.param == LocalAsyncFactory:
+    if request.param == InMemoryAsyncFactory:
+        factory = InMemoryAsyncFactory()
+    elif request.param == LocalAsyncFactory:
         factory = request.param(tmp_path)
     elif request.param == GcpAsyncFactory:
         factory = request.param(bucket_name="unit-tests-001")
@@ -103,3 +106,12 @@ async def test_register_and_get_collection(factory: BaseAsyncFactory):
 
     with pytest.raises(KeyNotExistsException):
         factory.get_collection(UnregisteredModel)
+
+
+def test_get_sync_factory(factory: BaseAsyncFactory):
+    # Given: An async factory
+    assert factory
+    # When: Get sync factory
+    sync_factory = factory.get_sync_factory()
+    # Then: It is returend
+    assert isinstance(sync_factory, BaseFactory)

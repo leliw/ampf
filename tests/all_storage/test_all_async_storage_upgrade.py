@@ -1,15 +1,15 @@
 import logging
-from typing import Type
 
 import pytest
 from pydantic import BaseModel, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ampf.base import BaseAsyncStorage, VersionedBaseModel
+from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.versioned_base_model import StorageFormatFlags
-from ampf.gcp import GcpAsyncStorage
-from ampf.in_memory import InMemoryAsyncStorage
-from ampf.local import JsonMultiFilesAsyncStorage, JsonOneFileAsyncStorage
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
+from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
+from ampf.local.async_local_factory import LocalAsyncFactory
 
 _log = logging.getLogger(__name__)
 
@@ -66,33 +66,27 @@ D = D_v2
 
 @pytest.fixture(
     params=[
-        InMemoryAsyncStorage,
-        JsonOneFileAsyncStorage,
-        JsonMultiFilesAsyncStorage,
-        GcpAsyncStorage,
+        InMemoryAsyncFactory,
+        LocalAsyncFactory,
+        GcpAsyncFactory,
     ]
 )
-def clazz(gcp_factory, request) -> Type[BaseAsyncStorage]:
-    return request.param
+def factory(request, tmp_path) -> BaseAsyncFactory:
+    if request.param is LocalAsyncFactory:
+        return LocalAsyncFactory(tmp_path)
+    return request.param()
 
 
 @pytest.fixture
-async def storage_v1(clazz, tmp_path):
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v1, key="name", root_path=tmp_path)  # type: ignore
-    else:
-        storage = clazz("tests-ampf-gcp", D_v1, key="name")
+async def storage_v1(factory):
+    storage = factory.create_storage("tests-ampf-gcp", D_v1, key="name")
     yield storage
     await storage.drop()
 
 
 @pytest.fixture
-async def storage_v2(clazz, tmp_path):
-    if clazz in [JsonOneFileAsyncStorage, JsonMultiFilesAsyncStorage]:
-        storage = clazz("tests-ampf-gcp", D_v2, key="name", root_path=tmp_path)  # type: ignore
-    else:
-        storage = clazz("tests-ampf-gcp", D_v2, key="name")
-
+async def storage_v2(factory, tmp_path):
+    storage = factory.create_storage("tests-ampf-gcp", D_v2, key="name")
     yield storage
     await storage.drop()
 

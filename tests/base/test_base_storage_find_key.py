@@ -1,14 +1,14 @@
 from uuid import UUID
 
-from pydantic import BaseModel
 import pytest
+from pydantic import BaseModel
 
-from ampf.in_memory import InMemoryStorage, InMemoryAsyncStorage
+from ampf.in_memory import InMemoryStorage
 
 
-@pytest.fixture(params=[InMemoryStorage, InMemoryAsyncStorage])
-def StorageClass(request):
-    return request.param
+@pytest.fixture
+def StorageClass():
+    return InMemoryStorage
 
 
 def test_key_id(StorageClass):

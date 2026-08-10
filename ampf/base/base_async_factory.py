@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
 from .base_async_query_storage import BaseAsyncQueryStorage
+from .base_factory import BaseFactory
 from .base_topic import BaseTopic
 from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 from .collection_def import CollectionDef
@@ -22,6 +23,9 @@ class BaseAsyncFactory(ABC):
     def __init__(self):
         self._collection_defs: dict[str, CollectionDef] = {}
         self._type_to_collection_defs: dict[type[BaseModel], CollectionDef] = {}
+
+    @abstractmethod
+    def get_sync_factory(self) -> BaseFactory: ...
 
     @abstractmethod
     def create_storage[T: BaseModel](
@@ -91,7 +95,7 @@ class BaseAsyncFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef(**definition)
-        return BaseAsyncCollectionStorage(self.create_storage, definition)
+        return BaseAsyncCollectionStorage(self.create_storage, definition) # pyright: ignore[reportAbstractUsage]
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseAsyncCollectionStorage[T]:
         """Creates storage tree from its definition.
@@ -146,9 +150,9 @@ class BaseAsyncFactory(ABC):
         try:
             bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
             return await bs.download_async(blob_location.name)
-        except KeyNotExistsException as e:
+        except KeyNotExistsException:
             _log.warning("Error downloading blob: %s", blob_location.name)
-            raise e
+            raise
 
     async def upload_blob(self, blob_location: BlobLocation, blob: Blob) -> None:
         """Uploads a blob to the specified file location.
