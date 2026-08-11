@@ -20,9 +20,17 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
 
     @classmethod
     def get_default_publisher(cls) -> PublisherClient:
-        from .gcp_base_factory import GcpBaseFactory
+        if not cls._default_publisher:
+            _log.warning("Add PublisherClient parameter to constructor!")
+            from google.cloud.pubsub_v1.types import PublisherOptions
 
-        return GcpBaseFactory.get_publisher_client()
+            otel = bool(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"))
+            if otel:
+                _log.info("OpenTelemetry is enabled")
+            cls._default_publisher = PublisherClient(
+                publisher_options=PublisherOptions(enable_open_telemetry_tracing=otel)
+            )
+        return cls._default_publisher
 
     def __init__(self, topic_id: str, project_id: str | None = None, publisher: PublisherClient | None = None):
         """Initializes the topic.
@@ -96,12 +104,12 @@ class GcpTopic[T: BaseModel](BaseTopic[T]):
         Returns:
             The future for the publish operation.
         """
-        if response_topic:
-            attrs = attrs or {}
-            attrs["response_topic"] = response_topic
-        if sender_id:
-            attrs = attrs or {}
-            attrs["sender_id"] = sender_id
+        if response_topic or sender_id:
+            attrs = dict(attrs) if attrs else {}
+            if response_topic:
+                attrs["response_topic"] = response_topic
+            if sender_id:
+                attrs["sender_id"] = sender_id
         if isinstance(data, str):
             bdata = data.encode("utf-8")
         elif isinstance(data, bytes):

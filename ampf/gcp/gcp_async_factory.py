@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from typing import override
 
@@ -13,6 +14,8 @@ from .gcp_async_blob_storage import GcpAsyncBlobStorage
 from .gcp_async_storage import GcpAsyncStorage
 from .gcp_base_factory import GcpBaseFactory
 
+_log = logging.getLogger(__name__)
+
 
 class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     def __init__(
@@ -22,15 +25,23 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         project_id: str | None = None,
         database: str | None = None,
         httpx_async_client: httpx2.AsyncClient | None = None,
+        otel: bool | None = None,
     ):
-        super().__init__(root_storage, bucket_name)
+        if otel is None:
+            _log.warning("Add otel parameter to constructor!")
+        super().__init__(root_storage, bucket_name, otel or False)
         BaseAsyncFactory.__init__(self)
-        self._async_db = firestore.AsyncClient(project=project_id, database=database)
+        self._async_db: firestore.AsyncClient | None = None
         self._storage_client: storage.Client | None = None
         self._httpx_async_client = httpx_async_client
         self.project_id = project_id
         self.database = database
         self.sync_factory: GcpFactory | None = None
+
+    def get_async_client(self) -> firestore.AsyncClient:
+        if not self._async_db:
+            self._async_db = firestore.AsyncClient(project=self.project_id, database=self.database)
+        return self._async_db
 
     def get_storage_client(self) -> storage.Client:
         if not self._storage_client:
@@ -45,6 +56,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
                 bucket_name=self.bucket_name,
                 project_id=self.project_id,
                 database=self.database,
+                otel=self._otel,
             )
             self.sync_factory._collection_defs = self._collection_defs
             self.sync_factory._type_to_collection_defs = self._type_to_collection_defs
@@ -53,7 +65,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
     @override
     def get_project_id(self) -> str:
         if not self.project_id:
-            self.project_id = self._async_db.project
+            self.project_id = self.get_async_client().project
         return self.project_id
 
     def create_storage[T: BaseModel](
@@ -62,7 +74,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         return GcpAsyncStorage(
             collection_name,
             clazz,
-            db=self._async_db,
+            db=self.get_async_client(),
             key=key,
             root_storage=self.root_storage,
         )

@@ -22,8 +22,9 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
         bucket_name: str | None = None,
         project_id: str | None = None,
         database: str | None = None,
+        otel: bool | None = None,
     ):
-        super().__init__(root_storage, bucket_name)
+        super().__init__(root_storage, bucket_name, otel=otel or False)
         BaseFactory.__init__(self)
         self._db = firestore.Client(project=project_id, database=database)
         self._storage_client: storage.Client | None = None
