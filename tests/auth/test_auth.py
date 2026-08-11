@@ -1,11 +1,6 @@
 import re
 import time
 
-import pytest
-
-from tests.auth.app.features.user.user_model import User
-from tests.auth.app.features.user.user_service import UserService
-
 
 def test_login_ok(client):
     # When: Default user logs in
@@ -99,10 +94,9 @@ def test_change_password(client, tokens):
         ).status_code
     )
 
-@pytest.mark.asyncio
-async def test_reset_password_request(email_sender, client, user_service: UserService):
-    # Given: Stored an user with email 
-    await user_service.create(User(email="test@test.com", password="test"))
+
+def test_reset_password_request(email_sender, client):
+    # Given: Stored an user with email
     # When: The user requests password reset
     response = client.post(
         "/api/reset-password-request",
@@ -121,10 +115,9 @@ async def test_reset_password_request(email_sender, client, user_service: UserSe
     time = match.group(1) if match else None
     assert time == "15"
 
-@pytest.mark.asyncio
-async def test_reset_password(email_sender, client, user_service: UserService):
-    # Given: Stored an user with email 
-    await user_service.create(User(email="test@test.com", password="test"))
+
+def test_reset_password(email_sender, client):
+    # Given: Stored an user with email
     # Given: The user requests password reset
     client.post(
         "/api/reset-password-request",
@@ -145,7 +138,7 @@ async def test_reset_password(email_sender, client, user_service: UserService):
     # Then: Default user logs in with new password
     response = client.post(
         "/api/login",
-        data={"username": "test@test.com", "password": "new_test"},
+        data={"username": "test", "password": "new_test"},
     )
     # Then: The response status code is 200
     assert response.status_code == 200

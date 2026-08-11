@@ -1,18 +1,13 @@
-import hashlib
-import re
-import uuid
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-
 
 
 class Tokens(BaseModel):
     """Tokens returned by the server when an user is successfully authenticated"""
 
     access_token: str
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     token_type: str
 
 
@@ -22,8 +17,8 @@ class TokenPayload(BaseModel):
     sub: str
     email: str | None = None
     name: str | None = None
-    roles: List[str] = Field(default_factory=list)
-    picture: Optional[str] = None
+    roles: list[str] = Field(default_factory=list)
+    picture: str | None = None
     exp: datetime
 
 
@@ -36,7 +31,7 @@ class TokenExp(BaseModel):
 
 class BaseUser(BaseModel):
     username: str = ""
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
 
     @field_validator("username", "email", mode="before")
     @classmethod
@@ -47,6 +42,8 @@ class BaseUser(BaseModel):
 
     @model_validator(mode="after")
     def ensure_email_and_username(self) -> "BaseUser":
+        import re
+
         EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
         # Case 1: email provided → copy to username if missing
         if self.email and not self.username:
@@ -63,14 +60,14 @@ class BaseUser(BaseModel):
 class AuthUser(BaseUser):
     """Base user model for authentication"""
 
-    name: Optional[str] = None
+    name: str | None = None
     disabled: bool = False
-    roles: List[str] = Field(default_factory=list)
-    picture: Optional[str] = None
-    password: Optional[str] = None
-    hashed_password: Optional[str] = None
-    reset_code: Optional[str] = None
-    reset_code_exp: Optional[datetime] = None
+    roles: list[str] = Field(default_factory=list)
+    picture: str | None = None
+    password: str | None = None
+    hashed_password: str | None = None
+    reset_code: str | None = None
+    reset_code_exp: datetime | None = None
 
 
 class ChangePasswordData(BaseModel):
@@ -98,7 +95,7 @@ class APIKeyRequest(BaseModel):
     """Data for generating API key"""
 
     exp: datetime | None = None
-    roles: List[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
 
 
 class APIKeyInDB(APIKeyRequest):
@@ -114,6 +111,9 @@ class APIKey(APIKeyInDB):
     key: str
 
     def __init__(self, **data):
+        import hashlib
+        import uuid
+
         if not data.get("key"):
             data["key"] = str(uuid.uuid4())
         data["key_hash"] = hashlib.sha256(data["key"].encode()).hexdigest()

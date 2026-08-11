@@ -25,7 +25,7 @@ def factory() -> BaseAsyncFactory:
 
 @pytest.fixture
 def test_user() -> DefaultUser:
-    return DefaultUser(username="test", password="test", roles=["admin"])
+    return DefaultUser(username="test", password="test", email="test@test.com", roles=["admin"])
 
 
 @pytest.fixture
@@ -38,16 +38,14 @@ def test_server_config(tmp_path: str, test_user) -> AppConfig:
 
 
 @pytest_asyncio.fixture
-async def user_service(factory, test_server_config: AppConfig) -> UserService: # type: ignore
+async def user_service(factory, test_server_config: AppConfig) -> UserService:  # type: ignore
     ret = UserService(factory, test_server_config.default_user)
-    yield ret # type: ignore
+    yield ret  # type: ignore
     await ret.storage.drop()
 
 
 @pytest.fixture
-def client(
-    factory, email_sender, test_server_config: AppConfig, user_service: UserService
-) -> Iterator[TestClient]:
+def client(factory, email_sender, test_server_config: AppConfig, user_service: UserService) -> Iterator[TestClient]:
 
     app = FastAPI()
     app.dependency_overrides[get_async_factory] = lambda: factory
@@ -80,7 +78,7 @@ async def tokens(factory: BaseAsyncFactory, client: TestClient):
 
 @pytest.fixture
 def auth_header(tokens) -> dict[str, str]:
-    return {"Authorization": f"Bearer {tokens["access_token"]}"}
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
 @pytest_asyncio.fixture
@@ -92,4 +90,4 @@ async def auth_header2(user_service: UserService, client: TestClient) -> dict[st
         data={"username": "test2@test.com", "password": "test2"},
     )
     r = response.json()
-    return {"Authorization": f"Bearer {r["access_token"]}"}
+    return {"Authorization": f"Bearer {r['access_token']}"}

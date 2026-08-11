@@ -74,6 +74,11 @@ class BaseUserService[T: AuthUser](ABC):
             _log.warning("User storage is empty, creating default user")
             await self.create(self.user_class(**default_user.model_dump()))
 
+    async def initialize_storage_if_empty(self):
+        if await self.is_empty() and self.default_user:
+            _log.warning("User storage is empty, creating default user")
+            await self.create(self.user_class(**self.default_user.model_dump()))
+
     async def get_user_by_credentials(self, username: str, password: str) -> T:
         """Gets user by credentials and verifies password.
         Also initialize storage with default user if it is empty.
@@ -86,9 +91,7 @@ class BaseUserService[T: AuthUser](ABC):
         Raises:
             IncorrectUsernameOrPasswordException: If username or password is incorrect
         """
-        if await self.is_empty() and self.default_user:
-            _log.warning("User storage is empty, creating default user")
-            await self.create(self.user_class(**self.default_user.model_dump()))
+        await self.initialize_storage_if_empty()
         try:
             user = await self.get(username)
             if user.hashed_password != self._hash_password(password):
