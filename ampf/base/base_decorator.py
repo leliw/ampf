@@ -1,8 +1,7 @@
-from typing import Generic, TypeVar, cast
+from typing import cast
 
-T = TypeVar("T")
 
-class BaseDecorator(Generic[T]):
+class BaseDecorator[T]:
     """Base decorator class."""
 
     def __init__(self, decorated: T) -> None:
@@ -18,9 +17,7 @@ class BaseDecorator(Generic[T]):
         if hasattr(self.decorated, name):
             return getattr(self.decorated, name)
         else:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def as_decorated(self) -> T:
         """Get the decorated object."""
