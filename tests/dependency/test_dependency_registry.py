@@ -43,7 +43,19 @@ def test_get_functional_dependency(registry: DependencyRegistry):
     a = registry.get(A)
     # Then: Dependency is returned
     assert a.value == "A"
+    # And: The object is stored
+    assert registry.current()._objects[A]
 
+def test_get_annotated_functional_dependency(registry: DependencyRegistry):
+    # Given: Registered functional dependency by annotation
+    @registry.register_for_type(A)
+    def get_a() -> A:
+        return A()
+    
+    # When: Get dependency
+    a = registry.get(A)
+    # Then: Dependency is returned
+    assert a.value == "A"
 
 def test_get_functional_dependency_async_err(registry: DependencyRegistry):
     # Given: Registered async functional dependency
