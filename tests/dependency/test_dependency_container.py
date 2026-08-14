@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Optional, Union
 
-from pydantic import BaseModel
 import pytest
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from ampf.base.base_async_factory import BaseAsyncFactory
@@ -244,7 +243,7 @@ def test_register_class(container: DependencyContainer):
 
 def test_optional_dependency_missing(container: DependencyContainer):
     # Given: A function that depends on an Optional dependency that is not registered
-    def get_b(a: Optional[A]) -> B:
+    def get_b(a: A | None) -> B:
         return B(a)
 
     container.register_for_type(B)(get_b)
@@ -260,7 +259,7 @@ def test_optional_dependency_missing(container: DependencyContainer):
 @pytest.mark.asyncio
 async def test_optional_dependency_missing_async(container: DependencyContainer):
     # Given: An async function that depends on an Optional dependency that is not registered
-    async def get_b(a: Optional[A]) -> B:
+    async def get_b(a: A | None) -> B:
         return B(a)
 
     container.register_for_type(B)(get_b)
@@ -275,7 +274,7 @@ async def test_optional_dependency_missing_async(container: DependencyContainer)
 
 def test_complex_union_dependency_err(container: DependencyContainer):
     # Given: A function that depends on a complex Union dependency
-    def get_b(a: Union[A, C, None]) -> B:
+    def get_b(a: A | C | None) -> B:
         return B(a)
 
     container.register_for_type(B)(get_b)
@@ -291,7 +290,7 @@ def test_complex_union_dependency_err(container: DependencyContainer):
 @pytest.mark.asyncio
 async def test_complex_union_dependency_async_err(container: DependencyContainer):
     # Given: An async function that depends on a complex Union dependency
-    async def get_b(a: Union[A, C, None]) -> B:
+    async def get_b(a: A | C | None) -> B:
         return B(a)
 
     container.register_for_type(B)(get_b)
@@ -308,12 +307,12 @@ def test_optional_dependency_no_cycle_false_positive(container: DependencyContai
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
     class C:
-        a: Optional[A]
+        a: A | None
 
     @dataclass
     class D:
         c: C
-        a: Optional[A]
+        a: A | None
 
     container.register_class(C)
     container.register_class(D)
@@ -333,17 +332,17 @@ async def test_optional_dependency_no_cycle_false_positive_async(
     # Given: A tree where the same optional dependency is missing multiple times
     @dataclass
     class C:
-        a: Optional[A]
+        a: A | None
 
     @dataclass
     class D:
         c: C
-        a: Optional[A]
+        a: A | None
 
-    async def get_c(a: Optional[A]) -> C:
+    async def get_c(a: A | None) -> C:
         return C(a)
 
-    async def get_d(c: C, a: Optional[A]) -> D:
+    async def get_d(c: C, a: A | None) -> D:
         return D(c, a)
 
     container.register_for_type(C)(get_c)
