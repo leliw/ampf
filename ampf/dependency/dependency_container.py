@@ -45,7 +45,7 @@ class DependencyContainer:
                         self.add(value, actual_type)
 
     @staticmethod
-    def get_actual_type_optional(defined_type: Any) -> tuple[type, bool]:
+    def get_actual_type_optional(defined_type: Any) -> tuple[type[Any], bool]:
         origin = get_origin(defined_type)
         args = get_args(defined_type)
         is_optional = False
@@ -74,7 +74,7 @@ class DependencyContainer:
         if dependency_type is None or dependency_type is inspect.Parameter.empty:
             raise ValueError(f"Function {fn.__name__} must have return type annotation")
         params = self.get_parameters(fn)
-        self._dependencies[dependency_type] = DependencyDefinition(fn, params)
+        self._add_definition(dependency_type, DependencyDefinition(fn, params))
         return fn
 
     def register_for_type[T](
@@ -90,7 +90,7 @@ class DependencyContainer:
 
         def decorator(fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
             params = self.get_parameters(fn)
-            self._dependencies[dependency_type] = DependencyDefinition(fn, params)
+            self._add_definition(dependency_type, DependencyDefinition(fn, params))
             return fn
 
         return decorator
@@ -108,7 +108,7 @@ class DependencyContainer:
         if dependency_type and not issubclass(dependency_class, dependency_type):
             raise RuntimeError(f"{dependency_class} must be a subclass of {dependency_type}.")
         params = self.get_parameters(dependency_class)
-        self._dependencies[dependency_type or dependency_class] = DependencyDefinition(dependency_class, params)
+        self._add_definition(dependency_type or dependency_class, DependencyDefinition(dependency_class, params))
         return dependency_class
 
     def _get_object(self, dependency_type: type[Any]) -> Any:
@@ -119,6 +119,9 @@ class DependencyContainer:
             return self.parent._get_object(dependency_type)
 
         raise KeyError(dependency_type)
+
+    def _add_definition(self, dependency_type: type[Any], dependency_definition: DependencyDefinition) -> None:
+        self._dependencies[dependency_type] = dependency_definition
 
     def _get_definition(self, dependency_type: type[Any]) -> DependencyDefinition:
         if dependency_type in self._dependencies:
@@ -220,7 +223,6 @@ class DependencyContainer:
         Args:
             params: Dictionary of parameter names and types.
             stack: Current resolution stack for cycle detection.
-            payload: Optional Pydantic model to use for parameter resolution (currently unused).
         Returns:
             A dictionary of parameter names and resolved instances.
         """
@@ -244,7 +246,6 @@ class DependencyContainer:
         Args:
             params: Dictionary of parameter names and types.
             stack: Current resolution stack for cycle detection.
-            payload: Optional Pydantic model to use for parameter resolution (currently unused).
         Returns:
             A dictionary of parameter names and resolved instances.
         """
