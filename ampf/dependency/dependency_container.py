@@ -1,10 +1,13 @@
 import inspect
+import logging
 import types
 from collections.abc import Callable
 from dataclasses import fields, is_dataclass
 from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 from ampf.dependency.dependency_model import DependencyDefinition, SyncOrAsyncCallable
+
+_log = logging.getLogger(__name__)
 
 
 class DependencyContainer:
@@ -34,6 +37,7 @@ class DependencyContainer:
 
     def add(self, instance: Any, instance_type: type[Any] | None = None) -> None:
         self._objects[instance_type or instance.__class__] = instance
+        _log.debug("Add object at level %d of class %s", self.level, instance_type or instance.__class__)
 
     def add_all(self, instance: Any) -> None:
         """Adds an object and its dataclass fields to the registry if they are not built-in types.
@@ -66,7 +70,7 @@ class DependencyContainer:
             actual_type = non_none_args[0]
         return actual_type, is_optional
 
-    def register[T](self, fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
+    def register[**P, R](self, fn: Callable[P, R]) -> Callable[P, R]:
         """Decorator to register a function as a dependency provider based on its return type hint.
 
         Args:
@@ -84,9 +88,7 @@ class DependencyContainer:
         self._add_definition(dependency_type, DependencyDefinition(fn, params))
         return fn
 
-    def register_for_type[T](
-        self, dependency_type: type[T]
-    ) -> Callable[[SyncOrAsyncCallable[T]], SyncOrAsyncCallable[T]]:
+    def register_for_type[T, **P, R](self, dependency_type: type[T]) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator to register a function as a provider for a specific type.
 
         Args:
@@ -95,7 +97,7 @@ class DependencyContainer:
             A decorator function.
         """
 
-        def decorator(fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
+        def decorator(fn: Callable[P, R]) -> Callable[P, R]:
             params = self.get_parameters(fn)
             self._add_definition(dependency_type, DependencyDefinition(fn, params))
             return fn
@@ -137,6 +139,7 @@ class DependencyContainer:
             return
         # Add definition to this parent
         current._dependencies[dependency_type] = dependency_definition
+        _log.debug("Add definition at level %d of class %s", current.level, dependency_type)
 
     def _get_definition(self, dependency_type: type[Any]) -> tuple[DependencyDefinition, "DependencyContainer"]:
 
@@ -194,6 +197,8 @@ class DependencyContainer:
         try:
             definition, def_container = self._get_definition(dependency_type)
         except KeyError:
+            _log.info("Dependency of type %s is not registered in DependencyContainer.", dependency_type)
+            _log.debug("Registered definitions: %s", [d for d in self._dependencies])
             raise ValueError(f"Dependency of type {dependency_type} is not registered in DependencyContainer.")
 
         parameters, param_container = self.get_call_parameters(definition.params, stack)
@@ -229,6 +234,8 @@ class DependencyContainer:
         try:
             definition, def_container = self._get_definition(dependency_type)
         except KeyError:
+            _log.info("Dependency of type %s is not registered in DependencyContainer.", dependency_type)
+            _log.debug("Registered definitions: %s", [d for d in self._dependencies])
             raise ValueError(f"Dependency of type {dependency_type} is not registered in DependencyContainer.")
 
         parameters, param_container = await self.get_call_parameters_async(definition.params, stack)
