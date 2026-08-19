@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Awaitable, Callable, Optional, Type
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from warnings import deprecated
 
 from .blob_model import BaseBlobMetadata, Blob, BlobHeader
@@ -13,7 +13,7 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     """
 
     def __init__(
-        self, collection_name: Optional[str] = None, clazz: Type[T] = BaseBlobMetadata, content_type: Optional[str] = None
+        self, collection_name: str | None = None, clazz: type[T] = BaseBlobMetadata, content_type: str | None = None
     ):
         """
         Initializes the storage.
@@ -35,7 +35,6 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         Args:
             blob: The blob object containing data and metadata to upload.
         """
-        pass
 
     @abstractmethod
     async def download_async(self, name: str) -> Blob[T]:
@@ -48,7 +47,6 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         Returns:
             The downloaded blob object.
         """
-        pass
 
     @abstractmethod
     @deprecated("Use delete_async instead")
@@ -59,7 +57,6 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         Args:
             name: The name of the blob to delete.
         """
-        pass
 
     async def delete_async(self, name: str) -> None:
         self.delete(name)
@@ -67,22 +64,20 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     @abstractmethod
     def exists(self, name: str) -> bool:
         """Checks if a blob with the given name exists."""
-        pass
 
     @abstractmethod
-    def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
+    def list_blobs(self, prefix: str | None = None) -> AsyncGenerator[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix."""
-        pass
 
     @abstractmethod
     async def put_metadata(self, name: str, metadata: T) -> None:
         pass
-    
+
     @abstractmethod
-    async def get_metadata(self, name: str) -> Optional[T]:
+    async def get_metadata(self, name: str) -> T | None:
         pass
 
-    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
+    async def names(self, prefix: str | None = None) -> AsyncGenerator[str]:
         async for blob_header in self.list_blobs(prefix):
             yield blob_header.name
 
@@ -113,8 +108,8 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
     async def _upsert_transactional(
         self,
         name: str,
-        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
-        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+        create_func: Callable[[str], Awaitable[Blob[T]]] | None = None,
+        update_func: Callable[[Blob[T]], Awaitable[Blob[T]]] | None = None,
     ) -> None:
         # try:
         #     blob = await self.download_async(name)
