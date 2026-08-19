@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional, Type
 
 from pydantic import BaseModel
 
@@ -9,13 +9,13 @@ from .blob_model import BaseBlobMetadata, Blob
 
 class FileNameMimeType(BaseModel):
     name: str
-    mime_type: Optional[str] = None
+    mime_type: str | None = None
 
 
 class BaseBlobStorage[T: BaseBlobMetadata](ABC):
     """Base class for blob storage implementations"""
 
-    def __init__(self, collection_name: str, clazz: Type[T] = BaseBlobMetadata, content_type: Optional[str] = None):
+    def __init__(self, collection_name: str, clazz: type[T] = BaseBlobMetadata, content_type: str | None = None):
         """Initializes the storage
 
         Args:
@@ -36,9 +36,7 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
         self.upload_blob(blob.name, blob.content, blob.metadata, blob.content_type)
 
     @abstractmethod
-    def upload_blob(
-        self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
-    ) -> None:
+    def upload_blob(self, key: str, data: bytes, metadata: T | None = None, content_type: str | None = None) -> None:
         """Uploads a blob to the storage
 
         Args:
@@ -67,7 +65,7 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
         """
 
     @abstractmethod
-    def list_blobs(self, dir: Optional[str] = None) -> Iterator[FileNameMimeType]:
+    def list_blobs(self, dir: str | None = None) -> Iterator[FileNameMimeType]:
         """Lists all the blobs in the storage
 
         Args:
@@ -131,9 +129,9 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
     def upload_file(
         self,
         file_path: Path,
-        metadata: Optional[T] = None,
-        key: Optional[str] = None,
-        content_type: Optional[str] = None,
+        metadata: T | None = None,
+        key: str | None = None,
+        content_type: str | None = None,
     ) -> None:
         """Uploads a file to the storage
 
