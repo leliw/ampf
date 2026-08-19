@@ -75,7 +75,7 @@ class DependencyRegistry:
         cls.current().add_all(instance)
 
     @classmethod
-    def register[T](cls, fn: SyncOrAsyncCallable[T]) -> SyncOrAsyncCallable[T]:
+    def register[**P, R](cls, fn: Callable[P, R]) -> Callable[P, R]:
         """
         Decorator to register a function as a dependency provider based on its return type hint.
 
@@ -91,9 +91,7 @@ class DependencyRegistry:
         return cls.current().register(fn)
 
     @classmethod
-    def register_for_type[T](
-        cls, dependency_type: type[T]
-    ) -> Callable[[SyncOrAsyncCallable[T]], SyncOrAsyncCallable[T]]:
+    def register_for_type[T, **P, R](cls, dependency_type: type[T]) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """
         Decorator to register a function as a provider for a specific type.
 
