@@ -27,6 +27,7 @@ class InMemoryFactory(BaseFactory):
         key: str | Callable[[T], str] | None = None,
     ) -> InMemoryStorage[T]:
         if collection_name not in self.collections:
+            collection_name = collection_name.rstrip("/") if collection_name else ""
             self.collections[collection_name] = InMemoryStorage[T](
                 collection_name=collection_name, clazz=clazz, key=key
             )

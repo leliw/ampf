@@ -18,7 +18,7 @@ class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
         content_type: str | None = None,
     ):
         self.bucket = bucket
-        self.collection_name = self.collection_name = collection_name.rstrip("/") + "/"
+        self.collection_name = collection_name.rstrip("/") + "/" if collection_name else ""
         self.clazz = clazz
         self.content_type = content_type
 

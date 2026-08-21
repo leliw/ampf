@@ -22,10 +22,10 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
         self.storage.to_storage = self._to_storage
         self.storage.from_storage = self._from_storage
 
-    async def put(self, key: str, value: T) -> None:
+    async def put(self, key: Any, value: T) -> None:
         self.storage.put(key, value)
 
-    async def get(self, key: str) -> T:
+    async def get(self, key: Any) -> T:
         if not self.storage.key_exists(key):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         ret = self.storage.get(key)
@@ -37,7 +37,7 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
         for key in self.storage.keys():
             yield key
 
-    async def delete(self, key: str) -> None:
+    async def delete(self, key: Any) -> None:
         if not self.storage.key_exists(key):
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         self.storage.delete(key)
@@ -45,7 +45,7 @@ class InMemoryAsyncStorage[T: BaseModel](BaseAsyncQueryStorage):
     async def drop(self) -> None:
         self.storage.drop()
 
-    async def key_exists(self, needle: str) -> bool:
+    async def key_exists(self, needle: Any) -> bool:
         return self.storage.key_exists(needle)
 
     async def is_empty(self) -> bool:
