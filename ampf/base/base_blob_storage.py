@@ -65,6 +65,10 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
         """
 
     @abstractmethod
+    def exists(self, key: str) -> bool:
+        """Checks if a blob with the given name exists."""
+        
+    @abstractmethod
     def list_blobs(self, dir: str | None = None) -> Iterator[FileNameMimeType]:
         """Lists all the blobs in the storage
 

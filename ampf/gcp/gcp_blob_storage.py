@@ -1,12 +1,13 @@
 import logging
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional, Type
+from typing import override
 
 from google.cloud import storage
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.blob_model import Blob, BaseBlobMetadata
+from ampf.base.blob_model import BaseBlobMetadata, Blob
 
 
 class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
@@ -16,7 +17,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     _default_bucket = None
 
     @classmethod
-    def init_client(cls, bucket_name: Optional[str] = None):
+    def init_client(cls, bucket_name: str | None = None):
         if not cls._storage_client:
             cls._storage_client = storage.Client()
         if bucket_name:
@@ -25,10 +26,10 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T] = BaseBlobMetadata,
+        clazz: type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
-        bucket_name: Optional[str] = None,
-        storage_client: Optional[storage.Client] = None,
+        bucket_name: str | None = None,
+        storage_client: storage.Client | None = None,
     ):
         super().__init__(collection_name, clazz, content_type)
         self._log = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     def _get_blob(self, key: str) -> storage.Blob:
         return self._bucket.blob(f"{self.collection_name}/{key}" if self.collection_name else key)
 
-    def _get_prefix(self, folder_name: Optional[str] = None) -> str:
+    def _get_prefix(self, folder_name: str | None = None) -> str:
         prefix = self.collection_name + "/"
         if folder_name:
             prefix += folder_name if folder_name[-1] == "/" else folder_name + "/"
@@ -60,14 +61,17 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
 
         g_blob.upload_from_string(blob.content, content_type=blob.content_type or self.content_type)
 
-    def upload_blob(
-        self, key: str, data: bytes, metadata: Optional[T] = None, content_type: Optional[str] = None
-    ) -> None:
+    def upload_blob(self, key: str, data: bytes, metadata: T | None = None, content_type: str | None = None) -> None:
         blob = self._get_blob(key)
         if metadata:
             blob.metadata = metadata.model_dump_quoted()
         blob.upload_from_string(data, content_type=content_type or self.content_type)
 
+    @override
+    def exists(self, key: str) -> bool:
+        g_blob = self._get_blob(key)
+        return g_blob.exists()
+    
     def download(self, key: str) -> Blob[T]:
         g_blob = self._get_blob(key)
         if not g_blob.exists():
@@ -113,7 +117,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
             if not blob.name.endswith("/"):
                 yield blob.name[i:]
 
-    def list_blobs(self, folder_name: Optional[str] = None) -> Iterator[FileNameMimeType]:
+    def list_blobs(self, folder_name: str | None = None) -> Iterator[FileNameMimeType]:
         prefix = self._get_prefix(folder_name)
         i = len(prefix)
         for blob in self._bucket.list_blobs(prefix=prefix):
@@ -121,7 +125,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
 
     # Additional not tested methods
 
-    def upload_file(self, file_path: Path, metadata: Optional[T] = None, key: Optional[str] = None):
+    def upload_file(self, file_path: Path, metadata: T | None = None, key: str | None = None):
         if not key:
             key = file_path.stem
         blob = self._get_blob(key)

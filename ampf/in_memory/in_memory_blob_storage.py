@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from copy import copy, deepcopy
+from typing import override
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
@@ -48,6 +49,7 @@ class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
     def get_metadata(self, key: str) -> T:
         return copy(self.download(key).metadata)
 
+    @override
     def exists(self, key: str) -> bool:
         full_path = self._full_path(key)
         return full_path in self.bucket

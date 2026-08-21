@@ -2,11 +2,12 @@ import json
 import logging
 import os
 import shutil
-from typing import Iterator, Optional, Type, override
+from collections.abc import Iterator
+from typing import override
 
 from pydantic import BaseModel
 
-from ampf.base import BaseBlobStorage, Blob, BaseBlobMetadata
+from ampf.base import BaseBlobMetadata, BaseBlobStorage, Blob
 from ampf.base.base_blob_storage import FileNameMimeType
 from ampf.base.exceptions import KeyNotExistsException
 
@@ -28,10 +29,10 @@ class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
     def __init__(
         self,
         bucket_name: str,
-        clazz: Type[T] = BaseBlobMetadata,
-        content_type: Optional[str] = None,
-        subfolder_characters: Optional[int] = None,
-        root_path: Optional[StrPath] = None,
+        clazz: type[T] = BaseBlobMetadata,
+        content_type: str | None = None,
+        subfolder_characters: int | None = None,
+        root_path: StrPath | None = None,
     ):
         # Initialize BaseBlobStorage with collection name, metadata class, and content type
         BaseBlobStorage.__init__(self, collection_name=bucket_name, clazz=clazz, content_type=content_type)
@@ -52,8 +53,8 @@ class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
         self,
         key: str,
         data: bytes,
-        metadata: Optional[BaseModel] = None,
-        content_type: Optional[str] = None,
+        metadata: BaseModel | None = None,
+        content_type: str | None = None,
     ) -> None:
         """Uploads a blob to the local storage.
 
@@ -136,7 +137,7 @@ class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
             return self.clazz.model_validate(d)
         except FileNotFoundError:
             if self.clazz == BaseBlobMetadata:
-                return BaseBlobMetadata.from_filename(key) # type: ignore
+                return BaseBlobMetadata.from_filename(key)  # type: ignore
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     @override
@@ -191,7 +192,12 @@ class LocalBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T], FileStorage):
         if source_path.with_suffix(".json").exists():
             os.rename(source_path.with_suffix(".json"), dest_path.with_suffix(".json"))
 
-    def list_blobs(self, dir: Optional[str] = None) -> Iterator[FileNameMimeType]:
+    @override
+    def exists(self, key: str) -> bool:
+        file_path = self._create_file_path(key)
+        return file_path is not None and file_path.exists()
+    
+    def list_blobs(self, dir: str | None = None) -> Iterator[FileNameMimeType]:
         """Lists blobs in a specified directory within the storage.
 
         Args:
