@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from uuid import UUID, uuid4
 
 import pytest
@@ -12,6 +12,7 @@ from pydantic import BaseModel, computed_field
 from ampf.base import BaseAsyncFactory
 from ampf.base.base_async_storage import BaseAsyncStorage
 from ampf.dependency.dependency_registry import DependencyRegistry, get_dependency
+from ampf.fastapi import BaseAppState
 from ampf.gcp import GcpAsyncFactory
 from ampf.gcp.gcp_topic import GcpTopic
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
@@ -78,13 +79,13 @@ class AppConfig(BaseModel):
 # AppState has a property:
 # * task_runner - if TaskRunner is AsyncContextManager it is an object, otherwise it is a class
 @dataclass
-class AppState:
+class AppState(BaseAppState):
     config: AppConfig
     factory: BaseAsyncFactory
     task_runner: TaskRunner | type[TaskRunner]
 
     @classmethod
-    def create(cls, config: AppConfig):
+    def create(cls, config: AppConfig) -> Self:
         if issubclass(config.task_runner_type, PubsubRunner):
             factory = GcpAsyncFactory()  # Required by PubsubRunner
             task_runner = config.task_runner_type.create(factory, config)
@@ -93,21 +94,13 @@ class AppState:
             task_runner = config.task_runner_type
         return cls(config=config, factory=factory, task_runner=task_runner)
 
-    @asynccontextmanager
-    async def manage_lifecycle(self, app: FastAPI):
-        if isinstance(self.task_runner, ManagedTaskRunner):
-            async with self.task_runner.manage_lifecycle(app):
-                yield self
-        else:
-            yield self
 
 
 def lifespan(app_config: AppConfig):
     # Clear initialized objects (for tests)
     DependencyRegistry.clear_objects()
     app_state = AppState.create(app_config)
-    DependencyRegistry.add(app_state)
-    DependencyRegistry.add(app_state.task_runner, TaskRunner)
+    DependencyRegistry.add_all(app_state)
 
     # Lifespan has to start TaskRunner if it is an object
     @asynccontextmanager
