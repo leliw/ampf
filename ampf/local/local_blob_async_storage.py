@@ -3,8 +3,9 @@ import json
 import logging
 import mimetypes
 import os
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from pathlib import Path
-from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
+from typing import override
 from warnings import deprecated
 
 import aiofiles
@@ -24,9 +25,9 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
     def __init__(
         self,
         collection_name: str,
-        metadata_type: Type[T] = BaseBlobMetadata,
-        content_type: Optional[str] = None,
-        root_path: Optional[Path] = None,
+        metadata_type: type[T] = BaseBlobMetadata,
+        content_type: str | None = None,
+        root_path: Path | None = None,
     ):
         self.collection_name = collection_name
         self.clazz = metadata_type
@@ -40,7 +41,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
 
-    def _find_data_path(self, key: str) -> Optional[Path]:
+    def _find_data_path(self, key: str) -> Path | None:
         """Find data file path for the given key.
 
         This method searches for:
@@ -62,7 +63,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         valid_extended_matches = [m for m in matches_with_extension if m.is_file() and m.suffix != ".json"]
         return valid_extended_matches[0] if valid_extended_matches else None
 
-    def _generate_data_path(self, key: str, content_type: Optional[str]) -> Path:
+    def _generate_data_path(self, key: str, content_type: str | None) -> Path:
         """Generate a data path with appropriate extension."""
         ext = mimetypes.guess_extension(content_type or "")
         ext = ext or ""  # fallback to no extension
@@ -82,7 +83,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
             try:
                 if blob._data and blob._data.name and Path(blob._data.name) == data_path:
                     return  # This is the same file
-            except AttributeError:
+            except (AttributeError, TypeError):
                 pass
             async with aiofiles.open(data_path, "wb") as f:
                 async for chunk in blob.stream():
@@ -130,7 +131,7 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
         return data_path is not None and self._get_meta_path(key).exists()
 
     @override
-    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
+    async def list_blobs(self, prefix: str | None = None) -> AsyncGenerator[BlobHeader[T]]:
         # Use rglob to recursively find all .json files in the directory tree.
         for meta_file in self.base_path.rglob("*.json"):
             # Calculate the key by making the path relative to the base_path
@@ -168,8 +169,8 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
     async def _upsert_transactional(
         self,
         name: str,
-        create_func: Optional[Callable[[str], Awaitable[Blob[T]]]] = None,
-        update_func: Optional[Callable[[Blob[T]], Awaitable[Blob[T]]]] = None,
+        create_func: Callable[[str], Awaitable[Blob[T]]] | None = None,
+        update_func: Callable[[Blob[T]], Awaitable[Blob[T]]] | None = None,
     ) -> None:
         async with self.transaction_lock:
             try:
@@ -179,9 +180,9 @@ class LocalAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage[T]):
                     await self.upload_async(updated_blob)
                 else:
                     raise KeyExistsException(self.collection_name, self.clazz, name)
-            except KeyNotExistsException as e:
+            except KeyNotExistsException:
                 if not create_func:
-                    raise e
+                    raise
                 created_blob = await create_func(name)
                 await self.upload_async(created_blob)
 
