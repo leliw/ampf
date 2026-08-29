@@ -1,11 +1,12 @@
 import asyncio
 import logging
+from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
 from io import BytesIO
 from mimetypes import guess_file_type
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import Any, AsyncGenerator, BinaryIO, Generator, Optional, Self
+from typing import Any, BinaryIO, Self
 from urllib.parse import quote, unquote
 from uuid import uuid4
 
@@ -25,7 +26,7 @@ type BlobData = BinaryIO | SpooledTemporaryFile
 class BlobLocation(BaseModel):
     """Blob location, containing bucket and name."""
 
-    bucket: Optional[str] = None
+    bucket: str | None = None
     name: str
 
 
@@ -84,26 +85,29 @@ empty_blob_metadata = BaseBlobMetadata(content_type="")
 class BlobCreate[T: BaseBlobMetadata]:
     def __init__(
         self,
-        name: Optional[str] = None,
-        data: Optional[BlobData] = None,
-        content: Optional[bytes | str] = None,
-        metadata: T = BaseBlobMetadata(),
+        name: str | None = None,
+        data: BlobData | None = None,
+        content: bytes | str | None = None,
+        metadata: T = empty_blob_metadata,
     ):
         self.name = name
         self.data = data
         self.content = content
-        self.metadata = metadata
+        if metadata is empty_blob_metadata:
+            self.metadata: T = BaseBlobMetadata(content_type="") # type: ignore
+        else:
+            self.metadata = metadata
 
     @classmethod
     def from_file(cls, path: Path, metadata: T = empty_blob_metadata, name: str | None = None) -> "BlobCreate[T]":
-        if metadata == empty_blob_metadata:
+        if metadata is empty_blob_metadata:
             metadata = metadata.__class__.from_filename(path.name)
-        file = open(path, "rb")
+        file = open(path, "rb")  # noqa: SIM115
         return cls(name=name or path.name, data=file, metadata=metadata)
 
     @classmethod
     def from_upload_file(cls, file: UploadFile, metadata: T = empty_blob_metadata) -> "BlobCreate[T]":
-        if metadata == empty_blob_metadata:
+        if metadata is empty_blob_metadata:
             metadata = metadata.__class__.create(file)
         return cls(data=file.file, metadata=metadata)
 
@@ -125,13 +129,13 @@ class Blob[T: BaseBlobMetadata]:
     def __init__(
         self,
         name: str,
-        data: Optional[BlobData] = None,
-        content: Optional[bytes | str] = None,
-        content_type: Optional[str] = None,
+        data: BlobData | None = None,
+        content: bytes | str | None = None,
+        content_type: str | None = None,
         metadata: T = empty_blob_metadata,
     ):
         self.name = name
-        if metadata == empty_blob_metadata:
+        if metadata is empty_blob_metadata:
             if content_type:
                 metadata = metadata.__class__(content_type=content_type)
             else:
@@ -139,8 +143,8 @@ class Blob[T: BaseBlobMetadata]:
         elif metadata and content_type:
             metadata.content_type = content_type
         self.metadata: T = metadata
-        self._data: Optional[BlobData] = data
-        self._content: Optional[bytes] = None
+        self._data: BlobData | None = data
+        self._content: bytes | None = None
         if content:
             self._content = content.encode() if isinstance(content, str) else content
         if not data and not content:
@@ -153,12 +157,17 @@ class Blob[T: BaseBlobMetadata]:
         return self.metadata.content_type
 
     @classmethod
-    def create(cls, value_create: BlobCreate) -> "Blob":
+    def create(cls, value_create: BlobCreate[T], metadata: T | None = None) -> "Blob[T]":
+        if metadata:
+            if value_create.metadata.content_type:
+                metadata.content_type = value_create.metadata.content_type
+        else:
+            metadata = value_create.metadata
         return cls(
             name=value_create.name or str(uuid4()),
             data=value_create.data,
             content=value_create.content,
-            metadata=value_create.metadata,
+            metadata=metadata,
         )
 
     @classmethod
