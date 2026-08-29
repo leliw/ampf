@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import httpx2
+from httpx2._types import RequestContent, RequestData, RequestFiles
 from pydantic import BaseModel
 
 from .multi_service_token_manager import MultiServiceTokenManager
@@ -37,7 +38,7 @@ class BaseService:
             httpx_async_client: An optional httpx2.AsyncClient instance for making
                                 asynchronous HTTP requests. If None, a new instance
                                 will be created.
-            httpx_client: An optional httpx2.Client instance for making HTTP requests. 
+            httpx_client: An optional httpx2.Client instance for making HTTP requests.
                                 If None, a new instance will be created.
         """
         self.base_url = base_url
@@ -57,11 +58,25 @@ class BaseService:
             self.httpx_async_client = httpx2.AsyncClient()
         return self.httpx_async_client
 
-    async def post(self, endpoint: str, json: dict | BaseModel) -> httpx2.Response:
+    async def post(
+        self,
+        endpoint: str,
+        content: RequestContent | None = None,
+        data: RequestData | None = None,
+        files: RequestFiles | None = None,
+        json: dict | BaseModel | None = None,
+        params: dict | None = None,
+    ) -> httpx2.Response:
+        if json is not None:
+            json = json if isinstance(json, dict) else json.model_dump(mode="json")
         response = await self._get_async_client().post(
             url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
             headers=await self._get_headers_async(),
-            json=json if isinstance(json, dict) else json.model_dump(),
+            content=content,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
             timeout=self.timeout,
         )
         response.raise_for_status()
@@ -71,7 +86,7 @@ class BaseService:
         response = self._get_client().post(
             url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
             headers=self._get_headers(),
-            json=json if isinstance(json, dict) else json.model_dump(),
+            json=json if isinstance(json, dict) else json.model_dump(mode="json"),
             timeout=self.timeout,
         )
         response.raise_for_status()
@@ -82,7 +97,7 @@ class BaseService:
         response = await self._get_async_client().post(
             url=f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}",
             headers=await self._get_headers_async(),
-            json=json if isinstance(json, dict) else json.model_dump(),
+            json=json if isinstance(json, dict) else json.model_dump(mode="json"),
             timeout=self.timeout,
         )
         response.raise_for_status()
