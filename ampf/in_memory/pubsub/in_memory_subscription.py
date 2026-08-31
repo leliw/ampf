@@ -95,3 +95,11 @@ class InMemorySubscription[T: BaseModel](BaseSubscription):
                 yield emu
     except ImportError:
         pass
+
+    def clear(self) -> None:
+        """Clears the subscription's message queue."""
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
