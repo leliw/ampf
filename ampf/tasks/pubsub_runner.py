@@ -20,7 +20,6 @@ class PubsubRunner(ManagedTaskRunner, ABC):
         self.config = config
         self._initialised = False
         self.topics: dict[str, GcpTopic] = {}
-        self.subscriptions = {}
 
     def run(self, name: str, payload: BaseModel):
         topic = self.get_topic(name)

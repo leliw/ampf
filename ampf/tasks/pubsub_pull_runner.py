@@ -3,8 +3,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 from ampf.gcp import GcpSubscriptionPull, SubscriptionProcessor
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 
 from .pubsub_runner import PubsubRunner
 from .task_registry import TaskRegistry
@@ -13,13 +15,17 @@ _log = logging.getLogger(__name__)
 
 
 class PubsubPullRunner(PubsubRunner):
+
+    def __init__(self, factory: GcpAsyncFactory, config: BaseModel):
+        super().__init__(factory, config)
+        self.subscriptions: dict[str, GcpSubscriptionPull] = {}
+
     @asynccontextmanager
-    async def manage_lifecycle(self, app: FastAPI):
+    async def manage_lifecycle(self, _: FastAPI):
         if not self._initialised:
             self._initialised = True
             loop = asyncio.get_running_loop()
-            for task_name in TaskRegistry._tasks:
-                processor_definition = TaskRegistry._tasks[task_name]
+            for task_name, processor_definition in TaskRegistry._tasks.items():
                 subscription_name = self.get_subscription_name(task_name)
                 _log.info("Starting subscription: %s", subscription_name)
                 if processor_definition.payload_type is None:
