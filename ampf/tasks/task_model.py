@@ -19,6 +19,7 @@ class ProcessorDefinition:
     processor: SyncOrAsyncCallable
     payload_type: type[BaseModel] | None = None
     params: dict[str, type[Any]] = field(default_factory=dict)
+    external: bool = False # Indicates whether the processor is for an external task / service (True) or an internal task (False)
 
 
 class TaskRunner(ABC):

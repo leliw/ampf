@@ -16,7 +16,11 @@ class TaskRegistry:
     _tasks: ClassVar[dict[str, ProcessorDefinition]] = {}
 
     @classmethod
-    def register(cls, processor_name: str, payload_type: type[BaseModel] | None = None):
+    def clear_tasks(cls) -> None:
+        cls._tasks.clear()
+
+    @classmethod
+    def register(cls, processor_name: str, payload_type: type[BaseModel] | None = None, external: bool = False):
         def decorator(processor: SyncOrAsyncCallable):
             params = cls.get_parameters(processor)
             if not payload_type:
@@ -28,7 +32,7 @@ class TaskRegistry:
             else:
                 payload_type_param = payload_type
             _log.debug("Registering processor: %s", processor_name)
-            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type_param, params)
+            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type_param, params, external)
             return processor
 
         return decorator

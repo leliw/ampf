@@ -17,8 +17,8 @@ class TasksAppConfig(Protocol):
 
 
 @dataclass
-class TasksAppState(BaseAppState):
-    config: TasksAppConfig
+class TasksAppState[T: TasksAppConfig](BaseAppState):
+    config: T
     factory: BaseAsyncFactory
     task_runner: TaskRunner | type[TaskRunner] | None = None
 

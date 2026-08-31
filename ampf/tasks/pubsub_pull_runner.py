@@ -15,7 +15,6 @@ _log = logging.getLogger(__name__)
 
 
 class PubsubPullRunner(PubsubRunner):
-
     def __init__(self, factory: GcpAsyncFactory, config: BaseModel):
         super().__init__(factory, config)
         self.subscriptions: dict[str, GcpSubscriptionPull] = {}
@@ -26,12 +25,14 @@ class PubsubPullRunner(PubsubRunner):
             self._initialized = True
             loop = asyncio.get_running_loop()
             for task_name, processor_definition in TaskRegistry._tasks.items():
-                subscription_name = self.get_subscription_name(task_name)
+                subscription_name = self.get_subscription_name(task_name, processor_definition.external)
                 _log.info("Starting subscription: %s", subscription_name)
                 if processor_definition.payload_type is None:
                     raise ValueError(f"Payload type is required for task processor {task_name}")
                 s_processor = SubscriptionProcessor(self.factory, processor_definition.payload_type)
-                s_processor.process_payload = lambda payload, tn=task_name: TaskRegistry.run_task_async(self, tn, payload)
+                s_processor.process_payload = lambda payload, tn=task_name: TaskRegistry.run_task_async(
+                    self, tn, payload
+                )
                 subscription = GcpSubscriptionPull(subscription_name, s_processor, loop=loop)
                 subscription.run()
                 self.subscriptions[subscription_name] = subscription
@@ -44,8 +45,9 @@ class PubsubPullRunner(PubsubRunner):
             subscription.stop()
         self.subscriptions.clear()
 
-    def get_subscription_name(self, task_name: str) -> str:
-        if hasattr(self.config, f"{task_name}_subscription"):
-            return getattr(self.config, f"{task_name}_subscription")
+    def get_subscription_name(self, task_name: str, external: bool) -> str:
+        property_name = f"{task_name}_response_subscription" if external else f"{task_name}_subscription"
+        if hasattr(self.config, property_name):
+            return getattr(self.config, property_name)
         else:
-            raise ValueError(f"Subscription for task '{task_name}' not found in config")
+            raise ValueError(f"Subscription for task '{task_name}' not found in config ({property_name}).")

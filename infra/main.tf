@@ -21,17 +21,26 @@ locals {
     },
     GCP_TOPIC_2 = {
       topic_name = "${local.name_prefix}-topic-2"
+    },
+    EXTERNAL_SERVICE_REQUEST_TOPIC = {
+      topic_name = "${local.name_prefix}-external-service-request"
+    }
+    EXTERNAL_SERVICE_RESPONSE_TOPIC = {
+      topic_name = "${local.name_prefix}-external-service-response"
     }
 
   }
 
   env_vars_plain = {
-    PROJECT_ID      = var.project_id
-    GCP_BUCKET_NAME = module.bucket.name
-    GCP_DATABASE_1  = resource.google_firestore_database.firestore_1.name
-    GCP_DATABASE_2  = resource.google_firestore_database.firestore_2.name
-    GCP_TOPIC_1     = local.pubsub_topics["GCP_TOPIC_1"].topic_name
-    GCP_TOPIC_2     = local.pubsub_topics["GCP_TOPIC_2"].topic_name
+    PROJECT_ID                             = var.project_id
+    GCP_BUCKET_NAME                        = module.bucket.name
+    GCP_DATABASE_1                         = resource.google_firestore_database.firestore_1.name
+    GCP_DATABASE_2                         = resource.google_firestore_database.firestore_2.name
+    GCP_TOPIC_1                            = local.pubsub_topics["GCP_TOPIC_1"].topic_name
+    GCP_TOPIC_2                            = local.pubsub_topics["GCP_TOPIC_2"].topic_name
+    EXTERNAL_SERVICE_REQUEST_TOPIC         = local.pubsub_topics["EXTERNAL_SERVICE_REQUEST_TOPIC"].topic_name
+    EXTERNAL_SERVICE_RESPONSE_TOPIC        = local.pubsub_topics["EXTERNAL_SERVICE_RESPONSE_TOPIC"].topic_name
+    EXTERNAL_SERVICE_RESPONSE_SUBSCRIPTION = "${local.pubsub_topics["EXTERNAL_SERVICE_RESPONSE_TOPIC"].topic_name}-sub"
   }
 }
 
