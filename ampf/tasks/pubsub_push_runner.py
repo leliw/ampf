@@ -14,8 +14,8 @@ _log = logging.getLogger(__name__)
 class PubsubPushRunner(PubsubRunner):
     @asynccontextmanager
     async def manage_lifecycle(self, app: FastAPI):
-        if not self._initialised:
-            self._initialised = True
+        if not self._initialized:
+            self._initialized = True
             self._setup_routes(app)
         yield self
 

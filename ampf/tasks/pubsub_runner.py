@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import Self
+from typing import Any, Self
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -14,11 +14,12 @@ from .task_model import ManagedTaskRunner
 _log = logging.getLogger(__name__)
 
 
+
 class PubsubRunner(ManagedTaskRunner, ABC):
     def __init__(self, factory: GcpAsyncFactory, config: BaseModel):
         self.factory = factory
         self.config = config
-        self._initialised = False
+        self._initialized = False
         self.topics: dict[str, GcpTopic] = {}
 
     def run(self, name: str, payload: BaseModel):
@@ -38,7 +39,7 @@ class PubsubRunner(ManagedTaskRunner, ABC):
         return self.topics[name]
 
     @classmethod
-    def create(cls, factory: GcpAsyncFactory, config: BaseModel) -> Self:
+    def create(cls, factory: GcpAsyncFactory, config: BaseModel | Any) -> Self:
         return cls(factory, config)
 
     @asynccontextmanager

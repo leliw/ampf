@@ -22,8 +22,8 @@ class PubsubPullRunner(PubsubRunner):
 
     @asynccontextmanager
     async def manage_lifecycle(self, _: FastAPI):
-        if not self._initialised:
-            self._initialised = True
+        if not self._initialized:
+            self._initialized = True
             loop = asyncio.get_running_loop()
             for task_name, processor_definition in TaskRegistry._tasks.items():
                 subscription_name = self.get_subscription_name(task_name)
@@ -38,7 +38,7 @@ class PubsubPullRunner(PubsubRunner):
 
         yield self
 
-        self._initialised = False
+        self._initialized = False
         for name, subscription in self.subscriptions.items():
             _log.info("Stopping subscription: %s", name)
             subscription.stop()

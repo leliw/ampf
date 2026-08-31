@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import StrEnum
 from typing import Self
 from uuid import UUID, uuid4
@@ -30,9 +30,8 @@ class BaseTask(BaseModel, ABC):
 
     @computed_field
     @property
-    @abstractmethod
     def result_id(self) -> str | None:
-        pass
+        return None
 
 
 class TaskHeader(BaseModel):
