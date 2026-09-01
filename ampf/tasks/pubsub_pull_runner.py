@@ -46,7 +46,7 @@ class PubsubPullRunner(PubsubRunner):
         self.subscriptions.clear()
 
     def get_subscription_name(self, task_name: str, external: bool) -> str:
-        property_name = f"{task_name}_response_subscription" if external else f"{task_name}_subscription"
+        property_name = f"{task_name}_responses_subscription" if external else f"{task_name}_subscription"
         if hasattr(self.config, property_name):
             return getattr(self.config, property_name)
         else:

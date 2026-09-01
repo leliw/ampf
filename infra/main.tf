@@ -22,11 +22,11 @@ locals {
     GCP_TOPIC_2 = {
       topic_name = "${local.name_prefix}-topic-2"
     },
-    EXTERNAL_SERVICE_REQUEST_TOPIC = {
-      topic_name = "${local.name_prefix}-external-service-request"
+    EXTERNAL_SERVICE_REQUESTS_TOPIC = {
+      topic_name = "${local.name_prefix}-external-service-requests"
     }
-    EXTERNAL_SERVICE_RESPONSE_TOPIC = {
-      topic_name = "${local.name_prefix}-external-service-response"
+    EXTERNAL_SERVICE_RESPONSES_TOPIC = {
+      topic_name = "${local.name_prefix}-external-service-responses"
     }
 
   }
@@ -38,9 +38,9 @@ locals {
     GCP_DATABASE_2                         = resource.google_firestore_database.firestore_2.name
     GCP_TOPIC_1                            = local.pubsub_topics["GCP_TOPIC_1"].topic_name
     GCP_TOPIC_2                            = local.pubsub_topics["GCP_TOPIC_2"].topic_name
-    EXTERNAL_SERVICE_REQUEST_TOPIC         = local.pubsub_topics["EXTERNAL_SERVICE_REQUEST_TOPIC"].topic_name
-    EXTERNAL_SERVICE_RESPONSE_TOPIC        = local.pubsub_topics["EXTERNAL_SERVICE_RESPONSE_TOPIC"].topic_name
-    EXTERNAL_SERVICE_RESPONSE_SUBSCRIPTION = "${local.pubsub_topics["EXTERNAL_SERVICE_RESPONSE_TOPIC"].topic_name}-sub"
+    EXTERNAL_SERVICE_REQUESTS_TOPIC         = local.pubsub_topics["EXTERNAL_SERVICE_REQUESTS_TOPIC"].topic_name
+    EXTERNAL_SERVICE_RESPONSES_TOPIC        = local.pubsub_topics["EXTERNAL_SERVICE_RESPONSES_TOPIC"].topic_name
+    EXTERNAL_SERVICE_RESPONSES_SUBSCRIPTION = "${local.pubsub_topics["EXTERNAL_SERVICE_RESPONSES_TOPIC"].topic_name}-sub"
   }
 }
 

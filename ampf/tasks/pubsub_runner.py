@@ -52,7 +52,7 @@ class PubsubRunner(ManagedTaskRunner, ABC):
         yield self
 
     def get_topic_name(self, task_name: str, external: bool = False) -> str:
-        property_name = f"{task_name}_request_topic" if external else f"{task_name}_topic"
+        property_name = f"{task_name}_requests_topic" if external else f"{task_name}_topic"
         if hasattr(self.config, property_name):
             return getattr(self.config, property_name)
         else:
@@ -65,7 +65,7 @@ class PubsubRunner(ManagedTaskRunner, ABC):
             raise ValueError(f"Task '{task_name}' is not registered in TaskRegistry")
 
     def get_response_topic_name(self, task_name: str) -> str:
-        property_name = f"{task_name}_response_topic"
+        property_name = f"{task_name}_responses_topic"
         if hasattr(self.config, property_name):
             return getattr(self.config, property_name)
         else:

@@ -42,13 +42,13 @@ class MyTask(BaseTask):
 
 # AppConfig has properties:
 # * task_runner - which runner is used (as string) - only PubsubPull, PubsubPush are valid for external service !!!
-# * request_topic, response_topic and response_subscription - for PubsubPullRunner - which topics and subscription are used.
-#   The prefix ` external_service` is the name of used processor (@see `@TaskRegistry.register(" external_service", external=True)` below)
+# * requests_topic, responses_topic and responses_subscription - for PubsubPullRunner - which topics and subscription are used.
+#   The prefix `external_service` is the name of used processor (@see `@TaskRegistry.register("external_service", external=True)` below)
 class AppConfig(BaseSettings):
     task_runner: Literal["Direct", "Background", "PubsubPull", "PubsubPush"]
-    external_service_request_topic: str = "it-ampf-external-service-request"
-    external_service_response_topic: str = "it-ampf-external-service-response"
-    external_service_response_subscription: str = "it-ampf-external-service-response-sub"
+    external_service_requests_topic: str = "it-ampf-external-service-requests"
+    external_service_responses_topic: str = "it-ampf-external-service-responses"
+    external_service_responses_subscription: str = "it-ampf-external-service-responses-sub"
 
 
 @dataclass
@@ -132,7 +132,7 @@ def client(app: FastAPI):
         app_config = app_state.config
         if isinstance(app_state.task_runner, PubsubPushRunner):
             # PubsubPush requires extra emulator for test
-            topic = app_state.factory.create_topic(app_config.external_service_response_topic)
+            topic = app_state.factory.create_topic(app_config.external_service_responses_topic)
             processor_endpoint = "/pub-sub/task-processors/external_service"
             subscription = topic.create_subscription(exist_ok=True)
             subscription.clear()
@@ -147,7 +147,7 @@ async def external_service_mock(app: FastAPI):
     # Setup a mock for external service - it will run in background and will respond to requests from PubsubPullRunner
     app_state: AppState = app.state.app_state
     app_config = app_state.config
-    subscription_name = f"{app_config.external_service_request_topic}-sub"
+    subscription_name = f"{app_config.external_service_requests_topic}-sub"
 
     async def callback_async(request: GcpPubsubRequest):
         payload = request.decoded_data(MyTask)
