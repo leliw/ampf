@@ -178,7 +178,7 @@ class DependencyContainer:
             params[name] = param_type
         return params
 
-    def get(self, dependency_type: type[Any]) -> Any:
+    def get[T](self, dependency_type: type[T]) -> T:
         return self._get(dependency_type)[0]
 
     def _get(self, dependency_type: type[Any], stack: set[type] | None = None) -> tuple[Any, "DependencyContainer"]:
