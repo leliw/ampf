@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from warnings import deprecated
 
-from .blob_model import BaseBlobMetadata, Blob, BlobHeader
+from .blob_model import BaseBlobMetadata, Blob, BlobHeader, BlobLocation
 
 
 class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
@@ -124,3 +124,6 @@ class BaseAsyncBlobStorage[T: BaseBlobMetadata](ABC):
         #     created_blob = await create_func(name)
         #     await self.upload_async(created_blob)
         raise NotImplementedError("This method should be overridden if needed.")
+
+    def create_blob_location(self, name: str) -> BlobLocation:
+        raise NotImplementedError

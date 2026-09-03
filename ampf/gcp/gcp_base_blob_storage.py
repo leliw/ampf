@@ -1,15 +1,14 @@
 import logging
-from typing import Iterable, Optional, Type
+from collections.abc import Iterable
 
 import google.api_core.exceptions
 from google.cloud import storage
-from pydantic import BaseModel
 
-from ampf.base.blob_model import BlobHeader
+from ampf.base.blob_model import BaseBlobMetadata, BlobHeader, BlobLocation
 from ampf.base.exceptions import KeyNotExistsException
 
 
-class GcpBaseBlobStorage[T: BaseModel]:
+class GcpBaseBlobStorage[T: BaseBlobMetadata]:
     """A simple wrapper around Google Cloud Storage.
     It contains common methods for sync and async blob storage.
     """
@@ -19,10 +18,10 @@ class GcpBaseBlobStorage[T: BaseModel]:
     def __init__(
         self,
         bucket_name: str,
-        collection_name: Optional[str] = None,
-        clazz: Optional[Type[T]] = None,
+        collection_name: str | None = None,
+        clazz: type[T] | None = None,
         content_type: str = "text/plain",
-        storage_client: Optional[storage.Client] = None,
+        storage_client: storage.Client | None = None,
     ):
         self.bucket_name = bucket_name
         collection_name = (
@@ -55,23 +54,20 @@ class GcpBaseBlobStorage[T: BaseModel]:
     def _get_blob(self, name: str) -> storage.Blob:
         return self._bucket.blob(self.get_full_name(name))
 
-    def list_blobs(self, prefix: Optional[str] = None) -> Iterable[BlobHeader[T]]:
+    def list_blobs(self, prefix: str | None = None) -> Iterable[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix.
-        
+
         Args:
             prefix: The prefix to filter the blobs by.
-        
+
         Returns:
             A list of blob headers.
         """
         prefix = self.get_full_name(prefix or "")
         col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
         for blob in self._bucket.list_blobs(prefix=prefix):
-            yield BlobHeader(
-                name=blob.name[col_name_len:],
-                content_type=blob.content_type,
-                metadata=self.clazz(**blob.metadata) if self.clazz and blob.metadata else None,
-            )
+            blob.name = blob.name[col_name_len:]
+            yield BlobHeader.create(blob)
 
     def delete(self, name: str) -> None:
         """Deletes a blob with the given name.
@@ -108,7 +104,7 @@ class GcpBaseBlobStorage[T: BaseModel]:
         blob.metadata = metadata.model_dump()
         blob.patch()
 
-    def get_metadata(self, name: str) -> Optional[T]:
+    def get_metadata(self, name: str) -> T | None:
         """Gets metadata for a blob.
 
         Args:
@@ -126,3 +122,6 @@ class GcpBaseBlobStorage[T: BaseModel]:
         if not blob.metadata or not self.clazz:
             return None
         return self.clazz(**blob.metadata)
+
+    def create_blob_location(self, name: str, bucket: str | None = None) -> BlobLocation:
+        return BlobLocation(name=self.get_full_name(name), bucket=self.bucket_name)

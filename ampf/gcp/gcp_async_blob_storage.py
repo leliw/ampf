@@ -1,13 +1,14 @@
 import asyncio
 import logging
-from typing import AsyncGenerator, Awaitable, Callable, Optional, Type, override
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import override
+from urllib.parse import quote, unquote
 
 import google.auth.exceptions
 import google.auth.transport.requests
+import httpx2
 from google.api_core import exceptions
 from google.cloud import storage
-import httpx2
-from urllib.parse import quote, unquote
 
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
 from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
@@ -25,14 +26,14 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         self,
         bucket_name: str,
         collection_name: str | None = None,
-        clazz: Type[T] = BaseBlobMetadata,
+        clazz: type[T] = BaseBlobMetadata,
         content_type: str = "text/plain",
         storage_client: storage.Client | None = None,
         httpx_async_client: httpx2.AsyncClient | None = None,
     ):
         BaseAsyncBlobStorage.__init__(self, collection_name, clazz, content_type)
         GcpBaseBlobStorage.__init__(self, bucket_name, collection_name, clazz, content_type, storage_client)
-        self.clazz: Type[T] = clazz
+        self.clazz: type[T] = clazz
         self._httpx_async_client = httpx_async_client or httpx2.AsyncClient()
         self.max_retries_per_transaction = 5
 
@@ -127,14 +128,14 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
         response.raise_for_status()
 
     @override
-    async def names(self, prefix: Optional[str] = None) -> AsyncGenerator[str]:
+    async def names(self, prefix: str | None = None) -> AsyncGenerator[str]:
         prefix = self.get_full_name(prefix or "")
         col_name_len = len(self.collection_name) + 1 if self.collection_name else 0
         for blob in self._bucket.list_blobs(prefix=prefix):
             yield blob.name[col_name_len:]
 
     @override
-    async def list_blobs(self, prefix: Optional[str] = None) -> AsyncGenerator[BlobHeader[T]]:
+    async def list_blobs(self, prefix: str | None = None) -> AsyncGenerator[BlobHeader[T]]:
         """Returns a list of blob headers, optionally filtered by a prefix.
 
         Args:
@@ -193,12 +194,12 @@ class GcpAsyncBlobStorage[T: BaseBlobMetadata](GcpBaseBlobStorage, BaseAsyncBlob
 
                 return  # Success
 
-            except exceptions.PreconditionFailed as e:
+            except exceptions.PreconditionFailed:
                 _log.warning(
                     f"Precondition failed on attempt {attempt + 1} for blob '{name}', generation: {generation_to_match}. Retrying..."
                 )
                 if attempt == self.max_retries_per_transaction - 1:
-                    raise e  # Re-raise after the last attempt
+                    raise  # Re-raise after the last attempt
                 await asyncio.sleep(0.1 * (2**attempt))  # Exponential backoff
 
     async def put_metadata(self, name: str, metadata: T) -> None:
