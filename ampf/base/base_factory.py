@@ -148,7 +148,7 @@ class BaseFactory(ABC):
         """Downloads a blob from the specified file location.
 
         Args:
-            blob_location (BlobLocation): The location of the file to load.
+            blob_location: The location of the file to load.
 
         Returns:
             Blob: The loaded blob.
@@ -164,11 +164,20 @@ class BaseFactory(ABC):
         """Uploads a blob to the specified file location.
 
         Args:
-            blob_location (BlobLocation): The location to save the blob.
-            blob (Blob): The blob to save.
+            blob_location: The location to save the blob.
+            blob: The blob to save.
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
         bs.upload(blob)
+
+    def delete_blob(self, blob_location: BlobLocation) -> None:
+        """Deletes a blob from the specified file location.
+
+        Args:
+            blob_location: The location of the file to delete.
+        """
+        bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+        bs.delete(blob_location.name)
 
     def create_topic(self, topic_id: str) -> BaseTopic[BaseModel]:
         """Creates a topic (a sender object to publish messages to)

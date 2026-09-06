@@ -5,6 +5,7 @@ from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_factory import BaseFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.base.collection_def import CollectionDef
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
@@ -60,6 +61,19 @@ async def test_upload_and_download_blob(factory):
     assert blob.content == b"test data"
 
 
+@pytest.mark.asyncio
+async def test_upload_and_delete_blob(factory):
+    # Given: An uploaded blob and a blob location
+    blob_location = BlobLocation(name="blob_test.txt")
+    blob = Blob(name="blob_test.txt", content=b"test data")
+    await factory.upload_blob(blob_location, blob)
+    # When: A blob is deleted
+    await factory.delete_blob(blob_location)
+    # Then: It can't be downloaded
+    with pytest.raises(KeyNotExistsException):
+        await factory.download_blob(blob_location)
+
+
 def test_create_blob_location(factory: BaseAsyncFactory):
     location = factory.create_blob_location("test/location")
 
@@ -74,8 +88,6 @@ class D(BaseModel):
 
 @pytest.mark.asyncio
 async def test_register_and_get_collection(factory: BaseAsyncFactory):
-    from ampf.base.exceptions import KeyNotExistsException
-
     # Given: A collection definition
     storage_def = CollectionDef("my_async_collection", D, "name")
 
@@ -113,5 +125,5 @@ def test_get_sync_factory(factory: BaseAsyncFactory):
     assert factory
     # When: Get sync factory
     sync_factory = factory.get_sync_factory()
-    # Then: It is returend
+    # Then: It is returned
     assert isinstance(sync_factory, BaseFactory)

@@ -95,7 +95,7 @@ class BaseAsyncFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef(**definition)
-        return BaseAsyncCollectionStorage(self.create_storage, definition) # pyright: ignore[reportAbstractUsage]
+        return BaseAsyncCollectionStorage(self.create_storage, definition)  # pyright: ignore[reportAbstractUsage]
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseAsyncCollectionStorage[T]:
         """Creates storage tree from its definition.
@@ -142,7 +142,7 @@ class BaseAsyncFactory(ABC):
         """Downloads a blob from the specified file location.
 
         Args:
-            blob_location (BlobLocation): The location of the file to load.
+            blob_location: The location of the file to load.
 
         Returns:
             Blob: The loaded blob.
@@ -158,11 +158,20 @@ class BaseAsyncFactory(ABC):
         """Uploads a blob to the specified file location.
 
         Args:
-            blob_location (BlobLocation): The location to save the blob.
-            blob (Blob): The blob to save.
+            blob_location: The location to save the blob.
+            blob: The blob to save.
         """
         bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
         await bs.upload_async(blob)
+
+    async def delete_blob(self, blob_location: BlobLocation) -> None:
+        """Deletes a blob from the specified file location.
+
+        Args:
+            blob_location: The location of the file to delete.
+        """
+        bs = self.create_blob_storage("", bucket_name=blob_location.bucket)
+        await bs.delete_async(blob_location.name)
 
     def create_topic(self, topic_id: str) -> BaseTopic[BaseModel]:
         """Creates a topic (object sender to publish messages to it).
