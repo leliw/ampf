@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -15,8 +16,8 @@ class BaseAsyncQueryStorage[T: BaseModel](BaseAsyncStorage[T], BaseAsyncQuery[T]
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
