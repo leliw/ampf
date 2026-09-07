@@ -148,7 +148,7 @@ def client(app: FastAPI):
 
 @pytest.mark.timeout(10)
 @pytest.mark.asyncio
-async def test_run_task_by_endpoint(client: ApiTestClient):
+async def test_run_task_by_endpoint(client: ApiTestClient, log):
     # Given: An application and registered processor
     # When: Call POST endpoint with initial Task value
     task = client.post_typed("/api/tasks", 201, MyTask, json=MyTaskCreate(name="test"))
