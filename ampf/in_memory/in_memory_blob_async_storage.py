@@ -5,7 +5,7 @@ from warnings import deprecated
 
 from ampf.base import KeyExistsException, KeyNotExistsException
 from ampf.base.base_async_blob_storage import BaseAsyncBlobStorage
-from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader
+from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobHeader, BlobLocation
 from ampf.in_memory.in_memory_blob_storage import InMemoryBlobStorage
 
 
@@ -78,6 +78,9 @@ class InMemoryAsyncBlobStorage[T: BaseBlobMetadata](BaseAsyncBlobStorage):
                 created_blob = await create_func(name)
                 await self.upload_async(created_blob)
 
+    @override
+    def create_blob_location(self, name: str) -> BlobLocation:
+        return self.storage.create_blob_location(name)
 
 @deprecated("Use InMemoryAsyncBlobStorage")
 class InMemoryBlobAsyncStorage[T: BaseBlobMetadata](InMemoryAsyncBlobStorage[T]):

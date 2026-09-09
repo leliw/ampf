@@ -4,7 +4,7 @@ from typing import override
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.blob_model import BaseBlobMetadata, Blob
+from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobLocation
 
 
 class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
@@ -12,11 +12,13 @@ class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
 
     def __init__(
         self,
+        bucket_name: str,
         bucket: dict[str, Blob[T]],
         collection_name: str,
         clazz: type[T] = BaseBlobMetadata,
         content_type: str | None = None,
     ):
+        self.bucket_name = bucket_name
         self.bucket = bucket
         self.collection_name = collection_name.rstrip("/") + "/" if collection_name else ""
         self.clazz = clazz
@@ -96,3 +98,7 @@ class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
                 deletable.append(k)
         for k in deletable:
             self.delete(k)
+
+    @override
+    def create_blob_location(self, name: str) -> BlobLocation:
+        return BlobLocation(name=self._full_path(name), bucket=self.bucket_name)

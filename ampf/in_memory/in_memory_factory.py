@@ -33,7 +33,7 @@ class InMemoryFactory(BaseFactory):
             )
         ret = self.collections[collection_name]
         if ret.clazz is not clazz:
-            # Differet class, so I return shallow copy with desired class
+            # Different class, so I return shallow copy with desired class
             ret = copy(ret)
             ret.clazz = clazz
         return ret
@@ -48,7 +48,7 @@ class InMemoryFactory(BaseFactory):
         bucket_name = bucket_name or "__default__"
         if bucket_name not in self.buckets:
             self.buckets[bucket_name] = {}
-        return InMemoryBlobStorage[T](self.buckets[bucket_name], collection_name, clazz, content_type)
+        return InMemoryBlobStorage[T](bucket_name, self.buckets[bucket_name], collection_name, clazz, content_type)
 
     def drop(self):
         self.collections = {}

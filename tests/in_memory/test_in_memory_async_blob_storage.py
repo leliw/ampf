@@ -68,3 +68,12 @@ async def test_update_transactional_non_existent_blob(storage: InMemoryAsyncBlob
 
     with pytest.raises(KeyNotExistsException):
         await storage.update_transactional("non_existent_blob", update_func)
+
+
+def test_create_blob_location(storage: InMemoryAsyncBlobStorage):
+    # When: Create blob location
+    bl = storage.create_blob_location("xxx")
+    # Then: The name contains a collection name from storage
+    assert bl.name == "test_collection/xxx"
+    # And: The bucket is also taken from storage
+    assert bl.bucket == "__default__"
