@@ -41,7 +41,7 @@ class MyTask(BaseTask):
 
 
 # AppConfig has properties:
-# * task_runner - which runner is used (as string) - only PubsubPull, PubsubPush are valid for external service !!!
+# * task_runner - which runner is used (as string)
 # * requests_topic, responses_topic and responses_subscription - for PubsubPullRunner - which topics and subscription are used.
 #   The prefix `external_service` is the name of used processor (@see `@TaskRegistry.register("external_service", external=True)` below)
 class AppConfig(BaseSettings):
@@ -95,7 +95,7 @@ def main_app(app_config: AppConfig) -> FastAPI:
     # * payload inheriting Pydantic BaseModel
     @TaskRegistry.register("external_service", external=True)
     async def response_handler(storage: BaseAsyncStorage[MyTask], payload: MyTask) -> None:
-        await storage.save(payload) # Just save the response payload to storage
+        await storage.save(payload)  # Just save the response payload to storage
 
     @app.post("/api/tasks", status_code=201)
     async def post(dc: DependencyContainerDep, data: MyTaskCreate) -> MyTask:
@@ -115,8 +115,8 @@ def main_app(app_config: AppConfig) -> FastAPI:
     return app
 
 
-@pytest.fixture(params=["PubsubPull", "PubsubPush"])
-def app_config(request) -> AppConfig:
+@pytest.fixture(params=["Direct", "Background", "PubsubPull", "PubsubPush"])
+def app_config(request: pytest.FixtureRequest) -> AppConfig:
     return AppConfig(task_runner=request.param)
 
 
@@ -145,25 +145,37 @@ def client(app: FastAPI):
 @pytest.fixture
 async def external_service_mock(app: FastAPI):
     # Setup a mock for external service - it will run in background and will respond to requests from PubsubPullRunner
+    # The mock will be used for Direct and Background runners, while PubsubPull and PubsubPush runners will use the real external service processor.
     app_state: AppState = app.state.app_state
     app_config = app_state.config
-    subscription_name = f"{app_config.external_service_requests_topic}-sub"
+    if app_config.task_runner in ["Direct", "Background"]:
+        # Override external service with mock
+        @TaskRegistry.register("external_service", external=False)
+        async def mock(storage: BaseAsyncStorage[MyTask], payload: MyTask) -> None:
+            payload.value = 1
+            payload.status = TaskStatus.COMPLETED
+            await storage.save(payload)  # Just save the response payload to storage
 
-    async def callback_async(request: GcpPubsubRequest):
-        payload = request.decoded_data(MyTask)
-        payload.value = 1
-        payload.status = TaskStatus.COMPLETED
-        await request.publish_response_async(app_state.factory, payload)
-        return True
+        yield None
+    else:
+        subscription_name = f"{app_config.external_service_requests_topic}-sub"
 
-    loop = asyncio.get_running_loop()
-    subscription = GcpSubscriptionPull(subscription_name, loop=loop)
-    subscription.callback_async = callback_async
-    subscription.run()
-    try:
-        yield subscription
-    finally:
-        subscription.stop()
+        async def callback_async(request: GcpPubsubRequest):
+            payload = request.decoded_data(MyTask)
+            payload.value = 1
+            payload.status = TaskStatus.COMPLETED
+            await request.publish_response_async(app_state.factory, payload)
+            return True
+
+        loop = asyncio.get_running_loop()
+        subscription = GcpSubscriptionPull(subscription_name, loop=loop)
+        subscription.callback_async = callback_async
+        subscription.run()
+        try:
+            yield subscription
+        finally:
+            subscription.stop()
+
 
 @pytest.mark.timeout(10)
 @pytest.mark.asyncio
