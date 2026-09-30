@@ -16,6 +16,7 @@ Set of helper classes:
   * [SubscriptionProcessor](doc/base_subscription_processor.md) - base class for processing messages from a subscription.
 * [Dependency](doc/dependency.md) - simple dependency registry for managing dependencies in your application.
 * [Tasks](doc/tasks.md) - helper for running background tasks
+* [External Tasks](doc/external_tasks.md) - helper for running external services
 * FastAPI - helper classes for FastAPI framework
   * [Auth](doc/fastapi/auth.md) - users authentication & authorization
   * [JsonStreamingResponse](doc/fastapi/json_streaming_response.md) - streams Pydantic objects to client as JSON.

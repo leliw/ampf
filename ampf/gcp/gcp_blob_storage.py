@@ -7,7 +7,7 @@ from google.cloud import storage
 
 from ampf.base import BaseBlobStorage, KeyNotExistsException
 from ampf.base.base_blob_storage import FileNameMimeType
-from ampf.base.blob_model import BaseBlobMetadata, Blob
+from ampf.base.blob_model import BaseBlobMetadata, Blob, BlobLocation
 
 
 class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
@@ -15,9 +15,11 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
 
     _storage_client = None
     _default_bucket = None
+    _default_bucket_name = None
 
     @classmethod
     def init_client(cls, bucket_name: str | None = None):
+        cls._default_bucket_name = bucket_name
         if not cls._storage_client:
             cls._storage_client = storage.Client()
         if bucket_name:
@@ -34,6 +36,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
         super().__init__(collection_name, clazz, content_type)
         self._log = logging.getLogger(__name__)
         self._storage_client = storage_client or storage.Client()
+        self.bucket_name = bucket_name
         if bucket_name:
             self._bucket = self._storage_client.bucket(bucket_name)
             if not self._default_bucket:
@@ -45,8 +48,20 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
                 f"No bucket specified or found for collection '{collection_name}'. Please provide a valid bucket_name."
             )
 
+    def get_full_name(self, name: str) -> str:
+        """Returns the full name of the blob (with collection name if any)
+
+        Args:
+            name: The name of the blob.
+
+        Returns:
+            The full name of the blob.
+        """
+        name = name[1:] if name and name.startswith("/") else name
+        return f"{self.collection_name}/{name}" if self.collection_name else name
+
     def _get_blob(self, key: str) -> storage.Blob:
-        return self._bucket.blob(f"{self.collection_name}/{key}" if self.collection_name else key)
+        return self._bucket.blob(self.get_full_name(key))
 
     def _get_prefix(self, folder_name: str | None = None) -> str:
         prefix = self.collection_name + "/"
@@ -71,7 +86,7 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
     def exists(self, key: str) -> bool:
         g_blob = self._get_blob(key)
         return g_blob.exists()
-    
+
     def download(self, key: str) -> Blob[T]:
         g_blob = self._get_blob(key)
         if not g_blob.exists():
@@ -181,3 +196,6 @@ class GcpBlobStorage[T: BaseBlobMetadata](BaseBlobStorage[T]):
         blobs = self._bucket.list_blobs(prefix=prefix)
         for blob in blobs:
             blob.delete()
+
+    def create_blob_location(self, name: str, bucket: str | None = None) -> BlobLocation:
+        return BlobLocation(name=self.get_full_name(name), bucket=self.bucket_name)

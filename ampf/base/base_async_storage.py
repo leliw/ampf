@@ -4,20 +4,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterable,
-    AsyncIterator,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Type,
-)
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Callable, Coroutine
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -36,8 +24,8 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
     def __init__(
         self,
         collection_name: str,
-        clazz: Type[T],
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        key: str | Callable[[T], str] | None = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
@@ -73,7 +61,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             raise KeyExistsException
         await self.put(key, value)
 
-    async def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+    async def patch(self, key: Any, patch_data: BaseModel | dict[str, Any]) -> T:
         """Patch the object with new data.
 
         Args:
@@ -128,7 +116,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             return False
         return True
 
-    async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterable[T]:
+    async def find_nearest(self, embedding: list[float], limit: int | None = None) -> AsyncIterable[T]:
         """Finds the nearest knowledge base items to the given vector.
 
         Args:
@@ -144,7 +132,7 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
             _log.warning("Consider using a vector database for production.")
 
             limit = limit or self.embedding_search_limit
-            ret: List[Tuple[T, float]] = []
+            ret: list[tuple[T, float]] = []
             async for item in self.get_all():
                 em = getattr(item, self.embedding_field_name)
                 if em:
@@ -160,13 +148,13 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
     def where(self, field: str, op: Literal["==", "!=", "<", "<=", ">", ">="], value: Any) -> BaseAsyncQuery[T]:
         raise NotImplementedError
 
-    def to_storage(self, data: T) -> Dict[str, Any] | Coroutine[Any, Any, Dict[str, Any]]:
+    def to_storage(self, data: T) -> dict[str, Any] | Coroutine[Any, Any, dict[str, Any]]:
         if isinstance(data, VersionedBaseModel):
             return data.to_storage()
         else:
             return data.model_dump(by_alias=True, exclude_none=True)
 
-    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+    def from_storage(self, data: dict[str, Any]) -> T | Coroutine[Any, Any, T]:
         real_cls = resolve_versioned_class(self.clazz, data)
         _log.debug("Real class: %s", real_cls.__name__ if real_cls else "None")
         if issubclass(real_cls, VersionedBaseModel):
@@ -182,4 +170,3 @@ class BaseAsyncStorage[T: BaseModel | VersionedBaseModel](ABC):
                 return save_and_return()
             return ret
         return real_cls.model_validate(data)
-

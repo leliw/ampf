@@ -3,9 +3,7 @@ from typing import (
     Annotated,
     Any,
     ClassVar,
-    Dict,
     Literal,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -35,7 +33,7 @@ class VersionedBaseModel(BaseModel, ABC):
 
     @classmethod
     @abstractmethod
-    def from_storage(cls, data: Dict[str, Any]):
+    def from_storage(cls, data: dict[str, Any]):
         """Convert the data from storage format to the model instance.
 
         Args:
@@ -46,7 +44,7 @@ class VersionedBaseModel(BaseModel, ABC):
         return cls.model_validate(data)
 
     @abstractmethod
-    def to_storage(self) -> Dict[str, Any]:
+    def to_storage(self) -> dict[str, Any]:
         """Convert the data to storage format.
 
         Returns:
@@ -55,9 +53,9 @@ class VersionedBaseModel(BaseModel, ABC):
         return self.model_dump(by_alias=True, exclude_none=True)
 
 
-def resolve_versioned_class[T](clazz: Type[T], data: Dict[str, Any]) -> Type[T]:
+def resolve_versioned_class[T](clazz: type[T], data: dict[str, Any]) -> type[T]:
     """Resolve the real class for a versioned model based on the discriminator field in the data.
-    
+
     Args:
         clazz: The base class to resolve.
         data: The data to resolve.
@@ -91,8 +89,7 @@ def resolve_versioned_class[T](clazz: Type[T], data: Dict[str, Any]) -> Type[T]:
 
     for cls in get_args(base_type):
         field = cls.model_fields.get(discriminator)
-        if field and get_origin(field.annotation) is Literal:
-            if discriminator_value in get_args(field.annotation):
-                return cls
+        if field and get_origin(field.annotation) is Literal and discriminator_value in get_args(field.annotation):
+            return cls
 
     raise ValueError("No matching class found")

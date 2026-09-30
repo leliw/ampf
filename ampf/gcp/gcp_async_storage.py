@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Type, override
+from collections.abc import AsyncIterator, Callable, Coroutine
+from typing import Any, override
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -8,11 +9,11 @@ from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
 from google.cloud.firestore_v1.vector import Vector
 from pydantic import BaseModel
 
-from ampf.base import BaseAsyncQueryStorage, KeyNotExistsException
 from ampf.base.base_async_query import BaseAsyncQuery
+from ampf.base.base_async_query_storage import BaseAsyncQueryStorage
 from ampf.base.base_decorator import BaseDecorator
 from ampf.base.base_query import OP
-from ampf.base.exceptions import KeyExistsException
+from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 from ampf.base.versioned_base_model import VersionedBaseModel, resolve_versioned_class
 
 from .gcp_storage import convert_uuids
@@ -22,7 +23,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
     def __init__(
         self,
         decorated: firestore.AsyncQuery,
-        clazz: Type[T],
+        clazz: type[T],
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
@@ -42,7 +43,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
         coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
         return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
 
-    async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
+    async def find_nearest(self, embedding: list[float], limit: int | None = None) -> AsyncIterator[T]:
         """Finds the nearest knowledge base items to the given vector.
 
         Args:
@@ -67,7 +68,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
             yield ret
 
     @override
-    async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
+    async def get_all(self, order_by: list[str | tuple[str, Any]] | None = None) -> AsyncIterator[T]:
         """Get all documents from the collection."""
         coll_ref = self.decorated
         if order_by:
@@ -85,7 +86,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
                 ret = await ret
             yield ret
 
-    def from_storage(self, data: Dict[str, Any]) -> T | Coroutine[Any, Any, T]:
+    def from_storage(self, data: dict[str, Any]) -> T | Coroutine[Any, Any, T]:
         real_cls = resolve_versioned_class(self.clazz, data)
         if issubclass(real_cls, VersionedBaseModel):
             return real_cls.from_storage(data)
@@ -98,14 +99,14 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
     def __init__(
         self,
         collection: str,
-        clazz: Type[T],
-        db: Optional[firestore.AsyncClient] = None,
-        project: Optional[str] = None,
-        database: Optional[str] = None,
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        db: firestore.AsyncClient | None = None,
+        project: str | None = None,
+        database: str | None = None,
+        key: str | Callable[[T], str] | None = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
-        root_storage: Optional[str] = None,
+        root_storage: str | None = None,
     ):
         super().__init__(collection, clazz, key, embedding_field_name, embedding_search_limit)
         self._db = db or firestore.AsyncClient(project=project, database=database)
@@ -113,7 +114,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         self._collection = f"{root_storage}/{collection}" if root_storage else collection
         self._coll_ref = self._db.collection(self._collection)
 
-    def on_before_save(self, data: Dict[str, Any]) -> dict:
+    def on_before_save(self, data: dict[str, Any]) -> dict[str, Any]:
         """Converts the embedding field to a Vector object.
 
         Args:
@@ -138,15 +139,17 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
 
             @firestore.async_transactional
             async def run_in_transaction(transaction):
-                await self.delete(key)
-                await self._coll_ref.document(new_key).set(data_dict)
+                old_doc_ref = self._coll_ref.document(str(key))
+                new_doc_ref = self._coll_ref.document(new_key)
+                transaction.delete(old_doc_ref)
+                transaction.set(new_doc_ref, data_dict)
 
             async with self._db.transaction() as transaction:
                 await run_in_transaction(transaction)
         else:
             await self._coll_ref.document(new_key).set(data_dict)
 
-    async def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+    async def patch(self, key: Any, patch_data: BaseModel | dict[str, Any]) -> T:
         """Patch the object with new data.
 
         Args:
@@ -159,15 +162,16 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         if isinstance(patch_data, BaseModel):
             patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
         else:
-            patch_dict = patch_data
+            patch_dict = dict(patch_data)
         doc_ref = self._coll_ref.document(str(key))
         if (await doc_ref.get()).exists:
+            patch_dict = self.on_before_save(patch_dict)
             await doc_ref.update(patch_dict)
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         data = (await doc_ref.get()).to_dict()
         if not data:
-            raise ValueError
+            raise ValueError(f"Document {key} has no data after update")
         new_value = self.from_storage(data)
         if isinstance(new_value, Coroutine):
             new_value = await new_value
@@ -200,14 +204,14 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         if doc.exists:
             await doc_ref.delete()
         else:
-            raise KeyNotExistsException(key)
+            raise KeyNotExistsException(self.collection_name, self.clazz, key)
 
     async def drop(self) -> None:
         """Delete all documents from the collection."""
         async for doc in self._coll_ref.stream():
             await doc.reference.delete()
 
-    async def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> AsyncIterator[T]:
+    async def get_all(self, order_by: list[str | tuple[str, Any]] | None = None) -> AsyncIterator[T]:
         """Get all documents from the collection."""
         coll_ref = self._coll_ref
         if order_by:
@@ -232,7 +236,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         async def create_in_transaction(transaction):
             doc = await self._coll_ref.document(str(key)).get(transaction=transaction)
             if doc.exists:
-                raise KeyExistsException
+                raise KeyExistsException(self.collection_name, self.clazz, key)
             data_dict = self.to_storage(value)
             if isinstance(data_dict, Coroutine):
                 data_dict = await data_dict
@@ -242,7 +246,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         async with self._db.transaction() as transaction:
             await create_in_transaction(transaction)
 
-    async def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> AsyncIterator[T]:
+    async def find_nearest(self, embedding: list[float], limit: int | None = None) -> AsyncIterator[T]:
         """Finds the nearest knowledge base items to the given vector.
 
         Args:
@@ -266,7 +270,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
-        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
         ret = GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
         ret.from_storage = self.from_storage
         return ret

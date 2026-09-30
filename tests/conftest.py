@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional
+import logging
 
 import docker
 import pytest
@@ -45,7 +45,7 @@ class TestEmailSender(BaseEmailSender):
         recipient: str,
         subject: str,
         body: str,
-        attachment_path: Optional[str] = None,
+        attachment_path: str | None = None,
     ) -> None:
         self.sent_emails.append(
             {
@@ -77,3 +77,9 @@ def event_loop():
 @pytest.fixture(scope="session")
 def docker_client():
     return docker.from_env()
+
+@pytest.fixture
+def log():
+    logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger("").setLevel(logging.INFO)
+    logging.getLogger("ampf").setLevel(logging.DEBUG)

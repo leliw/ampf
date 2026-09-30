@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from typing import Annotated, Any, Type, get_args, get_origin
+from typing import Annotated, Any, ClassVar, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -13,32 +13,38 @@ _log = logging.getLogger(__name__)
 
 
 class TaskRegistry:
-    _tasks: dict[str, ProcessorDefinition] = {}
+    _tasks: ClassVar[dict[str, ProcessorDefinition]] = {}
 
     @classmethod
-    def register(cls, processor_name: str, payload_type: Type[BaseModel] | None = None):
+    def clear_tasks(cls) -> None:
+        cls._tasks.clear()
+
+    @classmethod
+    def register(cls, processor_name: str, payload_type: type[BaseModel] | None = None, external: bool = False):
         def decorator(processor: SyncOrAsyncCallable):
             params = cls.get_parameters(processor)
             if not payload_type:
-                for n, t in params.items():
-                    if isinstance(t, type) and issubclass(t, BaseModel):
+                payload_type_param: type[BaseModel] | None = None 
+                for t in params.values():
+                    if isinstance(t, type) and not get_origin(t) and issubclass(t, BaseModel):
                         payload_type_param = t
+                        break
             else:
                 payload_type_param = payload_type
-            _log.debug(f"Registering processor: {processor_name}")
-            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type_param, params)
+            _log.debug("Registering processor: %s", processor_name)
+            cls._tasks[processor_name] = ProcessorDefinition(processor, payload_type_param, params, external)
             return processor
 
         return decorator
 
     @classmethod
-    def get_parameters(cls, func: SyncOrAsyncCallable) -> dict[str, Type[Any]]:
+    def get_parameters(cls, func: SyncOrAsyncCallable) -> dict[str, type[Any]]:
         sig = inspect.signature(func)
         params = {}
         for name, param in sig.parameters.items():
             if name == "self":
                 continue
-            if param.annotation is inspect._empty:
+            if param.annotation is inspect.Parameter.empty:
                 raise TypeError(f"Parameter '{name}' in {func.__name__} must have a type annotation")
             if get_origin(param.annotation) is Annotated:
                 param_type = get_args(param.annotation)[0]
@@ -67,11 +73,11 @@ class TaskRegistry:
         if callable(processor):
             if inspect.iscoroutinefunction(processor):
                 raise TypeError(
-                    f"Processor '{name}' is an asynchronous task. Use 'run_async' for asynchronous execution."
+                    f"Processor '{name}' is an asynchronous task. Use 'run_task_async' for asynchronous execution."
                 )
             processor(**parameters)
         else:
-            raise ValueError(f"Processor {name} is not callable")
+            raise TypeError(f"Processor {name} is not callable")
 
     @classmethod
     async def run_task_async(cls, task_runner: TaskRunner, name: str, payload: BaseModel) -> None:
@@ -82,4 +88,4 @@ class TaskRegistry:
             if asyncio.iscoroutine(ret):
                 await ret
         else:
-            raise ValueError(f"Processor {name} is not callable")
+            raise TypeError(f"Processor {name} is not callable")

@@ -1,8 +1,9 @@
-from contextlib import asynccontextmanager
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Type
+from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -16,8 +17,9 @@ _log = logging.getLogger(__name__)
 @dataclass
 class ProcessorDefinition:
     processor: SyncOrAsyncCallable
-    payload_type: Type[BaseModel] | None = None
-    params: dict[str, Type[Any]] = field(default_factory=dict)
+    payload_type: type[BaseModel] | None = None
+    params: dict[str, type[Any]] = field(default_factory=dict)
+    external: bool = False # Indicates whether the processor is for an external task / service (True) or an internal task (False)
 
 
 class TaskRunner(ABC):

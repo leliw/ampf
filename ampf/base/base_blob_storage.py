@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .blob_model import BaseBlobMetadata, Blob
+from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 
 
 class FileNameMimeType(BaseModel):
@@ -150,3 +150,6 @@ class BaseBlobStorage[T: BaseBlobMetadata](ABC):
         if not key:
             key = file_path.stem
         self.upload_blob(key, file_content, metadata, content_type)
+
+    def create_blob_location(self, name: str) -> BlobLocation:
+        raise NotImplementedError

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from ampf.base.base_factory import BaseFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.base.collection_def import CollectionDef
+from ampf.base.exceptions import KeyNotExistsException
 from ampf.gcp import GcpFactory
 from ampf.in_memory import InMemoryFactory
 from ampf.local import LocalFactory
@@ -41,6 +42,7 @@ def test_create_blob_storage(factory):
 
     assert storage is not None
 
+
 def test_upload_and_download_blob(factory):
     # Given: A blob and a blob location
     blob_location = BlobLocation(name="blob_test.txt")
@@ -50,6 +52,7 @@ def test_upload_and_download_blob(factory):
     # Then: It can be downloaded
     blob = factory.download_blob(blob_location)
     assert blob.content == b"test data"
+
 
 def test_create_blob_location(factory: BaseFactory):
     location = factory.create_blob_location("test/location")
@@ -63,10 +66,7 @@ class D(BaseModel):
     value: str
 
 
-
 def test_register_and_get_collection(factory: BaseFactory):
-    from ampf.base.exceptions import KeyNotExistsException
-
     # Given: A collection definition
     storage_def = CollectionDef("my_collection", D, "name")
 
@@ -97,3 +97,15 @@ def test_register_and_get_collection(factory: BaseFactory):
 
     with pytest.raises(KeyNotExistsException):
         factory.get_collection(UnregisteredModel)
+
+
+def test_upload_and_delete_blob(factory: BaseFactory):
+    # Given: An uploaded blob and a blob location
+    blob_location = BlobLocation(name="blob_test.txt")
+    blob = Blob(name="blob_test.txt", content=b"test data")
+    factory.upload_blob(blob_location, blob)
+    # When: A blob is deleted
+    factory.delete_blob(blob_location)
+    # Then: It can't be downloaded
+    with pytest.raises(KeyNotExistsException):
+        factory.download_blob(blob_location)

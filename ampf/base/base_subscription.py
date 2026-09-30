@@ -36,3 +36,6 @@ class BaseSubscription[T: BaseModel](ABC):
             endpoint: The endpoint to which messages should be pushed.
         """
         raise NotImplementedError("Subclasses must implement run_push_emulator")
+
+    @abstractmethod
+    def clear(self) -> None: ...

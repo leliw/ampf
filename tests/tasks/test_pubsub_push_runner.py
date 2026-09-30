@@ -55,7 +55,7 @@ async def test_run_process_by_endpoint():
     class AppConfig(BaseModel):
         processor_topic: str = "processor"
 
-    # And: An AppState with config, factory and PubsubPullRunner
+    # And: An AppState with config, factory and PubsubPushRunner
     @dataclass
     class AppState:
         config: AppConfig
