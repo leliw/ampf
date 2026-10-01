@@ -1,11 +1,12 @@
 from collections.abc import Callable
 from copy import copy
-from typing import override
+from typing import Any, override
 
 from pydantic import BaseModel
 
 from ampf.base import BaseBlobMetadata, BaseFactory
 from ampf.base.blob_model import Blob
+from ampf.base.collection_def import CollectionDef
 
 from .in_memory_blob_storage import InMemoryBlobStorage
 from .in_memory_storage import InMemoryStorage
@@ -14,8 +15,8 @@ from .pubsub.in_memory_topic import InMemoryTopic
 
 
 class InMemoryFactory(BaseFactory):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, collection_defs: list[CollectionDef[Any]] | None = None):
+        super().__init__(collection_defs)
         self.collections: dict[str, InMemoryStorage] = {}
         self.buckets: dict[str, dict[str, Blob]] = {}
         self.pubsub_registry = InMemoryPubsubRegistry()

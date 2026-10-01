@@ -1,11 +1,12 @@
 import logging
 from collections.abc import Callable
-from typing import override
+from typing import Any, override
 
 from google.cloud import firestore, storage
 from pydantic import BaseModel
 
 from ampf.base.blob_model import BaseBlobMetadata
+from ampf.base.collection_def import CollectionDef
 
 from ..base import BaseBlobStorage, BaseFactory, BaseStorage
 from .gcp_base_factory import GcpBaseFactory
@@ -23,9 +24,10 @@ class GcpFactory(GcpBaseFactory, BaseFactory):
         project_id: str | None = None,
         database: str | None = None,
         otel: bool | None = None,
+        collection_defs: list[CollectionDef[Any]] | None = None,
     ):
         super().__init__(root_storage, bucket_name, otel=otel or False)
-        BaseFactory.__init__(self)
+        BaseFactory.__init__(self, collection_defs)
         self._db = firestore.Client(project=project_id, database=database)
         self._storage_client: storage.Client | None = None
         self.project_id = project_id or self._db.project

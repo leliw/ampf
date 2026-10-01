@@ -20,9 +20,11 @@ _log = logging.getLogger(__name__)
 class BaseFactory(ABC):
     """Factory creating objects"""
 
-    def __init__(self):
+    def __init__(self, collection_defs: list[CollectionDef[Any]] | None = None):
         self._collection_defs: dict[str, CollectionDef] = {}
         self._type_to_collection_defs: dict[type[BaseModel], CollectionDef] = {}
+        if collection_defs:
+            self.register_collections(collection_defs)
 
     @abstractmethod
     def create_storage[T: BaseModel](
@@ -92,7 +94,7 @@ class BaseFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef(**definition)
-        return BaseCollectionStorage(self.create_storage, definition)
+        return BaseCollectionStorage(self.create_storage, definition) # pyright: ignore[reportAbstractUsage]
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseCollectionStorage[T]:
         """Creates storage tree from its definition.
@@ -104,7 +106,7 @@ class BaseFactory(ABC):
         """
         return self.create_collection(root)
 
-    def register_collections(self, definitions: list[CollectionDef[Any]]):
+    def register_collections(self, definitions: list[CollectionDef[Any]]) -> None:
         """Registers a list of collection definitions.
 
         Args:
@@ -114,6 +116,18 @@ class BaseFactory(ABC):
             self._collection_defs[definition.collection_name] = definition
             if definition.clazz:
                 self._type_to_collection_defs[definition.clazz] = definition
+        try:
+            from ampf.dependency.dependency_registry import DependencyRegistry
+
+            def register_storage(sd):
+                @DependencyRegistry.register_for_type(BaseCollectionStorage[sd.clazz])  # type: ignore
+                def get_collection():
+                    return self.get_collection(sd.clazz)
+
+            for sd in definitions:
+                register_storage(sd)
+        except ImportError:
+            pass
 
     def get_collection[T: BaseModel](self, collection_name_or_type: str | type[T] | Any) -> BaseCollectionStorage[T]:
         """Retrieves a collection by its name or type from the registered definitions.

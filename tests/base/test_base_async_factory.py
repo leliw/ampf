@@ -5,6 +5,9 @@ import pytest
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseAsyncStorage, CollectionDef
+from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
+from ampf.base.exceptions import KeyNotExistsException
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
 
@@ -101,7 +104,6 @@ if __name__ == "__main__":
 
 @pytest.mark.asyncio
 async def test_register_and_get_collection(factory: BaseAsyncFactory):
-    from ampf.base.exceptions import KeyNotExistsException
 
     # Given: A collection definition
     storage_def = CollectionDef("my_async_collection", D, "name")
@@ -118,6 +120,47 @@ async def test_register_and_get_collection(factory: BaseAsyncFactory):
     storage_by_type = factory.get_collection(D)
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseAsyncCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_async_collection"
+
+    # And: Saving data works
+    await storage.save(D(name="test", value="val"))
+    assert (await storage.get("test")).value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")
+
+    # And: Getting an unregistered type raises an exception
+    class UnregisteredModel(BaseModel):
+        pass
+
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection(UnregisteredModel)
+
+
+@pytest.mark.asyncio
+async def test_register_in_constructor_and_get_collection():
+    # When: A factory is created with collection definitions
+    factory = InMemoryAsyncFactory(collection_defs=[CollectionDef("my_async_collection", D, "name")])
+
+    # Then: The collection can be retrieved by name
+    storage = factory.get_collection("my_async_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(D)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseAsyncCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_async_collection"
 
     # And: Saving data works
     await storage.save(D(name="test", value="val"))

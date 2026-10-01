@@ -1,11 +1,13 @@
 import pytest
 from pydantic import BaseModel
 
+from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
 from ampf.base.base_async_factory import BaseAsyncFactory
 from ampf.base.base_factory import BaseFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.gcp import GcpAsyncFactory
 from ampf.in_memory import InMemoryAsyncFactory
 from ampf.local import LocalAsyncFactory
@@ -104,6 +106,60 @@ async def test_register_and_get_collection(factory: BaseAsyncFactory):
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_async_collection"
 
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseAsyncCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_async_collection"
+    
+    # And: Saving data works
+    await storage.save(D(name="test", value="val"))
+    assert (await storage.get("test")).value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")
+
+    # And: Getting an unregistered type raises an exception
+    class UnregisteredModel(BaseModel):
+        pass
+
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection(UnregisteredModel)
+
+
+@pytest.fixture(params=[InMemoryAsyncFactory, LocalAsyncFactory, GcpAsyncFactory])
+def factory_with_collections(request, tmp_path):
+    storage_def = CollectionDef("my_async_collection", D, "name")
+    if request.param == InMemoryAsyncFactory:
+        factory = InMemoryAsyncFactory(collection_defs=[storage_def])
+    elif request.param == LocalAsyncFactory:
+        factory = request.param(tmp_path, collection_defs=[storage_def])
+    elif request.param == GcpAsyncFactory:
+        factory = request.param(bucket_name="unit-tests-001", collection_defs=[storage_def])
+    else:
+        factory = request.param(collection_defs=[storage_def])
+    return factory
+
+@pytest.mark.asyncio
+async def test_register_in_constructor_and_get_collection(factory_with_collections: BaseAsyncFactory):
+    # When: A factory is created with collection definitions
+    factory = factory_with_collections
+
+    # Then: The collection can be retrieved by name
+    storage = factory.get_collection("my_async_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(D)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_async_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseAsyncCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_async_collection"
+    
     # And: Saving data works
     await storage.save(D(name="test", value="val"))
     assert (await storage.get("test")).value == "val"

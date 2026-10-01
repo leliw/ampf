@@ -20,9 +20,11 @@ _log = logging.getLogger(__name__)
 class BaseAsyncFactory(ABC):
     """Factory creating async storage objects"""
 
-    def __init__(self):
+    def __init__(self, collection_defs: list[CollectionDef[Any]] | None = None):
         self._collection_defs: dict[str, CollectionDef] = {}
         self._type_to_collection_defs: dict[type[BaseModel], CollectionDef] = {}
+        if collection_defs:
+            self.register_collections(collection_defs)
 
     @abstractmethod
     def get_sync_factory(self) -> BaseFactory: ...
@@ -117,6 +119,19 @@ class BaseAsyncFactory(ABC):
             self._collection_defs[definition.collection_name] = definition
             if definition.clazz:
                 self._type_to_collection_defs[definition.clazz] = definition
+
+        try:
+            from ampf.dependency.dependency_registry import DependencyRegistry
+
+            def register_storage(sd):
+                @DependencyRegistry.register_for_type(BaseAsyncCollectionStorage[sd.clazz])  # type: ignore
+                def get_collection():
+                    return self.get_collection(sd.clazz)
+
+            for sd in definitions:
+                register_storage(sd)
+        except ImportError:
+            pass
 
     def get_collection[T: BaseModel](
         self, collection_name_or_type: str | type[T] | Any

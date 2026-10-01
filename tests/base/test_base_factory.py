@@ -5,7 +5,10 @@ import pytest
 from pydantic import BaseModel
 
 from ampf.base import BaseFactory, BaseStorage
+from ampf.base.base_collection_storage import BaseCollectionStorage
 from ampf.base.base_factory import CollectionDef
+from ampf.base.exceptions import KeyNotExistsException
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.in_memory import InMemoryFactory
 from ampf.local.local_factory import LocalFactory
 
@@ -96,8 +99,6 @@ def test_create_storage_tree(tmp_path: Path):
 
 
 def test_register_and_get_collection(factory: BaseFactory):
-    from ampf.base.exceptions import KeyNotExistsException
-
     # Given: A collection definition
     storage_def = CollectionDef("my_collection", D, "name")
 
@@ -113,6 +114,45 @@ def test_register_and_get_collection(factory: BaseFactory):
     storage_by_type = factory.get_collection(D)
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+
+    # And: Saving data works
+    storage.save(D(name="test", value="val"))
+    assert storage.get("test").value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")
+
+    # And: Getting an unregistered type raises an exception
+    class UnregisteredModel(BaseModel):
+        pass
+
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection(UnregisteredModel)
+
+def test_register_in_constructor_and_get_collection():
+    # When: A factory is created with collection definitions
+    factory = InMemoryFactory(collection_defs=[CollectionDef("my_collection", D, "name")])
+
+    # Then: The collection can be retrieved by name
+    storage = factory.get_collection("my_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(D)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
 
     # And: Saving data works
     storage.save(D(name="test", value="val"))

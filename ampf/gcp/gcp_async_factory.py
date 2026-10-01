@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable
-from typing import override
+from typing import Any, override
 
 import httpx2
 from google.cloud import firestore, storage
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from ampf.base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage
 from ampf.base.blob_model import BaseBlobMetadata, BlobLocation
+from ampf.base.collection_def import CollectionDef
 from ampf.gcp.gcp_factory import GcpFactory
 
 from .gcp_async_blob_storage import GcpAsyncBlobStorage
@@ -26,11 +27,12 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
         database: str | None = None,
         httpx_async_client: httpx2.AsyncClient | None = None,
         otel: bool | None = None,
+        collection_defs: list[CollectionDef[Any]] | None = None,
     ):
         if otel is None:
             _log.warning("Add otel parameter to constructor!")
         super().__init__(root_storage, bucket_name, otel or False)
-        BaseAsyncFactory.__init__(self)
+        BaseAsyncFactory.__init__(self, collection_defs)
         self._async_db: firestore.AsyncClient | None = None
         self._storage_client: storage.Client | None = None
         self._httpx_async_client = httpx_async_client
@@ -57,6 +59,7 @@ class GcpAsyncFactory(GcpBaseFactory, BaseAsyncFactory):
                 project_id=self.project_id,
                 database=self.database,
                 otel=self._otel,
+                collection_defs=list(self._collection_defs.values()),
             )
             self.sync_factory._collection_defs = self._collection_defs
             self.sync_factory._type_to_collection_defs = self._type_to_collection_defs

@@ -1,9 +1,10 @@
 from collections.abc import Callable
-from typing import override
+from typing import Any, override
 
 from pydantic import BaseModel
 
 from ampf.base import BaseAsyncFactory, BaseBlobMetadata
+from ampf.base.collection_def import CollectionDef
 
 from .in_memory_async_storage import InMemoryAsyncStorage
 from .in_memory_blob_async_storage import InMemoryAsyncBlobStorage
@@ -12,12 +13,11 @@ from .pubsub.in_memory_topic import InMemoryTopic
 
 
 class InMemoryAsyncFactory(BaseAsyncFactory):
-    def __init__(self, sync_factory: InMemoryFactory | None = None):
-        super().__init__()
-        self.sync_factory = sync_factory or InMemoryFactory()
-        self._collection_defs = self.sync_factory._collection_defs
-        self._type_to_collection_defs = self.sync_factory._type_to_collection_defs
-
+    def __init__(
+        self, sync_factory: InMemoryFactory | None = None, collection_defs: list[CollectionDef[Any]] | None = None
+    ):
+        super().__init__(collection_defs=collection_defs)
+        self.sync_factory = sync_factory or InMemoryFactory(collection_defs=collection_defs)
 
     def get_sync_factory(self) -> InMemoryFactory:
         return self.sync_factory

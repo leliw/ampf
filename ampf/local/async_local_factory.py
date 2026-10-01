@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import override
+from typing import Any, override
 from warnings import deprecated
 
 from pydantic import BaseModel
+
+from ampf.base.collection_def import CollectionDef
 
 from ..base import BaseAsyncBlobStorage, BaseAsyncFactory, BaseAsyncStorage, BaseBlobMetadata
 from .file_storage import StrPath
@@ -14,17 +16,15 @@ from .local_factory import LocalFactory
 
 
 class LocalAsyncFactory(BaseAsyncFactory):
-    def __init__(self, root_path: StrPath):
-        super().__init__()
+    def __init__(self, root_path: StrPath, collection_defs: list[CollectionDef[Any]] | None = None):
+        super().__init__(collection_defs)
         self._root_path = Path(root_path)
         self.sync_factory: LocalFactory | None = None
 
     @override
     def get_sync_factory(self) -> LocalFactory:
         if not self.sync_factory:
-            self.sync_factory = LocalFactory(self._root_path)
-            self.sync_factory._collection_defs = self._collection_defs
-            self.sync_factory._type_to_collection_defs = self._type_to_collection_defs
+            self.sync_factory = LocalFactory(self._root_path, collection_defs=list(self._collection_defs.values()))
         return self.sync_factory
 
     def create_storage[T: BaseModel](

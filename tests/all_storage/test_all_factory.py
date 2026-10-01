@@ -1,10 +1,12 @@
 import pytest
 from pydantic import BaseModel
 
+from ampf.base.base_collection_storage import BaseCollectionStorage
 from ampf.base.base_factory import BaseFactory
 from ampf.base.blob_model import Blob, BlobLocation
 from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
+from ampf.dependency.dependency_registry import DependencyRegistry
 from ampf.gcp import GcpFactory
 from ampf.in_memory import InMemoryFactory
 from ampf.local import LocalFactory
@@ -83,6 +85,11 @@ def test_register_and_get_collection(factory: BaseFactory):
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_collection"
 
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+    
     # And: Saving data works
     storage.save(D(name="test", value="val"))
     assert storage.get("test").value == "val"
@@ -98,6 +105,49 @@ def test_register_and_get_collection(factory: BaseFactory):
     with pytest.raises(KeyNotExistsException):
         factory.get_collection(UnregisteredModel)
 
+@pytest.fixture(params=[InMemoryFactory, LocalFactory, GcpFactory])
+def factory_with_collections(gcp_factory, request, tmp_path):
+    storage_def = CollectionDef("my_collection", D, "name")
+    if request.param == LocalFactory:
+        factory = request.param(tmp_path, collection_defs=[storage_def])
+    else:
+        factory = request.param(collection_defs=[storage_def])
+    return factory
+
+def test_register_in_constructor_and_get_collection(factory_with_collections: BaseFactory):
+    # When: A factory is created with collection definitions
+    factory = factory_with_collections
+
+
+    # Then: The collection can be retrieved by name
+    storage = factory.get_collection("my_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(D)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry 
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+    
+    # And: Saving data works
+    storage.save(D(name="test", value="val"))
+    assert storage.get("test").value == "val"
+
+    # And: Getting an unregistered collection raises an exception
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection("non_existent")
+
+    # And: Getting an unregistered type raises an exception
+    class UnregisteredModel(BaseModel):
+        pass
+
+    with pytest.raises(KeyNotExistsException):
+        factory.get_collection(UnregisteredModel)
 
 def test_upload_and_delete_blob(factory: BaseFactory):
     # Given: An uploaded blob and a blob location
