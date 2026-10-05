@@ -145,11 +145,11 @@ class Blob[T: BaseBlobMetadata]:
         self.metadata: T = metadata
         self._data: BlobData | None = data
         self._content: bytes | None = None
-        if content:
+        if content is not None:
             self._content = content.encode() if isinstance(content, str) else content
-        if not data and not content:
+        if data is None and content is None:
             raise BlobError()
-        if data and content:
+        if data is not None and content is not None:
             raise BlobError()
 
     @property
@@ -180,8 +180,8 @@ class Blob[T: BaseBlobMetadata]:
 
     @contextmanager
     def data(self) -> Generator[BlobData]:
-        if not self._data:
-            if self._content:
+        if self._data is None:
+            if self._content is not None:
                 data = BytesIO(self._content)
             else:
                 raise BlobError()
@@ -194,7 +194,7 @@ class Blob[T: BaseBlobMetadata]:
 
     @property
     def content(self) -> bytes:
-        if self._content:
+        if self._content is not None:
             return self._content
         else:
             with self.data() as data:
@@ -204,13 +204,13 @@ class Blob[T: BaseBlobMetadata]:
 
     @content.setter
     def content(self, v: bytes | str):
-        if self._data:
+        if self._data is not None:
             raise BlobError()
         else:
             self._content = v.encode() if isinstance(v, str) else v
 
     async def stream(self, chunk_size=1024 * 1024) -> AsyncGenerator[bytes]:
-        if self._content:
+        if self._content is not None:
             # If content is already loaded in memory, yield chunks from it
             for i in range(0, len(self._content), chunk_size):
                 yield self._content[i : i + chunk_size]

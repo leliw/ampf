@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+
 from ampf.base.blob_model import Blob, BlobCreate
 
 
@@ -19,6 +20,15 @@ def test_set_content():
     blob.content = b"baz"
     # Then: The content is correct
     assert blob.content == b"baz"
+
+
+def test_set_empty_content():
+    # Given: A blob with an empty content
+    blob = Blob(name="foo", content="")
+    # When: I set the content
+    blob.content = b""
+    # Then: The content is correct
+    assert blob.content == b""
 
 
 def test_blob_create_from_content_without_content_type():
