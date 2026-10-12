@@ -93,7 +93,8 @@ async def test_ping_retries_on_500(service, monkeypatch):
     service._get_async_client()._transport = MockTransport(mock_send)
     # Skracamy czas oczekiwania w testach
     monkeypatch.setattr("asyncio.sleep", AsyncMock())
-    await service.ping()
+    with pytest.raises(TimeoutError):
+        await service.ping()
     assert call_count == 5
 
 
@@ -106,7 +107,7 @@ async def test_ping_raises_timeout_after_max_retries(service, monkeypatch):
     with pytest.raises(TimeoutError) as excinfo:
         await service.ping()
 
-    assert "timed out" in str(excinfo.value)
+    assert "after 5 attempts" in str(excinfo.value)
 
 
 def test_post_typed(service):
@@ -124,7 +125,7 @@ def test_post_typed(service):
     # And: Sent data
     model = SampleModel(name="test", value=123)
     # When: Post is called with returning class
-    response = service.post_typed("/create", A, json=model)
+    response = service.post_typed_sync("/create", A, json=model)
     # Then: The object of class is returned
     assert isinstance(response, A)
 
@@ -142,6 +143,6 @@ def test_get_typed(service):
 
     service._get_client()._transport = MockTransport(mock_send)
     # When: Get is called with returning class
-    response = service.get_typed("/", A)
+    response = service.get_typed_sync("/", A)
     # Then: The object of class is returned
     assert isinstance(response, A)
