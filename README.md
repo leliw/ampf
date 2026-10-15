@@ -14,6 +14,7 @@ Set of helper classes:
   * [BaseQueryStorage](doc/base_query_storage.md) - base class for storage implementations which store Pydantic objects and support query by filters.
   * [BaseDecorator](doc/base_decorator.md) - simple class to create **Decorator** pattern.
   * [SubscriptionProcessor](doc/base_subscription_processor.md) - base class for processing messages from a subscription.
+* [CRUDS](doc/cruds.md) - generic asynchronous CRUD support for Pydantic models and collection storage.
 * [Dependency](doc/dependency.md) - simple dependency registry for managing dependencies in your application.
 * [Tasks](doc/tasks.md) - helper for running background tasks
 * [External Tasks](doc/external_tasks.md) - helper for running external services
