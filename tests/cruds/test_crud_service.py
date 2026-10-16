@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Self
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,7 +7,6 @@ from pydantic import BaseModel, Field
 from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
 from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
-from ampf.cruds.crud_model import CRUDRecord
 from ampf.cruds.crud_service import CRUDService
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 
@@ -18,7 +16,7 @@ class TCreate(BaseModel):
     value: int
 
 
-class TPatch(BaseModel):
+class TUpdate(BaseModel):
     name: str | None = None
     value: int | None = None
 
@@ -31,27 +29,20 @@ class THeader(BaseModel):
     updated_at: datetime
 
 
-class T(CRUDRecord[THeader, TCreate, TPatch]):
+class T(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     value: int
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    @classmethod
-    def create(cls, value_create: TCreate) -> Self:
-        return cls.model_validate(value_create.model_dump())
-
-    def to_header(self) -> THeader:
-        return THeader.model_validate(self.model_dump(), extra="ignore")
-
 
 InMemoryAsyncFactory(collection_defs=[CollectionDef("crud_t", T)])
 
 
-class TCRUDService(CRUDService[T, THeader, TCreate, TPatch]):
+class TCRUDService(CRUDService):
     def __init__(self, storage: BaseAsyncCollectionStorage[T]) -> None:
-        super().__init__(storage, T)
+        super().__init__(storage, T, THeader, TCreate, TUpdate)
 
 
 @pytest.fixture
@@ -100,7 +91,7 @@ async def test_update_get_rows(service: TCRUDService):
     value = T(name="y", value=2)
     await service.create(value)
     # When: Update record
-    patch = TPatch(name="z")
+    patch = TUpdate(name="z")
     updated = await service.update(value.id, patch)
     # Then: Record is returned
     assert updated.name == "z"
