@@ -3,6 +3,7 @@ from copy import copy
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
+from warnings import deprecated
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -33,9 +34,14 @@ class CRUDService[R: BaseModel, H: BaseModel, C: BaseModel, U: BaseModel]:
     def create_to_record(self, value_create: C) -> R:
         return self.record_adapter.validate_python(value_create.model_dump(), extra="forbid")
 
-    async def get_rows(self) -> AsyncGenerator[H]:
+    async def get_headers(self) -> AsyncGenerator[H]:
         async for crud_record in self.storage.get_all():
             yield self.record_to_header(crud_record)
+
+    @deprecated("Use get_headers()")
+    async def get_rows(self) -> AsyncGenerator[H]:
+        async for header in self.get_headers():
+            yield header
 
     async def create(self, value_create: C | R) -> R:
         if self.create_class is not None and isinstance(value_create, self.create_class):
@@ -50,6 +56,8 @@ class CRUDService[R: BaseModel, H: BaseModel, C: BaseModel, U: BaseModel]:
             dict_patch = value_update.model_dump(exclude_unset=True)
         else:
             dict_patch = copy(value_update)
+        if dict_patch == {}:
+            raise ValueError("Update patch cannot be empty")
         dict_patch["updated_at"] = datetime.now(UTC)
         return await self.storage.patch(record_id, dict_patch)
 

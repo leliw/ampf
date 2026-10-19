@@ -53,7 +53,7 @@ def service() -> TCRUDService:
 async def test_get_rows(service: TCRUDService):
     # Given: CRUD service with empty storage
     # When: Get rows
-    ret = [r async for r in service.get_rows()]
+    ret = [r async for r in service.get_headers()]
     # Then: Empty list is returned
     assert len(ret) == 0
 
@@ -86,7 +86,7 @@ async def test_create_value(service: TCRUDService):
     assert got.name == "y"
 
 
-async def test_update_get_rows(service: TCRUDService):
+async def test_update_get_headers(service: TCRUDService):
     # Given: CRUD service with a record in storage
     value = T(name="y", value=2)
     await service.create(value)
@@ -97,11 +97,11 @@ async def test_update_get_rows(service: TCRUDService):
     assert updated.name == "z"
     assert updated.updated_at > value.updated_at
     # And: It is in list
-    ret = [r async for r in service.get_rows()]
+    ret = [r async for r in service.get_headers()]
     assert ret[0].name == "z"
 
 
-async def test_update_dict_get_rows(service: TCRUDService):
+async def test_update_dict_get_headers(service: TCRUDService):
     # Given: CRUD service with a record in storage
     value = T(name="y", value=2)
     await service.create(value)
@@ -112,7 +112,7 @@ async def test_update_dict_get_rows(service: TCRUDService):
     assert updated.name == "z"
     assert updated.updated_at > value.updated_at
     # And: It is in list
-    ret = [r async for r in service.get_rows()]
+    ret = [r async for r in service.get_headers()]
     assert ret[0].name == "z"
 
 
