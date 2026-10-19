@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import TypeVar
 
 import pytest
 from pydantic import BaseModel
@@ -185,7 +186,6 @@ def test_add_all(container: DependencyContainer):
     assert container.get(BaseAIModel) == app_state.ai_model
 
 
-
 def test_circular_err(container: DependencyContainer):
     # Given: Two functions with circular dependency
     def get_a(b: B) -> A:
@@ -354,3 +354,61 @@ async def test_optional_dependency_no_cycle_false_positive_async(
     # Then: No cycle error is raised, and both optional dependencies are None
     assert d.a is None
     assert d.c.a is None
+
+
+class BaseDependency:
+    pass
+
+
+class ConcreteDependency(BaseDependency):
+    pass
+
+
+BoundDependency = TypeVar("BoundDependency", bound=BaseDependency)
+UnboundDependency = TypeVar("UnboundDependency")
+
+
+@dataclass
+class StateWithBoundTypeVar[BoundDependency: BaseDependency]:
+    dependency: BoundDependency
+
+
+@dataclass
+class StateWithUnboundTypeVar[UnboundDependency: BaseDependency]:
+    dependency: UnboundDependency
+
+
+def test_add_all_registers_typevar_bound_and_concrete_type(container: DependencyContainer):
+    # Given: Dataclass field typed with a bounded TypeVar
+    dependency = ConcreteDependency()
+    state = StateWithBoundTypeVar(dependency=dependency)
+
+    # When: All object properties are added
+    container.add_all(state)
+
+    # Then: The dependency is available by its bound type
+    assert container.get(BaseDependency) is dependency
+
+    # And: The dependency is available by its concrete type
+    assert container.get(ConcreteDependency) is dependency
+
+
+class ForwardReferencedDependency:
+    pass
+
+
+@dataclass
+class StateWithForwardReference:
+    dependency: "ForwardReferencedDependency"
+
+
+def test_add_all_resolves_forward_reference(container: DependencyContainer):
+    # Given: Dataclass with a forward reference in the field annotation
+    dependency = ForwardReferencedDependency()
+    state = StateWithForwardReference(dependency=dependency)
+
+    # When: All object properties are added
+    container.add_all(state)
+
+    # Then: The dependency is registered
+    assert container.get(ForwardReferencedDependency) is dependency
