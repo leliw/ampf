@@ -1,5 +1,7 @@
 from collections.abc import AsyncGenerator
+from copy import copy
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, TypeAdapter
@@ -43,8 +45,11 @@ class CRUDService[R: BaseModel, H: BaseModel, C: BaseModel, U: BaseModel]:
         await self.storage.create(value)
         return value
 
-    async def update(self, record_id: UUID, value_update: U) -> R:
-        dict_patch = value_update.model_dump(exclude_unset=True)
+    async def update(self, record_id: UUID, value_update: U | dict[str, Any]) -> R:
+        if isinstance(value_update, BaseModel):
+            dict_patch = value_update.model_dump(exclude_unset=True)
+        else:
+            dict_patch = copy(value_update)
         dict_patch["updated_at"] = datetime.now(UTC)
         return await self.storage.patch(record_id, dict_patch)
 
