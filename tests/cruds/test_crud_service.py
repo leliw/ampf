@@ -50,7 +50,7 @@ def service() -> TCRUDService:
     return TCRUDService(InMemoryAsyncFactory(collection_defs=[CollectionDef("crud_t", T)]).get_collection(T))
 
 
-async def test_get_rows(service: TCRUDService):
+async def test_get_headers(service: TCRUDService):
     # Given: CRUD service with empty storage
     # When: Get rows
     ret = [r async for r in service.get_headers()]
@@ -69,6 +69,23 @@ async def test_create_get(service: TCRUDService):
     # And: Can be got by id
     got = await service.get(created.id)
     assert got.name == "x"
+
+
+async def test_create_get_headers_by_ids(service: TCRUDService):
+    # Given: CRUD service with empty storage
+    # And: Value_create
+    value_create = TCreate(name="x", value=1)
+    # When: Create record
+    created = await service.create(value_create)
+    # Then: Record is returned
+    assert created.name == "x"
+    # And: Can be got by id
+    ret = [r async for r in service.get_headers([created.id, uuid4()])]
+    assert len(ret) == 1
+    assert ret[0].name == "x"
+    # And: It isn't returned
+    ret = [r async for r in service.get_headers([uuid4()])]
+    assert len(ret) == 0
 
 
 async def test_create_value(service: TCRUDService):

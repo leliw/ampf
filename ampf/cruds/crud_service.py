@@ -8,6 +8,7 @@ from warnings import deprecated
 from pydantic import BaseModel, TypeAdapter
 
 from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
+from ampf.base.exceptions import KeyNotExistsException
 
 
 class CRUDService[R: BaseModel, H: BaseModel, C: BaseModel, U: BaseModel]:
@@ -34,13 +35,21 @@ class CRUDService[R: BaseModel, H: BaseModel, C: BaseModel, U: BaseModel]:
     def create_to_record(self, value_create: C) -> R:
         return self.record_adapter.validate_python(value_create.model_dump(), extra="forbid")
 
-    async def get_headers(self) -> AsyncGenerator[H]:
-        async for crud_record in self.storage.get_all():
-            yield self.record_to_header(crud_record)
+    async def get_headers(self, ids: list[UUID] | None = None) -> AsyncGenerator[H]:
+        if ids is None:
+            async for crud_record in self.storage.get_all():
+                yield self.record_to_header(crud_record)
+        else:
+            for record_id in ids:
+                try:
+                    crud_record = await self.get(record_id)
+                    yield self.record_to_header(crud_record)
+                except KeyNotExistsException:
+                    pass
 
     @deprecated("Use get_headers()")
-    async def get_rows(self) -> AsyncGenerator[H]:
-        async for header in self.get_headers():
+    async def get_rows(self, ids: list[UUID] | None = None) -> AsyncGenerator[H]:
+        async for header in self.get_headers(ids):
             yield header
 
     async def create(self, value_create: C | R) -> R:
