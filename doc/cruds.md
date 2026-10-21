@@ -1,61 +1,43 @@
-# CRUDS
-
-The `ampf.cruds` module provides generic asynchronous CRUD support for Pydantic models and collection storage.
-
-```python
-from ampf.cruds import CRUDRecord, CRUDService
-```
-
-## `CRUDRecord`
-
-`CRUDRecord` is an abstract Pydantic model with common record fields:
-
-* `id: UUID` — generated automatically.
-* `created_at: datetime` — initialized with the current UTC time.
-* `updated_at: datetime` — initialized with the current UTC time.
-
-It uses four generic types:
-
-* `H` — header/output model.
-* `C` — create model.
-* `P` — patch/update model.
-
-Concrete records must implement:
-
-```python
-@classmethod
-def create(cls, value_create: C) -> Self:
-    ...
-
-def to_header(self) -> H:
-    ...
-```
-
-`create()` converts the create model into a record. `to_header()` converts a stored record into the model returned by `get_rows()`.
+# CRUD Service
 
 ## `CRUDService`
 
 ```python
-class CRUDService[T, H, C, P]:
+class CRUDService[R, H, C, U]:
     def __init__(
         self,
-        storage: BaseAsyncCollectionStorage[T],
-        clazz: type[T],
+        storage: BaseAsyncCollectionStorage[R],
+        record_class: type[R] | TypeAdapter[R],
+        header_class: type[H],
+        create_class: type[C] | None = None,
+        update_class: type[U] | None = None,
     ) -> None:
         ...
 ```
 
-The service requires:
+The service parameters are:
 
-* `storage` — asynchronous collection storage for the record type.
-* `clazz` — concrete `CRUDRecord` class.
+* `storage` — asynchronous collection storage for records of type `R`;
+* `record_class` — the record class or a `TypeAdapter` for the record type. A `TypeAdapter` can be used for discriminated unions;
+* `header_class` — the header model class `H`;
+* `create_class` — optional create model class `C`;
+* `update_class` — optional update model class `U`.
 
-A typed service can be created by subclassing:
+A typed service can be created by subclassing `CRUDService`:
 
 ```python
-class UserService(CRUDService[User, UserHeader, UserCreate, UserPatch]):
-    def __init__(self, storage: BaseAsyncCollectionStorage[User]) -> None:
-        super().__init__(storage, User)
+class UserService(CRUDService[User, UserHeader, UserCreate, UserUpdate]):
+    def __init__(
+        self,
+        storage: BaseAsyncCollectionStorage[User],
+    ) -> None:
+        super().__init__(
+            storage,
+            User,
+            UserHeader,
+            UserCreate,
+            UserUpdate,
+        )
 ```
 
 ## Methods
@@ -69,62 +51,64 @@ async for row in service.get_rows():
     print(row)
 ```
 
-Each stored record is converted using `to_header()`.
+Each stored record is converted to the configured `header_class`.
 
 ### `create(value_create)`
 
-Creates and stores a record. The argument can be either:
+Creates and stores a record. The argument can be:
 
-* a create model (`C`), converted using `CRUDRecord.create()`;
-* an already-created record (`T`), stored unchanged.
+* a create model (`C`), which is converted to a record when `create_class` is configured;
+* an already-created record (`R`), which is validated using `record_class` or the configured `TypeAdapter`.
 
 ```python
-user = await service.create(UserCreate(name="Alice"))
+user = await service.create(
+    UserCreate(
+        name="Alice",
+        email="alice@example.com",
+    )
+)
 ```
 
 The created record is returned.
 
 ### `get(record_id)`
 
-Retrieves a record by UUID.
+Retrieves a record by its `UUID`.
 
 ```python
 user = await service.get(user_id)
 ```
 
-The underlying storage raises `KeyNotExistsException` when the record does not exist.
+The underlying storage raises `KeyNotExistsException` if the record does not exist.
 
-### `update(record_id, value_patch)`
+### `update(record_id, value_update)`
 
-Applies a partial update using a Pydantic patch model.
+Applies a partial update using an update model.
 
-Only fields explicitly set in the patch model are updated. `updated_at` is always replaced with the current UTC timestamp.
+Only fields explicitly set in the update model are modified. The `updated_at` field is always replaced with the current UTC timestamp.
 
 ```python
 updated_user = await service.update(
     user_id,
-    UserPatch(name="Alice Smith"),
+    UserUpdate(name="Alice Smith"),
 )
 ```
 
 ### `delete(record_id)`
 
-Deletes a record by UUID.
+Deletes a record by its `UUID`.
 
 ```python
 await service.delete(user_id)
 ```
 
-## Example model definitions
+## Example models
 
 ```python
-from datetime import datetime
-from typing import Self
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
-
-from ampf.cruds import CRUDRecord
+from pydantic import BaseModel, Field
 
 
 class UserCreate(BaseModel):
@@ -132,7 +116,7 @@ class UserCreate(BaseModel):
     email: str
 
 
-class UserPatch(BaseModel):
+class UserUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
 
@@ -145,20 +129,40 @@ class UserHeader(BaseModel):
     updated_at: datetime
 
 
-class User(CRUDRecord[UserHeader, UserCreate, UserPatch]):
+class User(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
     name: str
     email: str
-
-    @classmethod
-    def create(cls, value_create: UserCreate) -> Self:
-        return cls.model_validate(value_create.model_dump())
-
-    def to_header(self) -> UserHeader:
-        return UserHeader.model_validate(self.model_dump())
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+    )
 ```
 
-The CRUD components are exported from `ampf.cruds`:
+## Service configuration
 
 ```python
-from ampf.cruds import CRUDRecord, CRUDService
+from ampf.cruds import CRUDService
+
+
+class UserService(CRUDService[User, UserHeader, UserCreate, UserUpdate]):
+    def __init__(
+        self,
+        storage: BaseAsyncCollectionStorage[User],
+    ) -> None:
+        super().__init__(
+            storage,
+            User,
+            UserHeader,
+            UserCreate,
+            UserUpdate,
+        )
+```
+
+The CRUD service is exported from `ampf.cruds`:
+
+```python
+from ampf.cruds import CRUDService
 ```
