@@ -162,6 +162,9 @@ def test_register_and_get_annotated_collections(factory: BaseFactory):
     assert storage.decorated.collection_name == "my_collection"
 
     # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(AB)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_collection"
     storage_by_type = factory.get_collection(A)
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_collection"
@@ -170,6 +173,10 @@ def test_register_and_get_annotated_collections(factory: BaseFactory):
     assert storage_by_type.decorated.collection_name == "my_collection"
 
     # And: The collection can be retrieved by DependencyRegistry
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[AB])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+
     storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[A])
     assert storage_by_dr is not None
     assert storage_by_dr.decorated.collection_name == "my_collection"

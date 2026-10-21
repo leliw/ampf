@@ -9,7 +9,7 @@ from .base_decorator import BaseDecorator
 from .base_query_storage import BaseQueryStorage
 from .collection_def import CollectionDef
 
-TModel = TypeVar("TModel", bound=BaseModel)
+TModel = TypeVar("TModel", bound=BaseModel | Any)
 
 if TYPE_CHECKING:
     # Only for IDE

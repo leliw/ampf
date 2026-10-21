@@ -214,6 +214,7 @@ def iter_model_classes(annotation: Any) -> Iterator[type[BaseModel]]:
     origin = get_origin(annotation)
 
     if origin is Annotated:
+        yield annotation
         wrapped_type, *_metadata = get_args(annotation)
         yield from iter_model_classes(wrapped_type)
         return
