@@ -46,7 +46,7 @@ class InMemoryBlobStorage[T: BaseBlobMetadata](BaseBlobStorage):
         return copy(self.download(key).content)
 
     def put_metadata(self, key: str, metadata: T) -> None:
-        self.download(key).metadata = metadata.model_copy(deep=True)
+        self.bucket[self._full_path(key)].metadata = metadata.model_copy(deep=True)
 
     def get_metadata(self, key: str) -> T:
         return copy(self.download(key).metadata)
