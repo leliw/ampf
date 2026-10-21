@@ -1,8 +1,9 @@
 from pathlib import Path
+from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ampf.base import BaseFactory, BaseStorage
 from ampf.base.base_collection_storage import BaseCollectionStorage
@@ -115,7 +116,7 @@ def test_register_and_get_collection(factory: BaseFactory):
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_collection"
 
-    # And: The collection can be retrieved by DependencyRegistry 
+    # And: The collection can be retrieved by DependencyRegistry
     storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
     assert storage_by_dr is not None
     assert storage_by_dr.decorated.collection_name == "my_collection"
@@ -135,6 +136,47 @@ def test_register_and_get_collection(factory: BaseFactory):
     with pytest.raises(KeyNotExistsException):
         factory.get_collection(UnregisteredModel)
 
+
+def test_register_and_get_annotated_collections(factory: BaseFactory):
+    class A(BaseModel):
+        id: UUID = Field(default_factory=uuid4)
+        type: Literal["A"] = "A"
+        valueA: str
+
+    class B(BaseModel):
+        id: UUID = Field(default_factory=uuid4)
+        type: Literal["B"] = "B"
+        valueB: str
+
+    AB = Annotated[A | B, Field(discriminator="type")]
+
+    # Given: A collection definition
+    storage_def = CollectionDef("my_collection", AB, "id")
+
+    # When: The collection is registered
+    factory.register_collections([storage_def])
+
+    # Then: The collection can be retrieved by name
+    storage = factory.get_collection("my_collection")
+    assert storage is not None
+    assert storage.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by type
+    storage_by_type = factory.get_collection(A)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_collection"
+    storage_by_type = factory.get_collection(B)
+    assert storage_by_type is not None
+    assert storage_by_type.decorated.collection_name == "my_collection"
+
+    # And: The collection can be retrieved by DependencyRegistry
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[A])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+    storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[B])
+    assert storage_by_dr is not None
+    assert storage_by_dr.decorated.collection_name == "my_collection"
+
 def test_register_in_constructor_and_get_collection():
     # When: A factory is created with collection definitions
     factory = InMemoryFactory(collection_defs=[CollectionDef("my_collection", D, "name")])
@@ -149,7 +191,7 @@ def test_register_in_constructor_and_get_collection():
     assert storage_by_type is not None
     assert storage_by_type.decorated.collection_name == "my_collection"
 
-    # And: The collection can be retrieved by DependencyRegistry 
+    # And: The collection can be retrieved by DependencyRegistry
     storage_by_dr = DependencyRegistry.get(BaseCollectionStorage[D])
     assert storage_by_dr is not None
     assert storage_by_dr.decorated.collection_name == "my_collection"

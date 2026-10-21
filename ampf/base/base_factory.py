@@ -1,7 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Iterator
+from types import UnionType
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -94,7 +95,7 @@ class BaseFactory(ABC):
         """
         if isinstance(definition, dict):
             definition = CollectionDef(**definition)
-        return BaseCollectionStorage(self.create_storage, definition) # pyright: ignore[reportAbstractUsage]
+        return BaseCollectionStorage(self.create_storage, definition)  # pyright: ignore[reportAbstractUsage]
 
     def create_storage_tree[T: BaseModel](self, root: CollectionDef[T]) -> BaseCollectionStorage[T]:
         """Creates storage tree from its definition.
@@ -107,27 +108,31 @@ class BaseFactory(ABC):
         return self.create_collection(root)
 
     def register_collections(self, definitions: list[CollectionDef[Any]]) -> None:
-        """Registers a list of collection definitions.
+        """Register collection definitions and storage providers for their models."""
+        model_classes: list[type[BaseModel]] = []
 
-        Args:
-            definitions: List of collection definitions.
-        """
         for definition in definitions:
             self._collection_defs[definition.collection_name] = definition
-            if definition.clazz:
-                self._type_to_collection_defs[definition.clazz] = definition
+
+            if definition.clazz is None:
+                continue
+
+            for model_class in iter_model_classes(definition.clazz):
+                self._type_to_collection_defs[model_class] = definition
+                model_classes.append(model_class)
+
         try:
             from ampf.dependency.dependency_registry import DependencyRegistry
-
-            def register_storage(sd):
-                @DependencyRegistry.register_for_type(BaseCollectionStorage[sd.clazz])  # type: ignore
-                def get_collection():
-                    return self.get_collection(sd.clazz)
-
-            for sd in definitions:
-                register_storage(sd)
         except ImportError:
-            pass
+            return
+
+        def register_storage(model_class: type[BaseModel]) -> None:
+            @DependencyRegistry.register_for_type(BaseCollectionStorage[model_class])
+            def get_collection():
+                return self.get_collection(model_class)
+
+        for model_class in model_classes:
+            register_storage(model_class)
 
     def get_collection[T: BaseModel](self, collection_name_or_type: str | type[T] | Any) -> BaseCollectionStorage[T]:
         """Retrieves a collection by its name or type from the registered definitions.
@@ -202,3 +207,24 @@ class BaseFactory(ABC):
             The created BaseTopic object.
         """
         raise NotImplementedError(f"create_topic() method is not implemented in {self.__class__.__name__}")
+
+
+def iter_model_classes(annotation: Any) -> Iterator[type[BaseModel]]:
+    """Yield Pydantic model classes from an annotated type or a union."""
+    origin = get_origin(annotation)
+
+    if origin is Annotated:
+        wrapped_type, *_metadata = get_args(annotation)
+        yield from iter_model_classes(wrapped_type)
+        return
+
+    if origin in (UnionType, Union):
+        for member in get_args(annotation):
+            yield from iter_model_classes(member)
+        return
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        yield annotation
+        return
+
+    raise TypeError(f"Expected a Pydantic model type, got {annotation!r}")

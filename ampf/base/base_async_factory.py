@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from .base_async_blob_storage import BaseAsyncBlobStorage
 from .base_async_collection_storage import BaseAsyncCollectionStorage
 from .base_async_query_storage import BaseAsyncQueryStorage
-from .base_factory import BaseFactory
+from .base_factory import BaseFactory, iter_model_classes
 from .base_topic import BaseTopic
 from .blob_model import BaseBlobMetadata, Blob, BlobLocation
 from .collection_def import CollectionDef
@@ -110,28 +110,31 @@ class BaseAsyncFactory(ABC):
         return self.create_collection(root)
 
     def register_collections(self, definitions: list[CollectionDef[Any]]) -> None:
-        """Registers a list of collection definitions.
+        """Register collection definitions and storage providers for their models."""
+        model_classes: list[type[BaseModel]] = []
 
-        Args:
-            definitions: List of collection definitions.
-        """
         for definition in definitions:
             self._collection_defs[definition.collection_name] = definition
-            if definition.clazz:
-                self._type_to_collection_defs[definition.clazz] = definition
+
+            if definition.clazz is None:
+                continue
+
+            for model_class in iter_model_classes(definition.clazz):
+                self._type_to_collection_defs[model_class] = definition
+                model_classes.append(model_class)
 
         try:
             from ampf.dependency.dependency_registry import DependencyRegistry
-
-            def register_storage(sd):
-                @DependencyRegistry.register_for_type(BaseAsyncCollectionStorage[sd.clazz])  # type: ignore
-                def get_collection():
-                    return self.get_collection(sd.clazz)
-
-            for sd in definitions:
-                register_storage(sd)
         except ImportError:
-            pass
+            return
+
+        def register_storage(model_class: type[BaseModel]) -> None:
+            @DependencyRegistry.register_for_type(BaseAsyncCollectionStorage[model_class])
+            def get_collection():
+                return self.get_collection(model_class)
+
+        for model_class in model_classes:
+            register_storage(model_class)
 
     def get_collection[T: BaseModel](
         self, collection_name_or_type: str | type[T] | Any
