@@ -26,6 +26,8 @@ class PubsubPullRunner(PubsubRunner):
             loop = asyncio.get_running_loop()
             for task_name, processor_definition in TaskRegistry._tasks.items():
                 subscription_name = self.get_subscription_name(task_name, processor_definition.external)
+                if not subscription_name:
+                    raise ValueError(f"Subscription for task '{task_name}' not found in config")
                 _log.info("Starting subscription: %s", subscription_name)
                 if processor_definition.payload_type is None:
                     raise ValueError(f"Payload type is required for task processor {task_name}")
