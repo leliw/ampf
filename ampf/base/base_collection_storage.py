@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar, get_origin
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar, get_origin
 
 from pydantic import BaseModel
 
@@ -12,13 +13,14 @@ TModel = TypeVar("TModel", bound=BaseModel)
 
 if TYPE_CHECKING:
     # Only for IDE
-    class _StorageProxy(BaseDecorator, BaseQueryStorage[TModel]): 
+    class _StorageProxy(BaseDecorator, BaseQueryStorage[TModel]):
         pass
 else:
-    # For Runtime 
-    class _StorageProxy(BaseDecorator[BaseQueryStorage[TModel]]): 
+    # For Runtime
+    class _StorageProxy(BaseDecorator[BaseQueryStorage[TModel]]):
         pass
-    
+
+
 class BaseCollectionStorage(_StorageProxy[TModel]):
     """Base class for stored collections.
     Each element of collection can have its own subcollections
@@ -26,7 +28,7 @@ class BaseCollectionStorage(_StorageProxy[TModel]):
 
     def __init__(
         self,
-        create_storage: Callable[[str, Type[TModel], Optional[str | Callable[[TModel], str]]], BaseQueryStorage[TModel]],
+        create_storage: Callable[[str, type[TModel], str | Callable[[TModel], str] | None], BaseQueryStorage[TModel]],
         definition: CollectionDef[TModel],
     ):
         self.create_storage = create_storage
@@ -37,7 +39,7 @@ class BaseCollectionStorage(_StorageProxy[TModel]):
         self.sub_classes = {sc.clazz: sc.collection_name for sc in subcollections_list}
 
     def get_collection[Y: BaseModel](
-        self, parent_key: Any, subcollection_name_or_class: str | Type[Y] | Any
+        self, parent_key: Any, subcollection_name_or_class: str | type[Y] | Any
     ) -> BaseCollectionStorage[Y]:
         """Returns subcollection for given key.
 
