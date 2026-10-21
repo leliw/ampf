@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Self
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,7 +7,6 @@ from pydantic import BaseModel, Field
 from ampf.base.base_async_collection_storage import BaseAsyncCollectionStorage
 from ampf.base.collection_def import CollectionDef
 from ampf.base.exceptions import KeyNotExistsException
-from ampf.cruds.crud_model import CRUDRecord
 from ampf.cruds.crud_service import CRUDService
 from ampf.in_memory.in_memory_async_factory import InMemoryAsyncFactory
 
@@ -18,7 +16,7 @@ class TCreate(BaseModel):
     value: int
 
 
-class TPatch(BaseModel):
+class TUpdate(BaseModel):
     name: str | None = None
     value: int | None = None
 
@@ -31,27 +29,20 @@ class THeader(BaseModel):
     updated_at: datetime
 
 
-class T(CRUDRecord[THeader, TCreate, TPatch]):
+class T(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     value: int
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    @classmethod
-    def create(cls, value_create: TCreate) -> Self:
-        return cls.model_validate(value_create.model_dump())
-
-    def to_header(self) -> THeader:
-        return THeader.model_validate(self.model_dump(), extra="ignore")
-
 
 InMemoryAsyncFactory(collection_defs=[CollectionDef("crud_t", T)])
 
 
-class TCRUDService(CRUDService[T, THeader, TCreate, TPatch]):
+class TCRUDService(CRUDService):
     def __init__(self, storage: BaseAsyncCollectionStorage[T]) -> None:
-        super().__init__(storage, T)
+        super().__init__(storage, T, THeader, TCreate, TUpdate)
 
 
 @pytest.fixture
@@ -59,10 +50,10 @@ def service() -> TCRUDService:
     return TCRUDService(InMemoryAsyncFactory(collection_defs=[CollectionDef("crud_t", T)]).get_collection(T))
 
 
-async def test_get_rows(service: TCRUDService):
+async def test_get_headers(service: TCRUDService):
     # Given: CRUD service with empty storage
     # When: Get rows
-    ret = [r async for r in service.get_rows()]
+    ret = [r async for r in service.get_headers()]
     # Then: Empty list is returned
     assert len(ret) == 0
 
@@ -80,6 +71,23 @@ async def test_create_get(service: TCRUDService):
     assert got.name == "x"
 
 
+async def test_create_get_headers_by_ids(service: TCRUDService):
+    # Given: CRUD service with empty storage
+    # And: Value_create
+    value_create = TCreate(name="x", value=1)
+    # When: Create record
+    created = await service.create(value_create)
+    # Then: Record is returned
+    assert created.name == "x"
+    # And: Can be got by id
+    ret = [r async for r in service.get_headers([created.id, uuid4()])]
+    assert len(ret) == 1
+    assert ret[0].name == "x"
+    # And: It isn't returned
+    ret = [r async for r in service.get_headers([uuid4()])]
+    assert len(ret) == 0
+
+
 async def test_create_value(service: TCRUDService):
     # Given: CRUD service with empty storage
     # And: Value
@@ -95,18 +103,33 @@ async def test_create_value(service: TCRUDService):
     assert got.name == "y"
 
 
-async def test_update_get_rows(service: TCRUDService):
+async def test_update_get_headers(service: TCRUDService):
     # Given: CRUD service with a record in storage
     value = T(name="y", value=2)
     await service.create(value)
     # When: Update record
-    patch = TPatch(name="z")
+    patch = TUpdate(name="z")
     updated = await service.update(value.id, patch)
     # Then: Record is returned
     assert updated.name == "z"
     assert updated.updated_at > value.updated_at
     # And: It is in list
-    ret = [r async for r in service.get_rows()]
+    ret = [r async for r in service.get_headers()]
+    assert ret[0].name == "z"
+
+
+async def test_update_dict_get_headers(service: TCRUDService):
+    # Given: CRUD service with a record in storage
+    value = T(name="y", value=2)
+    await service.create(value)
+    # When: Update record
+    patch = TUpdate(name="z").model_dump(exclude_unset=True)
+    updated = await service.update(value.id, patch)
+    # Then: Record is returned
+    assert updated.name == "z"
+    assert updated.updated_at > value.updated_at
+    # And: It is in list
+    ret = [r async for r in service.get_headers()]
     assert ret[0].name == "z"
 
 

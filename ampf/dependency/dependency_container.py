@@ -3,7 +3,7 @@ import logging
 import types
 from collections.abc import Callable
 from dataclasses import fields, is_dataclass
-from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from ampf.dependency.dependency_model import DependencyDefinition, SyncOrAsyncCallable
 
@@ -47,13 +47,20 @@ class DependencyContainer:
         """
         self._objects[instance.__class__] = instance
         if is_dataclass(instance) and not isinstance(instance, type):
+            type_hints = get_type_hints(instance.__class__)
             for field in fields(instance):
-                declared_type = field.type
+                declared_type = type_hints.get(field.name, field.type)
+                if isinstance(declared_type, TypeVar):
+                    if declared_type.__bound__ is None:
+                        continue
+                    declared_type = declared_type.__bound__
                 value = getattr(instance, field.name)
                 if value is not None and not isinstance(value, type):
                     actual_type, _ = self.get_actual_type_optional(declared_type)
                     if isinstance(actual_type, type) and getattr(actual_type, "__module__", None) != "builtins":
                         self.add(value, actual_type)
+                        if actual_type is not type(value):
+                            self.add(value)
 
     @staticmethod
     def get_actual_type_optional(defined_type: Any) -> tuple[type[Any], bool]:

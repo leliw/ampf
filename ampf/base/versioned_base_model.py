@@ -1,3 +1,4 @@
+import types
 from abc import ABC, abstractmethod
 from typing import (
     Annotated,
@@ -77,7 +78,7 @@ def resolve_versioned_class[T](clazz: type[T], data: dict[str, Any]) -> type[T]:
         base_type = clazz
         discriminator = None
 
-    if get_origin(base_type) is not Union:
+    if get_origin(base_type) not in (Union, types.UnionType):
         return base_type
 
     if not discriminator:
