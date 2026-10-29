@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import datetime
 import uuid
-from typing import Any, Callable, Dict, Iterator, List, Optional, Type, override
+from collections.abc import Callable, Iterator
+from typing import Any, override
 
 from google.cloud import exceptions, firestore
 from google.cloud.firestore import DocumentReference
@@ -17,13 +19,15 @@ from ampf.base.base_query import OP, BaseQuery
 from ..base import BaseQueryStorage, KeyNotExistsException
 
 
-def convert_uuids(obj):
+def convert_fields(obj):
     if isinstance(obj, dict):
-        return {convert_uuids(k): convert_uuids(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_uuids(item) for item in obj]
+        return {convert_fields(k): convert_fields(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_fields(item) for item in obj]
     elif isinstance(obj, uuid.UUID):
         return str(obj)
+    elif isinstance(obj, datetime.date) and not isinstance(obj, datetime.datetime):
+        return obj.isoformat()
     else:
         return obj
 
@@ -32,7 +36,7 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
     def __init__(
         self,
         decorated: firestore.Query,
-        clazz: Type[T],
+        clazz: type[T],
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
     ):
@@ -49,10 +53,10 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpQuery[T]:
         coll_ref = self.decorated
-        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_fields(value)))
         return GcpQuery(coll_ref, self.clazz)
 
-    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+    def find_nearest(self, embedding: list[float], limit: int | None = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector."
 
         Args:
@@ -71,7 +75,7 @@ class GcpQuery[T: BaseModel](BaseDecorator[firestore.Query], BaseQuery[T]):
             yield self.clazz.model_validate(ds.to_dict())
 
     @override
-    def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
+    def get_all(self, order_by: list[str | tuple[str, Any]] | None = None) -> Iterator[T]:
         """Get all documents from the collection."""
         coll_ref = self.decorated
         if order_by:
@@ -90,15 +94,15 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
     def __init__(
         self,
         collection: str,
-        clazz: Type[T],
-        db: Optional[firestore.Client] = None,
-        project: Optional[str] = None,
-        database: Optional[str] = None,
-        key_name: Optional[str] = None,
-        key: Optional[str | Callable[[T], str]] = None,
+        clazz: type[T],
+        db: firestore.Client | None = None,
+        project: str | None = None,
+        database: str | None = None,
+        key_name: str | None = None,
+        key: str | Callable[[T], str] | None = None,
         embedding_field_name: str = "embedding",
         embedding_search_limit: int = 5,
-        root_storage: Optional[str] = None,
+        root_storage: str | None = None,
     ):
         """Initializes the storage.
 
@@ -124,17 +128,23 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         self._collection = f"{root_storage}/{collection}" if root_storage else collection
         self._coll_ref = self._db.collection(self._collection)
 
-    def on_before_save(self, data: Dict[str, Any]) -> dict:
-        """Converts the embedding field to a Vector object.
+    def on_before_save(self, data: dict[str, Any]) -> dict:
+        """Prepare data for storage in Firestore.
+
+        Recursively convert UUIDs to strings and dates to ISO 8601 strings,
+        leaving datetime objects unchanged. Convert the embedding field,
+        if present, to a Firestore Vector.
 
         Args:
             data: The data to be saved.
+
         Returns:
             The preprocessed data.
         """
-        data = convert_uuids(data)  # type: ignore
-        if self.embedding_field_name in data:
-            data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
+        data = convert_fields(data)  # type: ignore
+        embedding = data.get(self.embedding_field_name)
+        if isinstance(embedding, (list, tuple)):
+            data[self.embedding_field_name] = Vector(embedding)
         return data
 
     def put(self, key: Any, data: T) -> None:
@@ -156,7 +166,7 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         else:
             self._coll_ref.document(new_key).set(data_dict)
 
-    def patch(self, key: Any, patch_data: BaseModel | Dict[str, Any]) -> T:
+    def patch(self, key: Any, patch_data: BaseModel | dict[str, Any]) -> T:
         """Patch the object with new data.
 
         Args:
@@ -170,27 +180,27 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
             patch_dict = patch_data.model_dump(exclude_unset=True, exclude_none=True)
         else:
             patch_dict = patch_data
-        doc_ref: DocumentReference = self._coll_ref.document(str(key)) # type: ignore
+        doc_ref: DocumentReference = self._coll_ref.document(str(key))  # type: ignore
         if doc_ref.get().exists:
+            patch_dict = self.on_before_save(patch_dict)
             doc_ref.update(patch_dict)
         else:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         data = doc_ref.get().to_dict()
         new_value = self.clazz.model_validate(data)
-        if self.get_key(new_value) != key:
+        if self.get_key(new_value) != str(key):
             doc_ref.delete()
             self.create(new_value)
         return new_value
 
-
     def get(self, key: Any) -> T:
         """Get a document from the collection."""
-        data = self._coll_ref.document(str(key)).get().to_dict() # type: ignore
+        data = self._coll_ref.document(str(key)).get().to_dict()  # type: ignore
         if not data:
             raise KeyNotExistsException(self.collection_name, self.clazz, key)
         return self.clazz.model_validate(data)
 
-    def get_all(self, order_by: Optional[List[str | tuple[str, Any]]] = None) -> Iterator[T]:
+    def get_all(self, order_by: list[str | tuple[str, Any]] | None = None) -> Iterator[T]:
         """Get all documents from the collection."""
         coll_ref = self._coll_ref
         if order_by:
@@ -220,7 +230,7 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         for doc in self._coll_ref.stream():
             doc.reference.delete()
 
-    def find_nearest(self, embedding: List[float], limit: Optional[int] = None) -> Iterator[T]:
+    def find_nearest(self, embedding: list[float], limit: int | None = None) -> Iterator[T]:
         """Finds the nearest knowledge base items to the given vector."
 
         Args:
@@ -242,9 +252,9 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
         self,
         parent_key: str,
         collection_name: str,
-        clazz: Type[C],
-        key_name: Optional[str] = None,
-        key: Optional[str | Callable[[C], str]] = None,
+        clazz: type[C],
+        key_name: str | None = None,
+        key: str | Callable[[C], str] | None = None,
     ) -> GcpStorage[C]:
         new_collection_name = f"{self.collection_name}/{parent_key}/{collection_name}"
         return GcpStorage(new_collection_name, clazz, key_name=key_name, key=key, root_storage=self.root_storage)
@@ -253,5 +263,5 @@ class GcpStorage[T: BaseModel](BaseQueryStorage[T]):
     def where(self, field: str, op: OP, value: Any) -> GcpQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
-        coll_ref = coll_ref.where(field, op, convert_uuids(value))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_fields(value)))
         return GcpQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)

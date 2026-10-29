@@ -16,10 +16,9 @@ def gcp_factory():
     # Scope == session speeds up tests
     return GcpFactory(bucket_name='unit-tests-001')
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def gcp_async_factory():
-    # Creating firestore client is very slow.
-    # Scope == session speeds up tests
+    # Scope == session causes problems
     return GcpAsyncFactory(bucket_name='unit-tests-001')
 
 @pytest.fixture(scope="session")

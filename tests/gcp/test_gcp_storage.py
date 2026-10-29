@@ -1,17 +1,18 @@
-from typing import Dict, List, Optional
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel, Field
 
 from ampf.gcp import GcpStorage
+from ampf.gcp.gcp_async_factory import GcpAsyncFactory
 from ampf.gcp.gcp_async_storage import GcpAsyncStorage
 from ampf.gcp.gcp_factory import GcpFactory
 
 
 class TC(BaseModel):
     name: str
-    embedding: Optional[List[float]] = None
+    embedding: list[float] | None = None
 
 
 class Task(BaseModel):
@@ -22,8 +23,8 @@ class Task(BaseModel):
 class Job(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
-    tasks_l: List[Task] = Field(default_factory=list)
-    tasks_d: Dict[UUID, Task] = Field(default_factory=dict)
+    tasks_l: list[Task] = Field(default_factory=list)
+    tasks_d: dict[UUID, Task] = Field(default_factory=dict)
 
 
 @pytest.fixture()
@@ -105,7 +106,7 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     await async_storage.put("test1", tc1)
     await async_storage.put("test2", tc2)
     # And: Find nearest
-    nearest = list([x async for x in async_storage.find_nearest(tc1.embedding or [])])
+    nearest = [x async for x in async_storage.find_nearest(tc1.embedding or [])]
     # Then: All two are returned
     assert len(nearest) == 2
     # And: The nearest is the first one
@@ -113,11 +114,14 @@ async def test_async_embedding(async_storage: GcpAsyncStorage[TC]):
     # And: The second is the second
     assert nearest[1] == tc2
 
+
 """
 This test requires vector index to be created.
 
 gcloud firestore indexes composite create --project=development-428212 --collection-group=tests-ampf-gcp --query-scope=COLLECTION --field-config=order=ASCENDING,field-path=name --field-config=vector-config='{"dimension":"3","flat": "{}"}',field-path=embedding
 """
+
+
 @pytest.mark.asyncio()
 async def test_async_where_embedding(async_storage: GcpAsyncStorage[TC]):
     # Given: Data with embedding
@@ -127,7 +131,7 @@ async def test_async_where_embedding(async_storage: GcpAsyncStorage[TC]):
     await async_storage.put("test1", tc1)
     await async_storage.put("test2", tc2)
     # And: Find nearest
-    nearest = list([x async for x in async_storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])])
+    nearest = [x async for x in async_storage.where("name", "==", "test1").find_nearest(tc1.embedding or [])]
     # Then: All two are returned
     assert len(nearest) == 1
     # And: The nearest is the first one
@@ -143,6 +147,7 @@ def test_uuid_saving(job_storage: GcpStorage[Job]):
     # Then: It is saved
     assert job_storage.get(j.id) == j
 
+
 @pytest.mark.asyncio()
 async def test_uuid_async_saving(async_job_storage: GcpAsyncStorage[Job]):
     # Given: A job with a task
@@ -152,3 +157,68 @@ async def test_uuid_async_saving(async_job_storage: GcpAsyncStorage[Job]):
     await async_job_storage.save(j)
     # Then: It is saved
     assert await async_job_storage.get(j.id) == j
+
+
+class Item(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    birth_date: date
+
+
+@pytest.fixture()
+def item_storage(gcp_factory: GcpFactory, collection_name: str):
+    storage = gcp_factory.create_storage(collection_name, Item)
+    yield storage
+    storage.drop()
+
+
+def test_date_saving(item_storage: GcpStorage[Item]):
+    # Given: An item with a date
+    item = Item(name="xx", birth_date=date.today())
+    # When: Save it
+    item_storage.save(item)
+    # Then: It is correctly saved
+    assert item_storage.get(item.id) == item
+
+
+def test_date_patch(item_storage: GcpStorage[Item]):
+    # Given: An item with a date
+    item = Item(name="xx", birth_date=date.today())
+    # And: It is saved
+    item_storage.save(item)
+    # When: The date is patched
+    new_date = date(2007, 3, 24)
+    item_storage.patch(item.id, {"birth_date": new_date})
+    # Then: It is correctly saved
+    assert item_storage.get(item.id).birth_date == new_date
+
+
+@pytest.fixture()
+def async_item_storage(gcp_async_factory: GcpAsyncFactory, collection_name: str):
+    yield gcp_async_factory.create_storage(collection_name, Item)
+    gcp_factory = gcp_async_factory.get_sync_factory()
+    storage = gcp_factory.create_storage(collection_name, Item)
+    storage.drop()
+
+
+@pytest.mark.asyncio()
+async def test_date_async_saving(async_item_storage: GcpAsyncStorage[Item]):
+    # Given: An item with a date
+    item = Item(name="xx", birth_date=date.today())
+    # When: Save it
+    await async_item_storage.save(item)
+    # Then: It is correctly saved
+    assert (await async_item_storage.get(item.id)) == item
+
+
+@pytest.mark.asyncio()
+async def test_date_async_patch(async_item_storage: GcpAsyncStorage[Item]):
+    # Given: An item with a date
+    item = Item(name="xx", birth_date=date.today())
+    # And: It is saved
+    await async_item_storage.save(item)
+    # When: The date is patched
+    new_date = date(2007, 3, 24)
+    await async_item_storage.patch(item.id, {"birth_date": new_date})
+    # Then: It is correctly saved
+    assert (await async_item_storage.get(item.id)).birth_date == new_date

@@ -16,7 +16,7 @@ from ampf.base.base_query import OP
 from ampf.base.exceptions import KeyExistsException, KeyNotExistsException
 from ampf.base.versioned_base_model import VersionedBaseModel, resolve_versioned_class
 
-from .gcp_storage import convert_uuids
+from .gcp_storage import convert_fields
 
 
 class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.AsyncQuery], BaseAsyncQuery[T]):
@@ -40,7 +40,7 @@ class GcpAsyncQuery[T: BaseModel | VersionedBaseModel](BaseDecorator[firestore.A
     @override
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         coll_ref = self.decorated
-        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_fields(value)))
         return GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
 
     async def find_nearest(self, embedding: list[float], limit: int | None = None) -> AsyncIterator[T]:
@@ -115,16 +115,22 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         self._coll_ref = self._db.collection(self._collection)
 
     def on_before_save(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Converts the embedding field to a Vector object.
+        """Prepare data for storage in Firestore.
+
+        Recursively convert UUIDs to strings and dates to ISO 8601 strings,
+        leaving datetime objects unchanged. Convert the embedding field,
+        if present, to a Firestore Vector.
 
         Args:
             data: The data to be saved.
+
         Returns:
             The preprocessed data.
         """
-        data = convert_uuids(data)  # type: ignore
-        if self.embedding_field_name in data:
-            data[self.embedding_field_name] = Vector(data[self.embedding_field_name])
+        data = convert_fields(data)  # type: ignore
+        embedding = data.get(self.embedding_field_name)
+        if isinstance(embedding, (list, tuple)):
+            data[self.embedding_field_name] = Vector(embedding)
         return data
 
     async def put(self, key: Any, data: T) -> None:
@@ -175,7 +181,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
         new_value = self.from_storage(data)
         if isinstance(new_value, Coroutine):
             new_value = await new_value
-        if self.get_key(new_value) != key:
+        if self.get_key(new_value) != str(key):
             await doc_ref.delete()
             await self.create(new_value)
         return new_value
@@ -270,7 +276,7 @@ class GcpAsyncStorage[T: BaseModel | VersionedBaseModel](BaseAsyncQueryStorage[T
     def where(self, field: str, op: OP, value: Any) -> GcpAsyncQuery[T]:
         """Apply a filter to the query"""
         coll_ref = self._coll_ref
-        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_uuids(value)))
+        coll_ref = coll_ref.where(filter=FieldFilter(field, op, convert_fields(value)))
         ret = GcpAsyncQuery(coll_ref, self.clazz, self.embedding_field_name, self.embedding_search_limit)
         ret.from_storage = self.from_storage
         return ret
